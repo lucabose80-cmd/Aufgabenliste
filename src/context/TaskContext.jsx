@@ -442,6 +442,15 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const deleteCalorieLog = async (date) => {
+    if (!user) {
+      setCalorieLogs(calorieLogs.filter(l => l.date !== date));
+    }
+    if (user) {
+      await deleteDoc(doc(db, 'users', user.uid, 'calorieLogs', date));
+    }
+  };
+
   const updateCalorieGoal = async (goal) => {
     setCalorieGoal(goal);
     if (user) {
@@ -534,6 +543,7 @@ export const TaskProvider = ({ children }) => {
       updateReadingSession,
       getTodayDateString,
       saveCalorieLog,
+      deleteCalorieLog,
       updateCalorieGoal,
       theme,
       accentColor,

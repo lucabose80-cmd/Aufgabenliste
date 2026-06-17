@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Flame, Plus, Save } from 'lucide-react';
+import { Flame, Plus, Save, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Calories = () => {
-  const { calorieGoal, updateCalorieGoal, calorieLogs, saveCalorieLog, getTodayDateString } = useTaskContext();
+  const { calorieGoal, updateCalorieGoal, calorieLogs, saveCalorieLog, deleteCalorieLog, getTodayDateString } = useTaskContext();
   const [goalInput, setGoalInput] = useState(calorieGoal || '');
   const [differenceInput, setDifferenceInput] = useState('');
   const todayStr = getTodayDateString();
@@ -17,6 +17,12 @@ const Calories = () => {
     if (!differenceInput) return;
     saveCalorieLog(differenceInput, todayStr);
     setDifferenceInput('');
+  };
+
+  const handleDeleteLog = () => {
+    if (confirm('Möchtest du den heutigen Eintrag löschen?')) {
+      deleteCalorieLog(todayStr);
+    }
   };
 
   const todayLog = calorieLogs.find(l => l.date === todayStr);
@@ -66,11 +72,27 @@ const Calories = () => {
           </div>
           
           {todayLog && (
-            <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: 'var(--border-radius)', backgroundColor: 'var(--bg-card)' }}>
-              Du hast heute bereits eingetragen: 
-              <strong style={{ marginLeft: '0.5rem', color: todayLog.difference > 0 ? 'var(--accent-danger)' : 'var(--accent-success)' }}>
-                {todayLog.difference > 0 ? '+' : ''}{todayLog.difference} kcal
-              </strong>
+            <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: 'var(--border-radius)', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                Du hast heute bereits eingetragen: 
+                <strong style={{ marginLeft: '0.5rem', color: todayLog.difference > 0 ? 'var(--accent-danger)' : 'var(--accent-success)' }}>
+                  {todayLog.difference > 0 ? '+' : ''}{todayLog.difference} kcal
+                </strong>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  onClick={() => setDifferenceInput(todayLog.difference)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', color: 'var(--text-main)', cursor: 'pointer' }}
+                >
+                  <Edit2 size={16} /> Ändern
+                </button>
+                <button 
+                  onClick={handleDeleteLog}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', color: 'var(--accent-danger)', cursor: 'pointer' }}
+                >
+                  <Trash2 size={16} /> Löschen
+                </button>
+              </div>
             </div>
           )}
         </div>
