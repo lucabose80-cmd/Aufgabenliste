@@ -41,7 +41,11 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
 
   const today = getTodayDateString();
   const isCompleted = task.type === 'general' ? task.completedDates.length > 0 : task.completedDates.includes(today);
-  const allSubTasksCompleted = task.subTasks.length === 0 || task.subTasks.every(st => st.completed);
+  
+  const totalSubTasksCount = task.subTasks.length;
+  const completedSubTasksCount = task.subTasks.filter(st => st.completed).length;
+  const allSubTasksCompleted = totalSubTasksCount === 0 || completedSubTasksCount === totalSubTasksCount;
+  const progressPercentage = totalSubTasksCount > 0 ? Math.round((completedSubTasksCount / totalSubTasksCount) * 100) : 0;
 
   const daysMap = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 0: 'So' };
   const specificDaysString = task.type === 'specific-days' && task.specificDays 
@@ -156,6 +160,18 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
                   }}
                 />
               </div>
+
+              {totalSubTasksCount > 0 && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span>Teilaufgaben</span>
+                    <span>{progressPercentage}% ({completedSubTasksCount}/{totalSubTasksCount})</span>
+                  </div>
+                  <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${progressPercentage}%`, backgroundColor: 'var(--accent-primary)', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

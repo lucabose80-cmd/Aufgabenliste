@@ -21,6 +21,15 @@
   --transition-normal: 0.3s ease;
 }
 
+:root[data-theme="light"] {
+  --bg-main: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #e2e8f0;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #cbd5e1;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

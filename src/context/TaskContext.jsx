@@ -18,6 +18,12 @@ export const TaskProvider = ({ children }) => {
   const [readingSessions, setReadingSessions] = useState([]);
   const [calorieLogs, setCalorieLogs] = useState([]);
   const [calorieGoal, setCalorieGoal] = useState('');
+  
+  // Settings
+  const [theme, setTheme] = useState('dark');
+  const [accentColor, setAccentColor] = useState('#6366f1');
+  const [shoppingListId, setShoppingListId] = useState('');
+  
   const [isLoading, setIsLoading] = useState(true);
 
   // Load from LocalStorage if NOT logged in
@@ -56,6 +62,15 @@ export const TaskProvider = ({ children }) => {
 
       const savedGoal = localStorage.getItem('calorieGoal');
       setCalorieGoal(savedGoal || '');
+
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) setTheme(savedTheme);
+
+      const savedColor = localStorage.getItem('accentColor');
+      if (savedColor) setAccentColor(savedColor);
+
+      const savedList = localStorage.getItem('shoppingListId');
+      if (savedList) setShoppingListId(savedList);
 
       setIsLoading(false);
     }
@@ -109,6 +124,15 @@ export const TaskProvider = ({ children }) => {
       const mainDoc = snapshot.docs.find(d => d.id === 'main');
       if (mainDoc && mainDoc.data().calorieGoal !== undefined) {
         setCalorieGoal(mainDoc.data().calorieGoal);
+      }
+      if (mainDoc && mainDoc.data().theme !== undefined) {
+        setTheme(mainDoc.data().theme);
+      }
+      if (mainDoc && mainDoc.data().accentColor !== undefined) {
+        setAccentColor(mainDoc.data().accentColor);
+      }
+      if (mainDoc && mainDoc.data().shoppingListId !== undefined) {
+        setShoppingListId(mainDoc.data().shoppingListId);
       }
       setIsLoading(false);
     });
@@ -405,6 +429,32 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const updateThemeSettings = async (newTheme, newColor) => {
+    setTheme(newTheme);
+    setAccentColor(newColor);
+    if (!user) {
+      localStorage.setItem('theme', newTheme);
+      localStorage.setItem('accentColor', newColor);
+    } else {
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'main'), { theme: newTheme, accentColor: newColor }, { merge: true });
+    }
+  };
+
+  const updateShoppingListId = async (id) => {
+    setShoppingListId(id);
+    if (!user) {
+      localStorage.setItem('shoppingListId', id);
+    } else {
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'main'), { shoppingListId: id }, { merge: true });
+    }
+  };
+
+  // Apply Theme to DOM
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.setProperty('--accent-primary', accentColor);
+  }, [theme, accentColor]);
+
   const forceSync = async () => {
     if (!user) {
       alert("Bitte erst einloggen!");
@@ -465,6 +515,11 @@ export const TaskProvider = ({ children }) => {
       getTodayDateString,
       saveCalorieLog,
       updateCalorieGoal,
+      theme,
+      accentColor,
+      updateThemeSettings,
+      shoppingListId,
+      updateShoppingListId,
       forceSync,
       isLoading
     }}>

@@ -12,6 +12,8 @@ import ReadingSpeed from './components/ReadingSpeed';
 import Calories from './components/Calories';
 import AuthModal from './components/AuthModal';
 import NotificationManager from './components/NotificationManager';
+import Settings from './components/Settings';
+import ShoppingList from './components/ShoppingList';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { User } from 'lucide-react';
 
@@ -41,6 +43,10 @@ function MainApp() {
         return <Calories />;
       case 'categories':
         return <CategoriesManager />;
+      case 'settings':
+        return <Settings />;
+      case 'shopping':
+        return <ShoppingList />;
       default:
         return <TaskGrid view="all" />;
     }
@@ -56,6 +62,8 @@ function MainApp() {
       case 'reading-speed': return 'Lesegeschwindigkeit';
       case 'calories': return 'Kalorienziel';
       case 'categories': return 'Kategorien verwalten';
+      case 'settings': return 'Einstellungen';
+      case 'shopping': return 'Einkaufsliste';
       default: return 'TaskMaster';
     }
   };

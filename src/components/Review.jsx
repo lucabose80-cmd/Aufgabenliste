@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { Calendar, CheckSquare, BookOpen, Flame, Award } from 'lucide-react';
 import { format, isSameMonth, isSameYear, parseISO, subDays, startOfWeek } from 'date-fns';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { de } from 'date-fns/locale';
 
 const Review = () => {
@@ -84,6 +85,45 @@ const Review = () => {
       bestStreakTask = task.title;
     }
   });
+
+  // --- Chart Data ---
+  const readingData = [];
+  const taskData = [];
+  
+  if (viewMode === 'month') {
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth(), i);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      
+      const daySessions = readingSessions.filter(s => s.date === dateStr);
+      readingData.push({ name: `${i}.`, amount: daySessions.reduce((acc, s) => acc + s.amount, 0) });
+      
+      let tCount = 0;
+      tasks.forEach(task => {
+        if (task.completedDates && task.completedDates.includes(dateStr)) tCount++;
+      });
+      taskData.push({ name: `${i}.`, count: tCount });
+    }
+  } else {
+    for (let i = 0; i < 12; i++) {
+      const monthPrefix = format(new Date(today.getFullYear(), i, 1), 'yyyy-MM');
+      const monthName = format(new Date(today.getFullYear(), i, 1), 'MMM', { locale: de });
+      
+      const monthSessions = readingSessions.filter(s => s.date && s.date.startsWith(monthPrefix));
+      readingData.push({ name: monthName, amount: monthSessions.reduce((acc, s) => acc + s.amount, 0) });
+      
+      let tCount = 0;
+      tasks.forEach(task => {
+        if (task.completedDates) {
+          task.completedDates.forEach(d => {
+            if (d.startsWith(monthPrefix)) tCount++;
+          });
+        }
+      });
+      taskData.push({ name: monthName, count: tCount });
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
@@ -174,6 +214,51 @@ const Review = () => {
         ) : (
           <p style={{ color: 'var(--text-muted)' }}>Noch keine aktiven Streaks (tägliche Aufgaben an aufeinanderfolgenden Tagen) vorhanden.</p>
         )}
+      </div>
+
+      {/* --- Diagramme --- */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
+        
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <CheckSquare size={18} /> Erledigte Aufgaben im Verlauf
+          </h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <BarChart data={taskData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+                  itemStyle={{ color: 'var(--text-main)' }}
+                />
+                <Bar dataKey="count" name="Aufgaben" fill="var(--accent-primary)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <BookOpen size={18} /> Gelesene Seiten im Verlauf
+          </h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <LineChart data={readingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+                  itemStyle={{ color: 'var(--text-main)' }}
+                />
+                <Line type="monotone" dataKey="amount" name="Seiten" stroke="#ec4899" strokeWidth={3} dot={{ fill: '#ec4899', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
       </div>
 
     </div>
