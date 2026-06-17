@@ -331,7 +331,11 @@ export const TaskProvider = ({ children }) => {
         batch.set(cRef, c);
       });
 
-      await batch.commit();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Zeitüberschreitung: Keine Verbindung zur Datenbank (Internet/Firewall-Problem).")), 10000);
+      });
+
+      await Promise.race([batch.commit(), timeoutPromise]);
       alert(`Erfolgreich ${localTasks.length} Aufgaben in die Cloud geladen!`);
     } catch (err) {
       console.error(err);
