@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { Clock, BookOpen, Activity, Flame } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
+import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO, eachWeekOfInterval, startOfYear, endOfYear } from 'date-fns';
 
 const Statistics = () => {
   const { readingSessions, calorieLogs } = useTaskContext();
@@ -30,6 +30,36 @@ const Statistics = () => {
   });
 
   const weeklyCalorieBalance = currentWeekLogs.reduce((acc, log) => acc + log.difference, 0);
+
+  // Heatmap Logik: Alle Wochen des aktuellen Jahres
+  const getAllWeeksOfYear = () => {
+    const now = new Date();
+    const weeksList = eachWeekOfInterval(
+      { start: startOfYear(now), end: endOfYear(now) },
+      { weekStartsOn: 1 }
+    );
+    
+    return weeksList.map(weekStart => {
+      return {
+        start: weekStart,
+        end: endOfWeek(weekStart, { weekStartsOn: 1 })
+      };
+    });
+  };
+
+  const weeks = getAllWeeksOfYear();
+  const weekData = weeks.map(week => {
+    const logsInWeek = calorieLogs.filter(log => {
+      const logDate = parseISO(log.date);
+      return isWithinInterval(logDate, { start: week.start, end: week.end });
+    });
+    const sum = logsInWeek.reduce((acc, l) => acc + l.difference, 0);
+    return {
+      ...week,
+      sum,
+      hasData: logsInWeek.length > 0
+    };
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
@@ -108,7 +138,7 @@ const Statistics = () => {
             fontWeight: 'bold', 
             color: weeklyCalorieBalance > 0 ? 'var(--accent-danger)' : (weeklyCalorieBalance < 0 ? 'var(--accent-success)' : 'var(--text-main)') 
           }}>
-            {weeklyCalorieBalance > 0 ? '+' : ''}{weeklyCalorieBalance} kcal
+            {weeklyCalorieBalance > 0 ? '+' : ''}{weeklyCalorieBalance} <span style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: 'normal' }}>kcal</span>
           </div>
           {weeklyCalorieBalance > 0 && (
             <p style={{ color: 'var(--accent-danger)', textAlign: 'center' }}>Du bist über deinem Wochenziel.</p>
@@ -119,6 +149,48 @@ const Statistics = () => {
           {weeklyCalorieBalance === 0 && (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Du bist exakt im Ziel (oder hast noch nichts eingetragen).</p>
           )}
+        </div>
+
+        <h3 style={{ marginTop: '2rem', marginBottom: '1rem' }}>Jahres-Übersicht</h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+          Grün = Unter/im Ziel, Rot = Über dem Ziel, Grau = Keine Einträge
+        </p>
+
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(20px, 1fr))', 
+          gap: '4px', 
+          width: '100%' 
+        }}>
+          {weekData.map((data, idx) => {
+            let bgColor = 'var(--bg-main)';
+            let borderColor = 'var(--border-color)';
+            if (data.hasData) {
+              if (data.sum <= 0) {
+                bgColor = 'var(--accent-success)';
+                borderColor = 'var(--accent-success)';
+              } else {
+                bgColor = 'var(--accent-danger)';
+                borderColor = 'var(--accent-danger)';
+              }
+            }
+
+            return (
+              <div 
+                key={idx} 
+                title={`${format(data.start, 'dd.MM')} - ${format(data.end, 'dd.MM')}: ${data.hasData ? (data.sum > 0 ? '+' + data.sum : data.sum) + ' kcal' : 'Keine Daten'}`}
+                style={{
+                  aspectRatio: '1/1',
+                  minHeight: '20px',
+                  borderRadius: '4px',
+                  backgroundColor: bgColor,
+                  border: `1px solid ${borderColor}`,
+                  opacity: data.hasData ? 0.8 : 0.5,
+                  cursor: 'help'
+                }}
+              />
+            );
+          })}
         </div>
       </div>
 
