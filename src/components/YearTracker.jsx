@@ -34,17 +34,7 @@ const YearTracker = () => {
       return { color: 'var(--accent-danger)', border: 'var(--accent-danger)', opacity: 0.8 };
     }
 
-    if (task.type === 'specific-days') {
-      const dayOfWeek = day.getDay();
-      if (!task.specificDays.includes(dayOfWeek)) {
-        return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.1 }; 
-      }
-      if (isFuture) return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.3 };
-      if (isCompleted) return { color: 'var(--accent-success)', border: 'var(--accent-success)', opacity: 1 };
-      return { color: 'var(--accent-danger)', border: 'var(--accent-danger)', opacity: 0.8 };
-    }
-
-    // For weekly and x-times: evaluate the whole week
+    // For weekly, x-times and specific-days: evaluate the whole week
     const weekStart = startOfWeek(day, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
     
@@ -58,7 +48,10 @@ const YearTracker = () => {
       if (task.completedDates.includes(dStr)) completedCountInWeek++;
     });
 
-    const target = task.type === 'weekly' ? 1 : task.targetCount;
+    let target = 1;
+    if (task.type === 'x-times') target = task.targetCount;
+    if (task.type === 'specific-days') target = task.specificDays.length;
+
     const weekGoalMet = completedCountInWeek >= target;
 
     if (weekGoalMet) {
