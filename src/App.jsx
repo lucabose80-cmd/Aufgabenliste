@@ -21,8 +21,6 @@ function MainApp() {
         return <TaskCreator />;
       case 'tracker':
         return <YearTracker />;
-      case 'longterm':
-        return <TaskGrid view="longterm" />;
       case 'categories':
         return <CategoriesManager />;
       default:
@@ -35,7 +33,6 @@ function MainApp() {
       case 'home': return 'Startseite';
       case 'create': return 'Neue Aufgabe erstellen';
       case 'tracker': return 'Jahres-Tracker';
-      case 'longterm': return 'Allgemeine To-Dos';
       case 'categories': return 'Kategorien verwalten';
       default: return 'TaskMaster';
     }

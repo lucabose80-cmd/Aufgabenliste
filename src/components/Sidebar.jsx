@@ -6,7 +6,6 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
     { id: 'home', label: 'Startseite', icon: <Home size={20} /> },
     { id: 'create', label: 'Aufgabe erstellen', icon: <PlusSquare size={20} /> },
     { id: 'tracker', label: 'Jahres-Tracker', icon: <BarChart2 size={20} /> },
-    { id: 'longterm', label: 'Allgemeine To-Dos', icon: <CheckSquare size={20} /> },
     { id: 'categories', label: 'Kategorien', icon: <Folder size={20} /> },
   ];
 

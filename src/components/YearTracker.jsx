@@ -1,11 +1,13 @@
-import React from 'react';
-import { format, eachDayOfInterval, startOfYear, endOfYear, getMonth, isAfter, startOfToday, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
+import React, { useState } from 'react';
+import { format, eachDayOfInterval, startOfYear, endOfYear, getMonth, isAfter, startOfToday, startOfWeek, endOfWeek, isSameDay, getWeek } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useTaskContext } from '../context/TaskContext';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const YearTracker = () => {
   const { tasks } = useTaskContext();
   const trackableTasks = tasks.filter(t => t.type !== 'general');
+  const [expandedTaskId, setExpandedTaskId] = useState(null);
   
   const today = startOfToday();
   const currentYear = new Date().getFullYear();
@@ -14,7 +16,7 @@ const YearTracker = () => {
   
   const allDays = eachDayOfInterval({ start: yearStart, end: yearEnd });
   
-  // Group days by month
+  // Group days by month for expanded view
   const months = Array.from({ length: 12 }, (_, i) => allDays.filter(d => getMonth(d) === i));
 
   const evaluateDay = (day, task) => {
@@ -31,7 +33,7 @@ const YearTracker = () => {
     if (task.type === 'specific-days') {
       const dayOfWeek = day.getDay();
       if (!task.specificDays.includes(dayOfWeek)) {
-        return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.1 }; // Not required this day
+        return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.1 }; 
       }
       if (isFuture) return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.3 };
       if (isCompleted) return { color: 'var(--accent-success)', border: 'var(--accent-success)', opacity: 1 };
@@ -39,17 +41,13 @@ const YearTracker = () => {
     }
 
     // For weekly and x-times: evaluate the whole week
-    const weekStart = startOfWeek(day, { weekStartsOn: 1 }); // Monday is 1
+    const weekStart = startOfWeek(day, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
     
-    // We don't evaluate weeks in the future fully if the week hasn't ended, 
-    // but for simplicity, let's treat any future day as neutral.
     if (isFuture) return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.3 };
 
-    // Get all days in that week
     const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
     
-    // Count how many times it was completed in this week
     let completedCountInWeek = 0;
     daysInWeek.forEach(d => {
       const dStr = format(d, 'yyyy-MM-dd');
@@ -60,18 +58,13 @@ const YearTracker = () => {
     const weekGoalMet = completedCountInWeek >= target;
 
     if (weekGoalMet) {
-      // Whole week is green
       return { color: 'var(--accent-success)', border: 'var(--accent-success)', opacity: 1 };
     } else {
-      // Goal not met. Week is red, but the days they did it are green
       if (isCompleted) {
         return { color: 'var(--accent-success)', border: 'var(--accent-success)', opacity: 1 };
       }
-      // If the week is still ongoing (today is in this week), maybe don't mark as red yet?
-      // Let's check if the week is strictly in the past, or if it's the current week.
       const isCurrentWeek = daysInWeek.some(d => isSameDay(d, today));
       if (isCurrentWeek && !weekGoalMet) {
-        // Current week, not yet met, days not completed are neutral
         return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.3 };
       }
 
@@ -79,63 +72,103 @@ const YearTracker = () => {
     }
   };
 
+  const toggleExpand = (id) => {
+    setExpandedTaskId(prev => prev === id ? null : id);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div className="card">
         <h2 style={{ marginBottom: '1rem' }}>Jahres-Tracker {currentYear}</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-          Behalte deine Gewohnheiten über das ganze Jahr im Blick.
-          <br/>
-          <span style={{ color: 'var(--accent-success)' }}>Grün</span> = Erledigt/Wochenziel erreicht | <span style={{ color: 'var(--accent-danger)' }}>Rot</span> = Verpasst
+          Klicke auf eine Aufgabe, um die detaillierte Monatsansicht zu öffnen.
         </p>
 
         {trackableTasks.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>Füge tägliche/wöchentliche Aufgaben hinzu, um den Tracker zu nutzen.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-            {trackableTasks.map(task => (
-              <div key={task.id}>
-                <h3 style={{ marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {task.title}
-                </h3>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                  Typ: {task.type} {task.type === 'x-times' && `(${task.targetCount}x)`}
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                  {months.map((monthDays, idx) => {
-                    const monthName = format(new Date(currentYear, idx, 1), 'MMMM', { locale: de });
-                    
-                    return (
-                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <h4 style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{monthName}</h4>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
-                          {monthDays.map((day, dIdx) => {
-                            const dateStr = format(day, 'yyyy-MM-dd');
-                            const style = evaluateDay(day, task);
-                            
-                            return (
-                              <div 
-                                key={dIdx}
-                                title={dateStr}
-                                style={{
-                                  width: '100%',
-                                  aspectRatio: '1/1',
-                                  borderRadius: '2px',
-                                  backgroundColor: style.color,
-                                  border: `1px solid ${style.border}`,
-                                  opacity: style.opacity
-                                }}
-                              />
-                            );
-                          })}
-                        </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {trackableTasks.map(task => {
+              const isExpanded = expandedTaskId === task.id;
+
+              return (
+                <div key={task.id} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', padding: '1rem', backgroundColor: 'var(--bg-main)' }}>
+                  
+                  {/* Header / Minimized View */}
+                  <div 
+                    onClick={() => toggleExpand(task.id)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, marginRight: '1rem' }}>
+                      <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{task.title}</h3>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        Typ: {task.type} {task.type === 'x-times' && `(${task.targetCount}x)`}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '2px', flex: 2, overflow: 'hidden', height: '16px' }}>
+                      {/* Very condensed view: just sampling days linearly */}
+                      {allDays.filter((_, idx) => idx % 3 === 0).map((day, idx) => {
+                        const style = evaluateDay(day, task);
+                        return (
+                          <div 
+                            key={idx}
+                            style={{
+                              width: '4px',
+                              height: '100%',
+                              backgroundColor: style.color,
+                              opacity: style.opacity
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ marginLeft: '1rem', color: 'var(--text-muted)' }}>
+                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </div>
+                  </div>
+
+                  {/* Expanded View */}
+                  {isExpanded && (
+                    <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                        {months.map((monthDays, idx) => {
+                          const monthName = format(new Date(currentYear, idx, 1), 'MMM', { locale: de });
+                          
+                          return (
+                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{monthName}</h4>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+                                {monthDays.map((day, dIdx) => {
+                                  const dateStr = format(day, 'yyyy-MM-dd');
+                                  const style = evaluateDay(day, task);
+                                  
+                                  return (
+                                    <div 
+                                      key={dIdx}
+                                      title={dateStr}
+                                      style={{
+                                        width: '100%',
+                                        aspectRatio: '1/1',
+                                        borderRadius: '2px',
+                                        backgroundColor: style.color,
+                                        opacity: style.opacity
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

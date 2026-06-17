@@ -76,9 +76,20 @@ const TaskItem = ({ task }) => {
             }}>
               {task.title}
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', textTransform: 'uppercase' }}>
-              Typ: {task.type}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Typ: {task.type}
+              </span>
+              <div 
+                title="Kategorie"
+                style={{ 
+                  width: '8px', 
+                  height: '8px', 
+                  borderRadius: '50%', 
+                  backgroundColor: task.categoryColor || 'var(--accent-primary)' 
+                }}
+              />
+            </div>
           </div>
         </div>
         
@@ -166,24 +177,32 @@ const TaskItem = ({ task }) => {
   );
 };
 
-const TaskGrid = ({ view }) => {
+const TaskGrid = () => {
   const { tasks, categories } = useTaskContext();
 
-  // If view is 'all', show everything. If 'longterm', show only general
-  const filteredTasks = tasks.filter(t => {
-    if (view === 'longterm') return t.type === 'general';
-    return true; // Startseite shows all tasks
+  const taskTypes = [
+    { id: 'daily', label: 'Tägliche Routinen' },
+    { id: 'weekly', label: 'Einmal pro Woche' },
+    { id: 'x-times', label: 'Mehrmals pro Woche' },
+    { id: 'specific-days', label: 'An bestimmten Tagen' },
+    { id: 'general', label: 'Allgemeine To-Dos' },
+  ];
+
+  // Enrich tasks with category color for the badge
+  const enrichedTasks = tasks.map(t => {
+    const cat = categories.find(c => c.id === t.categoryId);
+    return { ...t, categoryColor: cat ? cat.color : 'var(--border-color)' };
   });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-      {categories.map(category => {
-        const categoryTasks = filteredTasks.filter(t => t.categoryId === category.id);
+      {taskTypes.map(typeGroup => {
+        const typeTasks = enrichedTasks.filter(t => t.type === typeGroup.id);
         
-        if (categoryTasks.length === 0) return null;
+        if (typeTasks.length === 0) return null;
 
         return (
-          <div key={category.id}>
+          <div key={typeGroup.id}>
             <h2 style={{ 
               marginBottom: '1.5rem', 
               display: 'flex', 
@@ -191,11 +210,10 @@ const TaskGrid = ({ view }) => {
               gap: '0.75rem',
               color: 'var(--text-main)'
             }}>
-              <div style={{ width: '16px', height: '16px', borderRadius: '4px', backgroundColor: category.color }}></div>
-              {category.name}
+              {typeGroup.label}
             </h2>
             <div className="task-grid">
-              {categoryTasks.map(task => (
+              {typeTasks.map(task => (
                 <TaskItem key={task.id} task={task} />
               ))}
             </div>
@@ -203,7 +221,7 @@ const TaskGrid = ({ view }) => {
         );
       })}
       
-      {filteredTasks.length === 0 && (
+      {tasks.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
           Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".
         </div>
