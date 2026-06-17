@@ -14,14 +14,24 @@ const Calories = () => {
   };
 
   const handleSaveDifference = () => {
-    if (!differenceInput) return;
-    saveCalorieLog(differenceInput, todayStr);
+    if (differenceInput === '' || differenceInput === null || differenceInput === undefined) return;
+    let val = differenceInput.toString().trim();
+    saveCalorieLog(val, todayStr);
+    setDifferenceInput('');
+  };
+
+  const handleAddDifference = () => {
+    if (differenceInput === '' || differenceInput === null || differenceInput === undefined) return;
+    const current = todayLog ? todayLog.difference : 0;
+    const added = parseInt(differenceInput.toString().replace('+', ''), 10) || 0;
+    saveCalorieLog(current + added, todayStr);
     setDifferenceInput('');
   };
 
   const handleDeleteLog = () => {
     if (confirm('Möchtest du den heutigen Eintrag löschen?')) {
       deleteCalorieLog(todayStr);
+      setDifferenceInput('');
     }
   };
 
@@ -58,17 +68,29 @@ const Calories = () => {
             Gib ein, wie viele Kalorien du heute drüber (positiv) oder drunter (negativ) warst.
           </p>
 
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
             <input 
-              type="number" 
+              type="text" 
+              inputMode="numeric"
               value={differenceInput}
               onChange={(e) => setDifferenceInput(e.target.value)}
               placeholder="z.B. +200 oder -100"
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: '150px' }}
             />
-            <button className="btn-primary" onClick={handleSaveDifference} style={{ padding: '0.75rem 1.5rem' }}>
-              <Plus size={18} /> Eintragen
-            </button>
+            {!todayLog ? (
+              <button className="btn-primary" onClick={handleSaveDifference} style={{ padding: '0.75rem 1.5rem', flexShrink: 0 }}>
+                <Plus size={18} /> Eintragen
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button className="btn-primary" onClick={handleAddDifference} style={{ padding: '0.75rem 1rem', flexShrink: 0 }}>
+                  <Plus size={18} /> Dazu addieren
+                </button>
+                <button className="btn-secondary" onClick={handleSaveDifference} style={{ padding: '0.75rem 1rem', flexShrink: 0 }}>
+                  <Edit2 size={18} /> Überschreiben
+                </button>
+              </div>
+            )}
           </div>
           
           {todayLog && (
@@ -79,20 +101,12 @@ const Calories = () => {
                   {todayLog.difference > 0 ? '+' : ''}{todayLog.difference} kcal
                 </strong>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  onClick={() => setDifferenceInput(todayLog.difference)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', color: 'var(--text-main)', cursor: 'pointer' }}
-                >
-                  <Edit2 size={16} /> Ändern
-                </button>
-                <button 
-                  onClick={handleDeleteLog}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', color: 'var(--accent-danger)', cursor: 'pointer' }}
-                >
-                  <Trash2 size={16} /> Löschen
-                </button>
-              </div>
+              <button 
+                onClick={handleDeleteLog}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', color: 'var(--accent-danger)', cursor: 'pointer' }}
+              >
+                <Trash2 size={16} /> Löschen
+              </button>
             </div>
           )}
         </div>
