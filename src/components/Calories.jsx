@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { Flame, Plus, Save } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, subWeeks, isWithinInterval, parseISO } from 'date-fns';
+import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO, eachWeekOfInterval, startOfYear, endOfYear } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 const Calories = () => {
@@ -22,19 +22,23 @@ const Calories = () => {
 
   const todayLog = calorieLogs.find(l => l.date === todayStr);
 
-  // Heatmap Logik: Letzte 12 Wochen berechnen
-  const getLast12Weeks = () => {
-    const weeks = [];
+  // Heatmap Logik: Alle Wochen des aktuellen Jahres
+  const getAllWeeksOfYear = () => {
     const now = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const start = startOfWeek(subWeeks(now, i), { weekStartsOn: 1 });
-      const end = endOfWeek(subWeeks(now, i), { weekStartsOn: 1 });
-      weeks.push({ start, end });
-    }
-    return weeks;
+    const weeksList = eachWeekOfInterval(
+      { start: startOfYear(now), end: endOfYear(now) },
+      { weekStartsOn: 1 }
+    );
+    
+    return weeksList.map(weekStart => {
+      return {
+        start: weekStart,
+        end: endOfWeek(weekStart, { weekStartsOn: 1 })
+      };
+    });
   };
 
-  const weeks = getLast12Weeks();
+  const weeks = getAllWeeksOfYear();
   const weekData = weeks.map(week => {
     const logsInWeek = calorieLogs.filter(log => {
       const logDate = parseISO(log.date);
@@ -103,12 +107,21 @@ const Calories = () => {
         </div>
       </div>
       <div className="card">
-        <h3 style={{ marginBottom: '1rem' }}>Wochen-Übersicht (Letzte 12 Wochen)</h3>
+        <h3 style={{ marginBottom: '1rem' }}>Jahres-Übersicht</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
           Grün = Unter/im Ziel, Rot = Über dem Ziel, Grau = Keine Einträge
         </p>
 
-        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+        {/* 
+          Wir nutzen ein Grid mit vielen Spalten, damit die Blöcke schön im Raster dargestellt werden 
+          (ähnlich einer GitHub Heatmap). 
+        */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(20px, 1fr))', 
+          gap: '4px', 
+          width: '100%' 
+        }}>
           {weekData.map((data, idx) => {
             let bgColor = 'var(--bg-main)';
             let borderColor = 'var(--border-color)';
@@ -127,8 +140,8 @@ const Calories = () => {
                 key={idx} 
                 title={`${format(data.start, 'dd.MM')} - ${format(data.end, 'dd.MM')}: ${data.hasData ? (data.sum > 0 ? '+' + data.sum : data.sum) + ' kcal' : 'Keine Daten'}`}
                 style={{
-                  minWidth: '24px',
-                  height: '24px',
+                  aspectRatio: '1/1',
+                  minHeight: '20px',
                   borderRadius: '4px',
                   backgroundColor: bgColor,
                   border: `1px solid ${borderColor}`,
