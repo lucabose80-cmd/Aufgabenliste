@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { BookOpen, Play, Square, Save } from 'lucide-react';
+import { BookOpen, Play, Square, Save, Trash2, Edit2, X, Check } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 const ReadingSpeed = () => {
-  const { saveReadingSession } = useTaskContext();
+  const { readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession } = useTaskContext();
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [amount, setAmount] = useState('');
   const [showAmountField, setShowAmountField] = useState(false);
+
+  // Edit State
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editMinutes, setEditMinutes] = useState(0);
+  const [editAmount, setEditAmount] = useState('');
 
   useEffect(() => {
     let interval = null;
@@ -40,6 +46,21 @@ const ReadingSpeed = () => {
     if (h === '00') return `${m}:${s}`;
     return `${h}:${m}:${s}`;
   };
+
+  const handleEditClick = (session) => {
+    setEditingSessionId(session.id);
+    setEditMinutes(Math.round(session.timeSpent / 60));
+    setEditAmount(session.amount);
+  };
+
+  const handleSaveEdit = (id) => {
+    updateReadingSession(id, parseInt(editMinutes, 10) * 60, parseFloat(editAmount));
+    setEditingSessionId(null);
+  };
+
+  const recentSessions = [...readingSessions]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
@@ -97,6 +118,71 @@ const ReadingSpeed = () => {
           </div>
         )}
       </div>
+
+      {recentSessions.length > 0 && (
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem' }}>Letzte Lese-Einträge</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {recentSessions.map(session => (
+              <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)' }}>
+                
+                {editingSessionId === session.id ? (
+                  <div style={{ display: 'flex', gap: '1rem', flex: 1, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input 
+                        type="number" 
+                        value={editMinutes} 
+                        onChange={(e) => setEditMinutes(e.target.value)}
+                        style={{ width: '80px', padding: '0.25rem 0.5rem' }}
+                      /> 
+                      <span style={{ color: 'var(--text-muted)' }}>Min.</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input 
+                        type="number" 
+                        value={editAmount} 
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        style={{ width: '80px', padding: '0.25rem 0.5rem' }}
+                      />
+                      <span style={{ color: 'var(--text-muted)' }}>Seiten</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 'bold' }}>{format(parseISO(session.date), 'dd.MM.yyyy')}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                      {formatTime(session.timeSpent)} gelesen • {session.amount} Seiten
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {editingSessionId === session.id ? (
+                    <>
+                      <button onClick={() => handleSaveEdit(session.id)} style={{ background: 'var(--accent-success)', color: 'white', border: 'none', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
+                        <Check size={18} />
+                      </button>
+                      <button onClick={() => setEditingSessionId(null)} style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
+                        <X size={18} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleEditClick(session)} style={{ background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
+                        <Edit2 size={18} />
+                      </button>
+                      <button onClick={() => { if(window.confirm('Eintrag löschen?')) deleteReadingSession(session.id) }} style={{ background: 'transparent', color: 'var(--accent-danger)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
+                        <Trash2 size={18} />
+                      </button>
+                    </>
+                  )}
+                </div>
+
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

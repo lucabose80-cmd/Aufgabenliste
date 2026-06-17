@@ -359,6 +359,28 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const deleteReadingSession = async (id) => {
+    if (!user) {
+      setReadingSessions(readingSessions.filter(s => s.id !== id));
+    }
+    if (user) {
+      await deleteDoc(doc(db, 'users', user.uid, 'readingSessions', id));
+    }
+  };
+
+  const updateReadingSession = async (id, timeSpent, amount) => {
+    const session = readingSessions.find(s => s.id === id);
+    if (!session) return;
+    const updatedSession = { ...session, timeSpent, amount: parseFloat(amount) || 0 };
+
+    if (!user) {
+      setReadingSessions(readingSessions.map(s => s.id === id ? updatedSession : s));
+    }
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'readingSessions', id), updatedSession);
+    }
+  };
+
   const saveCalorieLog = async (difference, date = getTodayDateString()) => {
     const newLog = { id: uuidv4(), date, difference: parseInt(difference, 10) || 0 };
     if (!user) {
@@ -437,8 +459,10 @@ export const TaskProvider = ({ children }) => {
       addCategory,
       updateCategory,
       deleteCategory,
-      getTodayDateString,
       saveReadingSession,
+      deleteReadingSession,
+      updateReadingSession,
+      getTodayDateString,
       saveCalorieLog,
       updateCalorieGoal,
       forceSync,

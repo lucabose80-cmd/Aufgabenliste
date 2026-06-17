@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { Calendar, CheckSquare, BookOpen, Flame, Award } from 'lucide-react';
-import { format, isSameMonth, isSameYear, parseISO, subDays } from 'date-fns';
+import { format, isSameMonth, isSameYear, parseISO, subDays, startOfWeek } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 const Review = () => {
@@ -36,7 +36,17 @@ const Review = () => {
 
   // 3. Kalorien
   const filteredCalories = calorieLogs.filter(log => isDateInView(log.date));
-  const calorieBalance = filteredCalories.reduce((acc, l) => acc + l.difference, 0);
+  
+  const weeklySums = {};
+  filteredCalories.forEach(log => {
+    const d = parseISO(log.date);
+    const wStart = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    if (!weeklySums[wStart]) weeklySums[wStart] = 0;
+    weeklySums[wStart] += log.difference;
+  });
+
+  const totalWeeks = Object.keys(weeklySums).length;
+  const successfulWeeks = Object.values(weeklySums).filter(sum => sum <= 0).length;
   
   // 4. Längster aktueller Streak (nur zur Info, da wir Streaks aktuell über die ganze Zeit rechnen)
   let bestStreak = 0;
@@ -135,15 +145,15 @@ const Review = () => {
           <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '50%' }}>
             <Flame size={32} color="var(--accent-danger)" />
           </div>
-          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Kalorien-Bilanz</h3>
+          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Kalorienziel</h3>
           <span style={{ 
             fontSize: '3rem', 
             fontWeight: 'bold', 
-            color: calorieBalance > 0 ? 'var(--accent-danger)' : (calorieBalance < 0 ? 'var(--accent-success)' : 'var(--text-main)') 
+            color: successfulWeeks === totalWeeks && totalWeeks > 0 ? 'var(--accent-success)' : 'var(--text-main)' 
           }}>
-            {calorieBalance > 0 ? '+' : ''}{calorieBalance}
+            {successfulWeeks} / {totalWeeks}
           </span>
-          <span style={{ color: 'var(--text-muted)' }}>kcal insgesamt</span>
+          <span style={{ color: 'var(--text-muted)' }}>Wochen erreicht</span>
         </div>
 
       </div>
