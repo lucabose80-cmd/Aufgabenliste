@@ -172,12 +172,9 @@ const TaskGrid = () => {
   const { tasks, categories, getTodayDateString } = useTaskContext();
   const [showCompleted, setShowCompleted] = useState(false);
 
-  const taskTypes = [
-    { id: 'daily', label: 'Tägliche Routinen' },
-    { id: 'weekly', label: 'Einmal pro Woche' },
-    { id: 'x-times', label: 'Mehrmals pro Woche' },
-    { id: 'specific-days', label: 'An bestimmten Tagen' },
-    { id: 'general', label: 'Allgemeine To-Dos' },
+  const displayGroups = [
+    { id: 'routines', label: 'Tägliche Routinen', types: ['daily', 'weekly', 'x-times', 'specific-days'] },
+    { id: 'general', label: 'Allgemeine To-Dos', types: ['general'] }
   ];
 
   const today = getTodayDateString();
@@ -224,13 +221,13 @@ const TaskGrid = () => {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-        {taskTypes.map(typeGroup => {
-          const typeTasks = filteredTasks.filter(t => t.type === typeGroup.id);
+        {displayGroups.map(group => {
+          const typeTasks = filteredTasks.filter(t => group.types.includes(t.type));
         
         if (typeTasks.length === 0) return null;
 
         return (
-          <div key={typeGroup.id}>
+          <div key={group.id}>
             <h2 style={{ 
               marginBottom: '1.5rem', 
               display: 'flex', 
@@ -238,7 +235,7 @@ const TaskGrid = () => {
               gap: '0.75rem',
               color: 'var(--text-main)'
             }}>
-              {typeGroup.label}
+              {group.label}
             </h2>
             <div className="task-grid">
               {typeTasks.map(task => (
