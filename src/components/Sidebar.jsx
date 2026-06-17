@@ -1,7 +1,12 @@
 import React from 'react';
-import { Home, CheckSquare, Calendar, Folder, BarChart2, PlusSquare, Activity } from 'lucide-react';
+import { Home, CheckSquare, Calendar, Folder, BarChart2, PlusSquare, Activity, RefreshCw } from 'lucide-react';
+import { useTaskContext } from '../context/TaskContext';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
+  const { forceSync } = useTaskContext();
+  const { user } = useAuth();
+  
   const menuItems = [
     { id: 'home', label: 'Startseite', icon: <Home size={20} /> },
     { id: 'create', label: 'Aufgabe erstellen', icon: <PlusSquare size={20} /> },
@@ -12,12 +17,12 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
 
   return (
     <>
-      <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <div className={`sidebar ${isOpen ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column' }}>
         <div className="sidebar-header">
           <CheckSquare size={24} color="var(--accent-primary)" />
           <span>TaskMaster</span>
         </div>
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" style={{ flex: 1 }}>
           {menuItems.map(item => (
             <button
               key={item.id}
@@ -32,6 +37,21 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
             </button>
           ))}
         </nav>
+        
+        {user && (
+          <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                forceSync();
+                if (window.innerWidth <= 768) toggleSidebar();
+              }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              <RefreshCw size={16} /> Cloud Sync erzwingen
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Mobile overlay */}

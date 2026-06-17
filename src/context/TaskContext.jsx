@@ -305,6 +305,40 @@ export const TaskProvider = ({ children }) => {
     await saveTaskToFirestore(updatedTask);
   };
 
+  const forceSync = async () => {
+    if (!user) {
+      alert("Bitte erst einloggen!");
+      return;
+    }
+    try {
+      const localTasksStr = localStorage.getItem('tasks');
+      const localTasks = localTasksStr ? JSON.parse(localTasksStr) : [];
+      const localCatsStr = localStorage.getItem('categories');
+      const localCats = localCatsStr ? JSON.parse(localCatsStr) : [];
+
+      if (localTasks.length === 0 && localCats.length === 0) {
+        alert("Keine lokalen Daten zum Synchronisieren gefunden.");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      localTasks.forEach(t => {
+        const tRef = doc(db, 'users', user.uid, 'tasks', t.id);
+        batch.set(tRef, t);
+      });
+      localCats.forEach(c => {
+        const cRef = doc(db, 'users', user.uid, 'categories', c.id);
+        batch.set(cRef, c);
+      });
+
+      await batch.commit();
+      alert(`Erfolgreich ${localTasks.length} Aufgaben in die Cloud geladen!`);
+    } catch (err) {
+      console.error(err);
+      alert("Fehler beim Sync: " + err.message);
+    }
+  };
+
   return (
     <TaskContext.Provider value={{
       tasks,
@@ -319,6 +353,7 @@ export const TaskProvider = ({ children }) => {
       deleteCategory,
       saveTimerSession,
       getTodayDateString,
+      forceSync,
       isLoading
     }}>
       {children}
