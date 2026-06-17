@@ -37,10 +37,12 @@ export const TaskProvider = ({ children }) => {
       title: taskData.title,
       categoryId: taskData.categoryId || '1',
       isDaily: taskData.isDaily || false,
+      hasTimer: taskData.hasTimer !== undefined ? taskData.hasTimer : true,
       subTasks: taskData.subTasks || [], // { id, title, completed }
       completedDates: [],
       timeSpent: 0, // in seconds
       note: '',
+      averageSpeed: null, // e.g. "20.5 Seiten/h"
       createdAt: new Date().toISOString(),
     };
     setTasks([...tasks, newTask]);
@@ -94,10 +96,23 @@ export const TaskProvider = ({ children }) => {
     setCategories([...categories, { id: uuidv4(), name, color }]);
   };
 
-  const saveTaskNoteAndTime = (taskId, note, timeSpent) => {
+  const deleteCategory = (id) => {
+    setCategories(categories.filter(c => c.id !== id));
+  };
+
+  const saveTaskNoteAndTime = (taskId, note, timeSpent, amount = null) => {
     setTasks(tasks.map(task => {
       if (task.id === taskId) {
-        return { ...task, note, timeSpent: task.timeSpent + timeSpent };
+        let averageSpeed = task.averageSpeed;
+        const totalSeconds = task.timeSpent + timeSpent;
+        
+        if (amount && !isNaN(amount) && totalSeconds > 0) {
+          const hours = totalSeconds / 3600;
+          const speed = (parseFloat(amount) / hours).toFixed(1);
+          averageSpeed = `${speed}/h`;
+        }
+        
+        return { ...task, note, timeSpent: totalSeconds, averageSpeed };
       }
       return task;
     }));
@@ -113,6 +128,7 @@ export const TaskProvider = ({ children }) => {
       toggleSubTask,
       toggleTaskCompletion,
       addCategory,
+      deleteCategory,
       saveTaskNoteAndTime,
       getTodayDateString
     }}>

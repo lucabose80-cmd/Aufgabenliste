@@ -1,10 +1,10 @@
 import React from 'react';
-import { LayoutDashboard, CheckSquare, Calendar, Folder } from 'lucide-react';
+import { Home, CheckSquare, Calendar, Folder, BarChart2 } from 'lucide-react';
 
 const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-    { id: 'daily', label: 'Tägliche Routinen', icon: <Calendar size={20} /> },
+    { id: 'daily', label: 'Startseite', icon: <Home size={20} /> },
+    { id: 'tracker', label: 'Jahres-Tracker', icon: <BarChart2 size={20} /> },
     { id: 'longterm', label: 'Alle To-Dos', icon: <CheckSquare size={20} /> },
     { id: 'categories', label: 'Kategorien', icon: <Folder size={20} /> },
   ];
