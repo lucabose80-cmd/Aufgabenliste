@@ -103,6 +103,22 @@ const YearTracker = () => {
             {trackableTasks.map(task => {
               const isExpanded = expandedTaskId === task.id;
 
+              const daysMap = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 0: 'So' };
+              const specificDaysString = task.type === 'specific-days' && task.specificDays 
+                ? task.specificDays.map(d => daysMap[d]).join(', ') 
+                : '';
+
+              const getTypeLabel = () => {
+                switch (task.type) {
+                  case 'daily': return 'Täglich';
+                  case 'weekly': return 'Einmal pro Woche';
+                  case 'x-times': return `${task.targetCount}x pro Woche`;
+                  case 'specific-days': return 'Bestimmte Tage';
+                  case 'general': return 'Allgemeines To-Do';
+                  default: return task.type;
+                }
+              };
+
               return (
                 <div key={task.id} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', padding: '1rem', backgroundColor: 'var(--bg-main)' }}>
                   
@@ -114,7 +130,7 @@ const YearTracker = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, marginRight: '1rem' }}>
                       <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{task.title}</h3>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                        Typ: {task.type} {task.type === 'x-times' && `(${task.targetCount}x)`}
+                        Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
                       </span>
                     </div>
 

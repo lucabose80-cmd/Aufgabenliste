@@ -51,6 +51,17 @@ const TaskItem = ({ task, isWrongDay }) => {
     ? task.specificDays.map(d => daysMap[d]).join(', ') 
     : '';
 
+  const getTypeLabel = () => {
+    switch (task.type) {
+      case 'daily': return 'Täglich';
+      case 'weekly': return 'Einmal pro Woche';
+      case 'x-times': return `${task.targetCount}x pro Woche`;
+      case 'specific-days': return 'Bestimmte Tage';
+      case 'general': return 'Allgemeines To-Do';
+      default: return task.type;
+    }
+  };
+
   return (
     <div className="task-item card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%', opacity: (isCompleted || isWrongDay) ? 0.5 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -82,7 +93,7 @@ const TaskItem = ({ task, isWrongDay }) => {
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Typ: {task.type === 'specific-days' ? 'Bestimmte Tage' : task.type} {specificDaysString && `(${specificDaysString})`}
+                Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
               </span>
               <div 
                 title="Kategorie"
