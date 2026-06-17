@@ -298,7 +298,27 @@ export const TaskProvider = ({ children }) => {
     const updatedSubTasks = task.subTasks.map(st => 
       st.id === subTaskId ? { ...st, completed: !st.completed } : st
     );
-    const updatedTask = { ...task, subTasks: updatedSubTasks };
+
+    const allCompleted = updatedSubTasks.every(st => st.completed);
+    const today = getTodayDateString();
+    let updatedCompletedDates = [...task.completedDates];
+
+    if (task.type === 'general') {
+      if (allCompleted) {
+        if (!user) setTasks(tasks.filter(t => t.id !== taskId));
+        await deleteTaskFromFirestore(taskId);
+        return;
+      }
+    } else {
+      const isMainCompletedToday = task.completedDates.includes(today);
+      if (allCompleted && !isMainCompletedToday) {
+        updatedCompletedDates.push(today);
+      } else if (!allCompleted && isMainCompletedToday) {
+        updatedCompletedDates = updatedCompletedDates.filter(d => d !== today);
+      }
+    }
+
+    const updatedTask = { ...task, subTasks: updatedSubTasks, completedDates: updatedCompletedDates };
 
     if (!user) {
       setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));

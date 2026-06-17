@@ -37,6 +37,8 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     opacity: isDragging ? 0.5 : ((task.isCompleted || isWrongDay) ? 0.5 : 1),
     position: 'relative',
     zIndex: isDragging ? 999 : 1,
+    borderLeft: `4px solid ${task.categoryColor || 'var(--accent-primary)'}`,
+    backgroundColor: task.categoryColor ? `${task.categoryColor}15` : undefined
   };
 
   const today = getTodayDateString();
@@ -150,15 +152,6 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
                 </span>
-                <div 
-                  title="Kategorie"
-                  style={{ 
-                    width: '8px', 
-                    height: '8px', 
-                    borderRadius: '50%', 
-                    backgroundColor: task.categoryColor || 'var(--accent-primary)' 
-                  }}
-                />
               </div>
 
               {totalSubTasksCount > 0 && (
