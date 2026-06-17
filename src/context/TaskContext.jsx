@@ -1,51 +1,146 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
+import { useAuth } from './AuthContext';
+import { db } from '../firebase';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
 const TaskContext = createContext();
 
 export const useTaskContext = () => useContext(TaskContext);
 
 export const TaskProvider = ({ children }) => {
-  const [tasks, setTasks] = useState(() => {
-    const saved = localStorage.getItem('tasks');
-    let loaded = saved ? JSON.parse(saved) : [];
-    loaded = loaded.map(t => {
-      if (t.type === undefined) {
-        return {
-          ...t,
-          type: t.isDaily ? 'daily' : 'general',
-          targetCount: 1,
-          specificDays: [],
-          timerLogs: t.timerLogs || []
-        };
-      }
-      if (!t.timerLogs) t.timerLogs = [];
-      return t;
+  const { user } = useAuth();
+  
+  // States
+  const [tasks, setTasks] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load from LocalStorage if NOT logged in
+  useEffect(() => {
+    if (!user) {
+      const savedTasks = localStorage.getItem('tasks');
+      let loadedTasks = savedTasks ? JSON.parse(savedTasks) : [];
+      loadedTasks = loadedTasks.map(t => {
+        if (t.type === undefined) {
+          return {
+            ...t,
+            type: t.isDaily ? 'daily' : 'general',
+            targetCount: 1,
+            specificDays: [],
+            timerLogs: t.timerLogs || []
+          };
+        }
+        if (!t.timerLogs) t.timerLogs = [];
+        return t;
+      });
+      setTasks(loadedTasks);
+
+      const savedCategories = localStorage.getItem('categories');
+      const loadedCategories = savedCategories ? JSON.parse(savedCategories) : [
+        { id: '1', name: 'Allgemein', color: '#6366f1' },
+        { id: '2', name: 'Gesundheit', color: '#10b981' },
+        { id: '3', name: 'Lernen', color: '#ec4899' },
+      ];
+      setCategories(loadedCategories);
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  // Sync to LocalStorage if NOT logged in
+  useEffect(() => {
+    if (!user && !isLoading) {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      localStorage.setItem('categories', JSON.stringify(categories));
+    }
+  }, [tasks, categories, user, isLoading]);
+
+  // Firestore Realtime Listeners
+  useEffect(() => {
+    if (!user) return;
+
+    setIsLoading(true);
+
+    const tasksRef = collection(db, 'users', user.uid, 'tasks');
+    const unsubscribeTasks = onSnapshot(tasksRef, (snapshot) => {
+      const fbTasks = snapshot.docs.map(doc => doc.data());
+      setTasks(fbTasks);
     });
-    return loaded;
-  });
 
-  const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('categories');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'Allgemein', color: '#6366f1' },
-      { id: '2', name: 'Gesundheit', color: '#10b981' },
-      { id: '3', name: 'Lernen', color: '#ec4899' },
-    ];
-  });
+    const categoriesRef = collection(db, 'users', user.uid, 'categories');
+    const unsubscribeCategories = onSnapshot(categoriesRef, (snapshot) => {
+      let fbCategories = snapshot.docs.map(doc => doc.data());
+      // Fallback categories if empty
+      if (fbCategories.length === 0) {
+        fbCategories = [
+          { id: '1', name: 'Allgemein', color: '#6366f1' },
+          { id: '2', name: 'Gesundheit', color: '#10b981' },
+          { id: '3', name: 'Lernen', color: '#ec4899' }
+        ];
+        // Automatically save fallbacks
+        const batch = writeBatch(db);
+        fbCategories.forEach(cat => {
+          const catRef = doc(db, 'users', user.uid, 'categories', cat.id);
+          batch.set(catRef, cat);
+        });
+        batch.commit();
+      }
+      setCategories(fbCategories);
+      setIsLoading(false);
+    });
 
-  useEffect(() => {
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    // Check if we need to migrate local tasks to Firestore
+    const migrateLocalData = async () => {
+      const localTasksStr = localStorage.getItem('tasks');
+      const localTasks = localTasksStr ? JSON.parse(localTasksStr) : [];
+      
+      // If user has local tasks but just logged in, upload them once
+      if (localTasks.length > 0) {
+        const hasMigrated = localStorage.getItem('migrated_' + user.uid);
+        if (!hasMigrated) {
+          const batch = writeBatch(db);
+          localTasks.forEach(t => {
+            const tRef = doc(db, 'users', user.uid, 'tasks', t.id);
+            batch.set(tRef, t);
+          });
+          
+          const localCatsStr = localStorage.getItem('categories');
+          const localCats = localCatsStr ? JSON.parse(localCatsStr) : [];
+          localCats.forEach(c => {
+            const cRef = doc(db, 'users', user.uid, 'categories', c.id);
+            batch.set(cRef, c);
+          });
 
-  useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories));
-  }, [categories]);
+          await batch.commit();
+          localStorage.setItem('migrated_' + user.uid, 'true');
+        }
+      }
+    };
+    migrateLocalData();
+
+    return () => {
+      unsubscribeTasks();
+      unsubscribeCategories();
+    };
+  }, [user]);
 
   const getTodayDateString = () => format(new Date(), 'yyyy-MM-dd');
 
-  const addTask = (taskData) => {
+  // Firestore Sync Helper
+  const saveTaskToFirestore = async (taskData) => {
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'tasks', taskData.id), taskData);
+    }
+  };
+
+  const deleteTaskFromFirestore = async (taskId) => {
+    if (user) {
+      await deleteDoc(doc(db, 'users', user.uid, 'tasks', taskId));
+    }
+  };
+
+  const addTask = async (taskData) => {
     const newTask = {
       id: uuidv4(),
       title: taskData.title,
@@ -54,112 +149,127 @@ export const TaskProvider = ({ children }) => {
       targetCount: taskData.targetCount || 1,
       specificDays: taskData.specificDays || [],
       hasTimer: taskData.hasTimer !== undefined ? taskData.hasTimer : true,
-      subTasks: taskData.subTasks || [], // { id, title, completed }
+      subTasks: taskData.subTasks || [],
       completedDates: [],
-      timeSpent: 0, // total seconds historically
-      timerLogs: [], // Array of { date, timeSpent, amount }
-      averageSpeed: null, // e.g. "20.5 S/h"
+      timeSpent: 0,
+      timerLogs: [],
+      averageSpeed: null,
       createdAt: new Date().toISOString(),
     };
-    setTasks([...tasks, newTask]);
+    
+    if (!user) setTasks([...tasks, newTask]);
+    await saveTaskToFirestore(newTask);
   };
 
-  const updateTask = (id, updates) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, ...updates } : t));
+  const updateTask = async (id, updates) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const updatedTask = { ...task, ...updates };
+    
+    if (!user) setTasks(tasks.map(t => t.id === id ? updatedTask : t));
+    await saveTaskToFirestore(updatedTask);
   };
 
-  const deleteTask = (id) => {
-    setTasks(tasks.filter(t => t.id !== id));
+  const deleteTask = async (id) => {
+    if (!user) setTasks(tasks.filter(t => t.id !== id));
+    await deleteTaskFromFirestore(id);
   };
 
-  const toggleSubTask = (taskId, subTaskId) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId) {
-        const updatedSubTasks = task.subTasks.map(st => 
-          st.id === subTaskId ? { ...st, completed: !st.completed } : st
-        );
-        return { ...task, subTasks: updatedSubTasks };
+  const toggleSubTask = async (taskId, subTaskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const updatedSubTasks = task.subTasks.map(st => 
+      st.id === subTaskId ? { ...st, completed: !st.completed } : st
+    );
+    const updatedTask = { ...task, subTasks: updatedSubTasks };
+
+    if (!user) {
+      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+    }
+    await saveTaskToFirestore(updatedTask);
+  };
+
+  const toggleTaskCompletion = async (taskId, date = getTodayDateString()) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const allSubTasksCompleted = task.subTasks.every(st => st.completed);
+    if (!allSubTasksCompleted && task.subTasks.length > 0) return;
+
+    if (task.type === 'general') {
+      if (!user) setTasks(tasks.filter(t => t.id !== taskId));
+      await deleteTaskFromFirestore(taskId);
+      return;
+    }
+
+    const isCompletedOnDate = task.completedDates.includes(date);
+    let newCompletedDates;
+    let updatedTask;
+    
+    if (isCompletedOnDate) {
+      newCompletedDates = task.completedDates.filter(d => d !== date);
+      const newLogs = (task.timerLogs || []).filter(l => l.date !== date);
+      const totalSeconds = newLogs.reduce((acc, log) => acc + log.timeSpent, 0);
+      const totalAmount = newLogs.reduce((acc, log) => acc + log.amount, 0);
+      let averageSpeed = null;
+      if (totalAmount > 0 && totalSeconds > 0) {
+        const hours = totalSeconds / 3600;
+        const speed = (totalAmount / hours).toFixed(1);
+        averageSpeed = `${speed} S/h`;
       }
-      return task;
-    }));
+      updatedTask = { ...task, completedDates: newCompletedDates, timerLogs: newLogs, timeSpent: totalSeconds, averageSpeed };
+    } else {
+      newCompletedDates = [...task.completedDates, date];
+      updatedTask = { ...task, completedDates: newCompletedDates };
+    }
+
+    if (!user) {
+      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+    }
+    await saveTaskToFirestore(updatedTask);
   };
 
-  const toggleTaskCompletion = (taskId, date = getTodayDateString()) => {
-    let shouldDelete = false;
-
-    setTasks(prev => {
-      const taskIndex = prev.findIndex(t => t.id === taskId);
-      if (taskIndex === -1) return prev;
-      
-      const task = prev[taskIndex];
-      const allSubTasksCompleted = task.subTasks.every(st => st.completed);
-      if (!allSubTasksCompleted && task.subTasks.length > 0) {
-        return prev; 
-      }
-
-      // If general task, delete it permanently
-      if (task.type === 'general') {
-        return prev.filter(t => t.id !== taskId);
-      }
-
-      const isCompletedOnDate = task.completedDates.includes(date);
-      let newCompletedDates;
-      
-      if (isCompletedOnDate) {
-        newCompletedDates = task.completedDates.filter(d => d !== date);
-        
-        // Remove timerLogs for this date and recalculate stats
-        const newLogs = (task.timerLogs || []).filter(l => l.date !== date);
-        const totalSeconds = newLogs.reduce((acc, log) => acc + log.timeSpent, 0);
-        const totalAmount = newLogs.reduce((acc, log) => acc + log.amount, 0);
-        let averageSpeed = null;
-        if (totalAmount > 0 && totalSeconds > 0) {
-          const hours = totalSeconds / 3600;
-          const speed = (totalAmount / hours).toFixed(1);
-          averageSpeed = `${speed} S/h`;
-        }
-
-        const nextTasks = [...prev];
-        nextTasks[taskIndex] = { ...task, completedDates: newCompletedDates, timerLogs: newLogs, timeSpent: totalSeconds, averageSpeed };
-        return nextTasks;
-
-      } else {
-        newCompletedDates = [...task.completedDates, date];
-        const nextTasks = [...prev];
-        nextTasks[taskIndex] = { ...task, completedDates: newCompletedDates };
-        return nextTasks;
-      }
-    });
+  const addCategory = async (name, color) => {
+    const newCat = { id: uuidv4(), name, color };
+    if (!user) setCategories([...categories, newCat]);
+    
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'categories', newCat.id), newCat);
+    }
   };
 
-  const addCategory = (name, color) => {
-    setCategories([...categories, { id: uuidv4(), name, color }]);
+  const deleteCategory = async (id) => {
+    if (!user) setCategories(categories.filter(c => c.id !== id));
+    
+    if (user) {
+      await deleteDoc(doc(db, 'users', user.uid, 'categories', id));
+    }
   };
 
-  const deleteCategory = (id) => {
-    setCategories(categories.filter(c => c.id !== id));
-  };
+  const saveTimerSession = async (taskId, timeSpent, amount = null, date = getTodayDateString()) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
-  const saveTimerSession = (taskId, timeSpent, amount = null, date = getTodayDateString()) => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        const newLog = { date, timeSpent, amount: amount ? parseFloat(amount) : 0 };
-        const updatedLogs = [...(task.timerLogs || []), newLog];
-        
-        const totalSeconds = updatedLogs.reduce((acc, log) => acc + log.timeSpent, 0);
-        const totalAmount = updatedLogs.reduce((acc, log) => acc + log.amount, 0);
-        
-        let averageSpeed = task.averageSpeed;
-        if (totalAmount > 0 && totalSeconds > 0) {
-          const hours = totalSeconds / 3600;
-          const speed = (totalAmount / hours).toFixed(1);
-          averageSpeed = `${speed} S/h`;
-        }
-        
-        return { ...task, timeSpent: totalSeconds, timerLogs: updatedLogs, averageSpeed };
-      }
-      return task;
-    }));
+    const newLog = { date, timeSpent, amount: amount ? parseFloat(amount) : 0 };
+    const updatedLogs = [...(task.timerLogs || []), newLog];
+    
+    const totalSeconds = updatedLogs.reduce((acc, log) => acc + log.timeSpent, 0);
+    const totalAmount = updatedLogs.reduce((acc, log) => acc + log.amount, 0);
+    
+    let averageSpeed = task.averageSpeed;
+    if (totalAmount > 0 && totalSeconds > 0) {
+      const hours = totalSeconds / 3600;
+      const speed = (totalAmount / hours).toFixed(1);
+      averageSpeed = `${speed} S/h`;
+    }
+    
+    const updatedTask = { ...task, timeSpent: totalSeconds, timerLogs: updatedLogs, averageSpeed };
+
+    if (!user) {
+      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+    }
+    await saveTaskToFirestore(updatedTask);
   };
 
   return (
@@ -174,7 +284,8 @@ export const TaskProvider = ({ children }) => {
       addCategory,
       deleteCategory,
       saveTimerSession,
-      getTodayDateString
+      getTodayDateString,
+      isLoading
     }}>
       {children}
     </TaskContext.Provider>

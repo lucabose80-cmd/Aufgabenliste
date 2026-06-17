@@ -7,10 +7,12 @@ import YearTracker from './components/YearTracker';
 import CategoriesManager from './components/CategoriesManager';
 import TaskCreator from './components/TaskCreator';
 import Statistics from './components/Statistics';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user, loginWithGoogle, logout } = useAuth();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -58,6 +60,16 @@ function MainApp() {
             </button>
             <h1 className="header-title">{getViewTitle()}</h1>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {user ? (
+              <>
+                <img src={user.photoURL} alt="Profile" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                <button className="btn btn-secondary" onClick={logout} style={{ padding: '0.5rem 1rem' }}>Logout</button>
+              </>
+            ) : (
+              <button className="btn btn-primary" onClick={loginWithGoogle} style={{ padding: '0.5rem 1rem' }}>Login mit Google</button>
+            )}
+          </div>
         </header>
         {renderContent()}
       </main>
@@ -67,9 +79,11 @@ function MainApp() {
 
 function App() {
   return (
-    <TaskProvider>
-      <MainApp />
-    </TaskProvider>
+    <AuthProvider>
+      <TaskProvider>
+        <MainApp />
+      </TaskProvider>
+    </AuthProvider>
   );
 }
 
