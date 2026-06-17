@@ -6,7 +6,10 @@ import { format, parseISO } from 'date-fns';
 const ReadingSpeed = () => {
   const { readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession } = useTaskContext();
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerSeconds, setTimerSeconds] = useState(0); // Display seconds
+  const [startTime, setStartTime] = useState(null);
+  const [accumulatedTime, setAccumulatedTime] = useState(0);
+  
   const [amount, setAmount] = useState('');
   const [showAmountField, setShowAmountField] = useState(false);
 
@@ -16,25 +19,46 @@ const ReadingSpeed = () => {
   const [editAmount, setEditAmount] = useState('');
 
   useEffect(() => {
-    let interval = null;
+    let animationFrameId;
+
+    const updateTimer = () => {
+      if (isTimerRunning && startTime) {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        setTimerSeconds(accumulatedTime + elapsed);
+        animationFrameId = requestAnimationFrame(updateTimer);
+      }
+    };
+
     if (isTimerRunning) {
-      interval = setInterval(() => {
-        setTimerSeconds(s => s + 1);
-      }, 1000);
-    } else if (!isTimerRunning && timerSeconds !== 0) {
-      clearInterval(interval);
+      animationFrameId = requestAnimationFrame(updateTimer);
     }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timerSeconds]);
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [isTimerRunning, startTime, accumulatedTime]);
+
+  const handleStartTimer = () => {
+    setStartTime(Date.now());
+    setIsTimerRunning(true);
+  };
 
   const handleStopTimer = () => {
     setIsTimerRunning(false);
+    if (startTime) {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setAccumulatedTime(prev => prev + elapsed);
+      setTimerSeconds(accumulatedTime + elapsed);
+    }
+    setStartTime(null);
     setShowAmountField(true);
   };
 
   const handleSaveInfo = () => {
     saveReadingSession(timerSeconds, amount);
     setTimerSeconds(0);
+    setAccumulatedTime(0);
     setShowAmountField(false);
     setAmount('');
   };
@@ -81,7 +105,7 @@ const ReadingSpeed = () => {
                   <Square size={24} fill="currentColor" /> Stoppen
                 </button>
               ) : (
-                <button onClick={() => setIsTimerRunning(true)} style={{ background: 'var(--accent-success)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem' }}>
+                <button onClick={handleStartTimer} style={{ background: 'var(--accent-success)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem' }}>
                   <Play size={24} fill="currentColor" /> {timerSeconds === 0 ? 'Starten' : 'Fortsetzen'}
                 </button>
               )

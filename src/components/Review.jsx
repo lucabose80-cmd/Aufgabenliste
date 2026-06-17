@@ -49,9 +49,8 @@ const Review = () => {
   const totalWeeks = Object.keys(weeklySums).length;
   const successfulWeeks = Object.values(weeklySums).filter(sum => sum <= 0).length;
   
-  // 4. Längster aktueller Streak (nur zur Info, da wir Streaks aktuell über die ganze Zeit rechnen)
-  let bestStreak = 0;
-  let bestStreakTask = '';
+  // 4. Längste aktuelle Streaks (nur zur Info, da wir Streaks aktuell über die ganze Zeit rechnen)
+  const allStreaks = [];
 
   tasks.filter(t => t.type === 'daily').forEach(task => {
     const completedDates = task.completedDates || [];
@@ -80,11 +79,13 @@ const Review = () => {
       }
     }
 
-    if (streak > bestStreak) {
-      bestStreak = streak;
-      bestStreakTask = task.title;
+    if (streak > 0) {
+      allStreaks.push({ title: task.title, streak });
     }
   });
+
+  allStreaks.sort((a, b) => b.streak - a.streak);
+  const topStreaks = allStreaks.slice(0, 3);
 
   // --- Chart Data ---
   const readingData = [];
@@ -217,15 +218,21 @@ const Review = () => {
       {/* Highlights */}
       <div className="card">
         <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Award color="var(--accent-warning)" /> Highlights
+          <Award color="var(--accent-warning)" /> Highlights (Top Streaks)
         </h2>
-        {bestStreak > 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '2rem' }}>🔥</div>
-            <div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Längster aktiver Streak</div>
-              <div style={{ color: 'var(--text-muted)' }}>Du hast <strong>{bestStreakTask}</strong> schon {bestStreak} Tage in Folge geschafft!</div>
-            </div>
+        {topStreaks.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {topStreaks.map((s, index) => (
+              <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '2rem' }}>
+                  {index === 0 ? '🔥' : index === 1 ? '✨' : '⭐'}
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{s.title}</div>
+                  <div style={{ color: 'var(--text-muted)' }}>Schon <strong>{s.streak} Tage</strong> in Folge geschafft!</div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <p style={{ color: 'var(--text-muted)' }}>Noch keine aktiven Streaks (tägliche Aufgaben an aufeinanderfolgenden Tagen) vorhanden.</p>

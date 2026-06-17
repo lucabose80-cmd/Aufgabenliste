@@ -142,7 +142,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
                 gap: '0.5rem'
               }}>
                 {task.title}
-                {streak >= 2 && (
+                {streak > 0 && (
                   <span title={`${streak} Tage in Folge!`} style={{ display: 'flex', alignItems: 'center', fontSize: '0.85rem', color: 'var(--accent-danger)', background: 'var(--bg-main)', padding: '0.1rem 0.4rem', borderRadius: '50px', border: '1px solid var(--border-color)' }}>
                     <Flame size={14} style={{ marginRight: '2px' }} /> {streak}
                   </span>
