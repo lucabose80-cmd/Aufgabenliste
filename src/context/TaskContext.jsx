@@ -107,13 +107,28 @@ export const TaskProvider = ({ children }) => {
       
       if (isCompletedOnDate) {
         newCompletedDates = task.completedDates.filter(d => d !== date);
+        
+        // Remove timerLogs for this date and recalculate stats
+        const newLogs = (task.timerLogs || []).filter(l => l.date !== date);
+        const totalSeconds = newLogs.reduce((acc, log) => acc + log.timeSpent, 0);
+        const totalAmount = newLogs.reduce((acc, log) => acc + log.amount, 0);
+        let averageSpeed = null;
+        if (totalAmount > 0 && totalSeconds > 0) {
+          const hours = totalSeconds / 3600;
+          const speed = (totalAmount / hours).toFixed(1);
+          averageSpeed = `${speed} S/h`;
+        }
+
+        const nextTasks = [...prev];
+        nextTasks[taskIndex] = { ...task, completedDates: newCompletedDates, timerLogs: newLogs, timeSpent: totalSeconds, averageSpeed };
+        return nextTasks;
+
       } else {
         newCompletedDates = [...task.completedDates, date];
+        const nextTasks = [...prev];
+        nextTasks[taskIndex] = { ...task, completedDates: newCompletedDates };
+        return nextTasks;
       }
-      
-      const nextTasks = [...prev];
-      nextTasks[taskIndex] = { ...task, completedDates: newCompletedDates };
-      return nextTasks;
     });
   };
 
@@ -125,11 +140,10 @@ export const TaskProvider = ({ children }) => {
     setCategories(categories.filter(c => c.id !== id));
   };
 
-  const saveTimerSession = (taskId, timeSpent, amount = null) => {
-    const today = getTodayDateString();
+  const saveTimerSession = (taskId, timeSpent, amount = null, date = getTodayDateString()) => {
     setTasks(prev => prev.map(task => {
       if (task.id === taskId) {
-        const newLog = { date: today, timeSpent, amount: amount ? parseFloat(amount) : 0 };
+        const newLog = { date, timeSpent, amount: amount ? parseFloat(amount) : 0 };
         const updatedLogs = [...(task.timerLogs || []), newLog];
         
         const totalSeconds = updatedLogs.reduce((acc, log) => acc + log.timeSpent, 0);
