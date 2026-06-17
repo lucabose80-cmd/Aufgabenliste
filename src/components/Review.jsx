@@ -1,0 +1,173 @@
+import React, { useState } from 'react';
+import { useTaskContext } from '../context/TaskContext';
+import { Calendar, CheckSquare, BookOpen, Flame, Award } from 'lucide-react';
+import { format, isSameMonth, isSameYear, parseISO, subDays } from 'date-fns';
+import { de } from 'date-fns/locale';
+
+const Review = () => {
+  const { tasks, readingSessions, calorieLogs } = useTaskContext();
+  const [viewMode, setViewMode] = useState('month'); // 'month' or 'year'
+
+  const today = new Date();
+
+  // Filter Logik
+  const isDateInView = (dateStr) => {
+    if (!dateStr) return false;
+    const date = parseISO(dateStr);
+    if (viewMode === 'month') return isSameMonth(date, today);
+    return isSameYear(date, today);
+  };
+
+  // 1. Aufgaben (Tasks)
+  let totalTasksCompleted = 0;
+  tasks.forEach(task => {
+    task.completedDates.forEach(dateStr => {
+      if (isDateInView(dateStr)) {
+        totalTasksCompleted++;
+      }
+    });
+  });
+
+  // 2. Lese-Statistik
+  const filteredReading = readingSessions.filter(session => isDateInView(session.date));
+  const totalReadingAmount = filteredReading.reduce((acc, s) => acc + s.amount, 0);
+  const totalReadingSeconds = filteredReading.reduce((acc, s) => acc + s.timeSpent, 0);
+  const totalReadingHours = (totalReadingSeconds / 3600).toFixed(1);
+
+  // 3. Kalorien
+  const filteredCalories = calorieLogs.filter(log => isDateInView(log.date));
+  const calorieBalance = filteredCalories.reduce((acc, l) => acc + l.difference, 0);
+  
+  // 4. Längster aktueller Streak (nur zur Info, da wir Streaks aktuell über die ganze Zeit rechnen)
+  let bestStreak = 0;
+  let bestStreakTask = '';
+
+  tasks.filter(t => t.type === 'daily').forEach(task => {
+    const completedDates = task.completedDates || [];
+    if (completedDates.length === 0) return;
+
+    let streak = 0;
+    let checkDate = new Date(); 
+    const todayStr = format(checkDate, 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(checkDate, 1), 'yyyy-MM-dd');
+
+    if (!completedDates.includes(todayStr) && !completedDates.includes(yesterdayStr)) {
+      return;
+    }
+
+    if (!completedDates.includes(todayStr)) {
+      checkDate = subDays(checkDate, 1);
+    }
+
+    while (true) {
+      const dateStr = format(checkDate, 'yyyy-MM-dd');
+      if (completedDates.includes(dateStr)) {
+        streak++;
+        checkDate = subDays(checkDate, 1);
+      } else {
+        break;
+      }
+    }
+
+    if (streak > bestStreak) {
+      bestStreak = streak;
+      bestStreakTask = task.title;
+    }
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
+      
+      <div style={{ display: 'flex', gap: '1rem', backgroundColor: 'var(--bg-card)', padding: '0.5rem', borderRadius: 'var(--border-radius)', width: 'fit-content' }}>
+        <button 
+          onClick={() => setViewMode('month')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            borderRadius: 'var(--border-radius)',
+            border: 'none',
+            background: viewMode === 'month' ? 'var(--accent-primary)' : 'transparent',
+            color: viewMode === 'month' ? 'white' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {format(today, 'MMMM', { locale: de })}
+        </button>
+        <button 
+          onClick={() => setViewMode('year')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            borderRadius: 'var(--border-radius)',
+            border: 'none',
+            background: viewMode === 'year' ? 'var(--accent-primary)' : 'transparent',
+            color: viewMode === 'year' ? 'white' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {format(today, 'yyyy')}
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+        
+        {/* Card 1: Aufgaben */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
+          <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '50%' }}>
+            <CheckSquare size={32} color="var(--accent-primary)" />
+          </div>
+          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Aufgaben erledigt</h3>
+          <span style={{ fontSize: '3rem', fontWeight: 'bold' }}>{totalTasksCompleted}</span>
+        </div>
+
+        {/* Card 2: Lesen */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
+          <div style={{ padding: '1rem', background: 'rgba(236, 72, 153, 0.1)', borderRadius: '50%' }}>
+            <BookOpen size={32} color="#ec4899" />
+          </div>
+          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Gelesen</h3>
+          <span style={{ fontSize: '3rem', fontWeight: 'bold', color: '#ec4899' }}>{totalReadingAmount} <span style={{ fontSize: '1rem', color: 'var(--text-main)' }}>S.</span></span>
+          <span style={{ color: 'var(--text-muted)' }}>in {totalReadingHours} Stunden</span>
+        </div>
+
+        {/* Card 3: Kalorien */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
+          <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '50%' }}>
+            <Flame size={32} color="var(--accent-danger)" />
+          </div>
+          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Kalorien-Bilanz</h3>
+          <span style={{ 
+            fontSize: '3rem', 
+            fontWeight: 'bold', 
+            color: calorieBalance > 0 ? 'var(--accent-danger)' : (calorieBalance < 0 ? 'var(--accent-success)' : 'var(--text-main)') 
+          }}>
+            {calorieBalance > 0 ? '+' : ''}{calorieBalance}
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>kcal insgesamt</span>
+        </div>
+
+      </div>
+
+      {/* Highlights */}
+      <div className="card">
+        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Award color="var(--accent-warning)" /> Highlights
+        </h2>
+        {bestStreak > 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '2rem' }}>🔥</div>
+            <div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Längster aktiver Streak</div>
+              <div style={{ color: 'var(--text-muted)' }}>Du hast <strong>{bestStreakTask}</strong> schon {bestStreak} Tage in Folge geschafft!</div>
+            </div>
+          </div>
+        ) : (
+          <p style={{ color: 'var(--text-muted)' }}>Noch keine aktiven Streaks (tägliche Aufgaben an aufeinanderfolgenden Tagen) vorhanden.</p>
+        )}
+      </div>
+
+    </div>
+  );
+};
+
+export default Review;

@@ -197,10 +197,10 @@ export const TaskProvider = ({ children }) => {
       hasTimer: false,
       subTasks: taskData.subTasks || [],
       completedDates: [],
-      timeSpent: 0,
       timerLogs: [],
       averageSpeed: null,
       createdAt: new Date().toISOString(),
+      order: Date.now(),
     };
     
     if (!user) setTasks([...tasks, newTask]);
@@ -214,6 +214,52 @@ export const TaskProvider = ({ children }) => {
     
     if (!user) setTasks(tasks.map(t => t.id === id ? updatedTask : t));
     await saveTaskToFirestore(updatedTask);
+  };
+
+  const reorderTasks = async (activeId, overId) => {
+    const oldIndex = tasks.findIndex(t => t.id === activeId);
+    const newIndex = tasks.findIndex(t => t.id === overId);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Wir erstellen ein sortiertes Array aller Tasks
+    // Zuerst sortieren wir sie logisch nach order
+    const sortedTasks = [...tasks].sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    const activeTask = tasks.find(t => t.id === activeId);
+    const overTask = tasks.find(t => t.id === overId);
+
+    const activeSortedIndex = sortedTasks.findIndex(t => t.id === activeId);
+    const overSortedIndex = sortedTasks.findIndex(t => t.id === overId);
+
+    // Array reordering
+    const newSorted = [...sortedTasks];
+    const [moved] = newSorted.splice(activeSortedIndex, 1);
+    newSorted.splice(overSortedIndex, 0, moved);
+
+    // Update order values sequentially to preserve order
+    const updatedTasks = newSorted.map((t, index) => ({
+      ...t,
+      order: index * 1000 // Multiplizieren um Lücken zu lassen (optional, aber gut)
+    }));
+
+    // Update local state immediately for smooth UI
+    setTasks(currentTasks => {
+      return currentTasks.map(t => {
+        const update = updatedTasks.find(ut => ut.id === t.id);
+        return update ? { ...t, order: update.order } : t;
+      });
+    });
+
+    // Sync to Firestore using writeBatch for performance
+    if (user) {
+      const batch = writeBatch(db);
+      updatedTasks.forEach(t => {
+        const ref = doc(db, 'users', user.uid, 'tasks', t.id);
+        batch.update(ref, { order: t.order });
+      });
+      await batch.commit();
+    }
   };
 
   const deleteTask = async (id) => {
@@ -387,6 +433,7 @@ export const TaskProvider = ({ children }) => {
       deleteTask,
       toggleSubTask,
       toggleTaskCompletion,
+      reorderTasks,
       addCategory,
       updateCategory,
       deleteCategory,

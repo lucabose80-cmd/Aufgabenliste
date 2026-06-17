@@ -7,9 +7,11 @@ import YearTracker from './components/YearTracker';
 import CategoriesManager from './components/CategoriesManager';
 import TaskCreator from './components/TaskCreator';
 import Statistics from './components/Statistics';
+import Review from './components/Review';
 import ReadingSpeed from './components/ReadingSpeed';
 import Calories from './components/Calories';
 import AuthModal from './components/AuthModal';
+import NotificationManager from './components/NotificationManager';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { User } from 'lucide-react';
 
@@ -25,6 +27,8 @@ function MainApp() {
     switch (currentView) {
       case 'home':
         return <TaskGrid view="all" />;
+      case 'review':
+        return <Review />;
       case 'create':
         return <TaskCreator />;
       case 'tracker':
@@ -45,6 +49,7 @@ function MainApp() {
   const getViewTitle = () => {
     switch (currentView) {
       case 'home': return 'Startseite';
+      case 'review': return 'Monats- & Jahresrückblick';
       case 'create': return 'Neue Aufgabe erstellen';
       case 'tracker': return 'Jahres-Tracker';
       case 'statistics': return 'Statistiken';
@@ -57,6 +62,7 @@ function MainApp() {
 
   return (
     <div className="app-container">
+      <NotificationManager />
       <Sidebar 
         currentView={currentView} 
         setCurrentView={setCurrentView} 
