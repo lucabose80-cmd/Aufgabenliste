@@ -3,8 +3,8 @@ import { useTaskContext } from '../context/TaskContext';
 import { Trash2, Clock, Check, ChevronDown, ChevronRight, Play, Square, Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-const TaskItem = ({ task }) => {
-  const { toggleTaskCompletion, toggleSubTask, deleteTask, getTodayDateString, saveTimerSession } = useTaskContext();
+const TaskItem = ({ task, isWrongDay }) => {
+  const { toggleTaskCompletion, toggleSubTask, getTodayDateString, saveTimerSession } = useTaskContext();
   const [expanded, setExpanded] = useState(false);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -47,7 +47,7 @@ const TaskItem = ({ task }) => {
   };
 
   return (
-    <div className="task-item card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%', opacity: isCompleted ? 0.5 : 1 }}>
+    <div className="task-item card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%', opacity: (isCompleted || isWrongDay) ? 0.5 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
           <button 
@@ -92,9 +92,6 @@ const TaskItem = ({ task }) => {
           </div>
         </div>
         
-        <button className="btn-icon" onClick={() => deleteTask(task.id)} style={{ color: 'var(--accent-danger)' }}>
-          <Trash2 size={18} />
-        </button>
       </div>
 
       <div style={{ flex: 1 }}>
@@ -184,10 +181,11 @@ const TaskGrid = () => {
   // Enrich tasks and filter based on advanced logic
   const filteredTasks = tasks.map(t => {
     const cat = categories.find(c => c.id === t.categoryId);
-    return { ...t, categoryColor: cat ? cat.color : 'var(--border-color)' };
+    const isWrongDay = t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek);
+    return { ...t, categoryColor: cat ? cat.color : 'var(--border-color)', isWrongDay };
   }).filter(t => {
     // 1. Wrong day for specific-days
-    if (t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek)) {
+    if (t.isWrongDay && !showCompleted) {
       return false; 
     }
 
@@ -239,7 +237,7 @@ const TaskGrid = () => {
             </h2>
             <div className="task-grid">
               {typeTasks.map(task => (
-                <TaskItem key={task.id} task={task} />
+                <TaskItem key={task.id} task={task} isWrongDay={task.isWrongDay} />
               ))}
             </div>
           </div>

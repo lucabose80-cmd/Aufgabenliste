@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save } from 'lucide-react';
 import { useTaskContext } from '../context/TaskContext';
 
 const TaskCreator = () => {
-  const { addTask, categories } = useTaskContext();
+  const { addTask, updateTask, deleteTask, tasks, categories } = useTaskContext();
+  
+  const [editingTaskId, setEditingTaskId] = useState(null);
   
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState(categories[0]?.id || '1');
@@ -34,13 +36,16 @@ const TaskCreator = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const formattedSubTasks = subTasks.map(s => ({ 
-      id: Math.random().toString(), 
-      title: s, 
-      completed: false 
-    }));
+    const existingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : null;
+    const existingSubTasks = existingTask ? existingTask.subTasks : [];
 
-    addTask({
+    const formattedSubTasks = subTasks.map(s => {
+      const existing = existingSubTasks.find(st => st.title === s);
+      if (existing) return existing;
+      return { id: Math.random().toString(), title: s, completed: false };
+    });
+
+    const taskPayload = {
       title,
       categoryId,
       type,
@@ -48,19 +53,49 @@ const TaskCreator = () => {
       specificDays: type === 'specific-days' ? specificDays : [],
       hasTimer,
       subTasks: formattedSubTasks
-    });
+    };
 
+    if (editingTaskId) {
+      updateTask(editingTaskId, taskPayload);
+      alert('Aufgabe erfolgreich aktualisiert!');
+    } else {
+      addTask(taskPayload);
+      alert('Aufgabe erfolgreich erstellt!');
+    }
+
+    setEditingTaskId(null);
     setTitle('');
     setSubTasks([]);
     setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
-    alert('Aufgabe erfolgreich erstellt!');
+  };
+
+  const handleEdit = (task) => {
+    setEditingTaskId(task.id);
+    setTitle(task.title);
+    setCategoryId(task.categoryId);
+    setType(task.type);
+    setTargetCount(task.targetCount);
+    setSpecificDays(task.specificDays);
+    setSubTasks(task.subTasks.map(st => st.title));
+    setHasTimer(task.hasTimer);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTaskId(null);
+    setTitle('');
+    setSubTasks([]);
+    setCurrentSubTask('');
+    setSpecificDays([]);
+    setTargetCount(1);
   };
 
   return (
-    <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h3 style={{ marginBottom: '1.5rem' }}>Neue Aufgabe erstellen</h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="card">
+        <h3 style={{ marginBottom: '1.5rem' }}>{editingTaskId ? 'Aufgabe bearbeiten' : 'Neue Aufgabe erstellen'}</h3>
       
       <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
@@ -195,11 +230,67 @@ const TaskCreator = () => {
           <label htmlFor="hasTimer" style={{ fontSize: '0.95rem' }}>Timer & Infos für diese Aufgabe aktivieren</label>
         </div>
 
-        <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start', marginTop: '1rem', padding: '0.75rem 1.5rem' }}>
-          <Plus size={20} /> Aufgabe erstellen
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+          <button type="submit" className="btn-primary" style={{ padding: '0.75rem 1.5rem', flex: 1, display: 'flex', justifyContent: 'center' }}>
+            {editingTaskId ? <><Save size={20} /> Aktualisieren</> : <><Plus size={20} /> Aufgabe erstellen</>}
+          </button>
+          {editingTaskId && (
+            <button type="button" onClick={handleCancelEdit} style={{ padding: '0.75rem 1.5rem', flex: 1, border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer' }}>
+              Abbrechen
+            </button>
+          )}
+        </div>
       </form>
     </div>
+
+    {/* LIST OF ALL TASKS TO EDIT/DELETE */}
+    <div className="card">
+      <h3 style={{ marginBottom: '1.5rem' }}>Alle Aufgaben verwalten</h3>
+      {tasks.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)' }}>Keine Aufgaben vorhanden.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {tasks.map(task => (
+            <div key={task.id} style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              padding: '1rem',
+              backgroundColor: 'var(--bg-main)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--border-radius)'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <span style={{ fontWeight: '600', fontSize: '1.05rem' }}>{task.title}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Typ: {task.type}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  onClick={() => handleEdit(task)}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', padding: '0.5rem' }}
+                  title="Bearbeiten"
+                >
+                  <Edit2 size={18} />
+                </button>
+                <button 
+                  onClick={() => {
+                    if(window.confirm('Aufgabe wirklich endgültig löschen?')) {
+                      deleteTask(task.id);
+                      if (editingTaskId === task.id) handleCancelEdit();
+                    }
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', cursor: 'pointer', padding: '0.5rem' }}
+                  title="Löschen"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
   );
 };
 
