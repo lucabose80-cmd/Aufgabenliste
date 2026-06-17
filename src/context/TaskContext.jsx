@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs } from 'firebase/firestore';
 
 const TaskContext = createContext();
 
@@ -70,53 +70,58 @@ export const TaskProvider = ({ children }) => {
 
     const categoriesRef = collection(db, 'users', user.uid, 'categories');
     const unsubscribeCategories = onSnapshot(categoriesRef, (snapshot) => {
-      let fbCategories = snapshot.docs.map(doc => doc.data());
-      // Fallback categories if empty
-      if (fbCategories.length === 0) {
-        fbCategories = [
-          { id: '1', name: 'Allgemein', color: '#6366f1' },
-          { id: '2', name: 'Gesundheit', color: '#10b981' },
-          { id: '3', name: 'Lernen', color: '#ec4899' }
-        ];
-        // Automatically save fallbacks
-        const batch = writeBatch(db);
-        fbCategories.forEach(cat => {
-          const catRef = doc(db, 'users', user.uid, 'categories', cat.id);
-          batch.set(catRef, cat);
-        });
-        batch.commit();
-      }
+      const fbCategories = snapshot.docs.map(doc => doc.data());
       setCategories(fbCategories);
       setIsLoading(false);
     });
 
     // Check if we need to migrate local tasks to Firestore
     const migrateLocalData = async () => {
-      const localTasksStr = localStorage.getItem('tasks');
-      const localTasks = localTasksStr ? JSON.parse(localTasksStr) : [];
-      
-      // If user has local tasks but just logged in, upload them once
-      if (localTasks.length > 0) {
-        const hasMigrated = localStorage.getItem('migrated_' + user.uid);
-        if (!hasMigrated) {
-          const batch = writeBatch(db);
-          localTasks.forEach(t => {
-            const tRef = doc(db, 'users', user.uid, 'tasks', t.id);
-            batch.set(tRef, t);
-          });
-          
-          const localCatsStr = localStorage.getItem('categories');
-          const localCats = localCatsStr ? JSON.parse(localCatsStr) : [];
-          localCats.forEach(c => {
-            const cRef = doc(db, 'users', user.uid, 'categories', c.id);
-            batch.set(cRef, c);
-          });
+      const hasMigrated = localStorage.getItem('migrated_' + user.uid);
+      if (hasMigrated) return;
 
-          await batch.commit();
+      try {
+        // Check if cloud already has data (meaning another device already migrated)
+        const snap = await getDocs(categoriesRef);
+        
+        if (!snap.empty) {
+          // Cloud already has data! Do not migrate local data to avoid overwriting.
           localStorage.setItem('migrated_' + user.uid, 'true');
+          return;
         }
+
+        const localTasksStr = localStorage.getItem('tasks');
+        const localTasks = localTasksStr ? JSON.parse(localTasksStr) : [];
+        const localCatsStr = localStorage.getItem('categories');
+        let localCats = localCatsStr ? JSON.parse(localCatsStr) : [];
+
+        // If local is completely empty too, just set some defaults
+        if (localCats.length === 0) {
+          localCats = [
+            { id: '1', name: 'Allgemein', color: '#6366f1' },
+            { id: '2', name: 'Gesundheit', color: '#10b981' },
+            { id: '3', name: 'Lernen', color: '#ec4899' }
+          ];
+        }
+
+        const batch = writeBatch(db);
+        localTasks.forEach(t => {
+          const tRef = doc(db, 'users', user.uid, 'tasks', t.id);
+          batch.set(tRef, t);
+        });
+        
+        localCats.forEach(c => {
+          const cRef = doc(db, 'users', user.uid, 'categories', c.id);
+          batch.set(cRef, c);
+        });
+
+        await batch.commit();
+        localStorage.setItem('migrated_' + user.uid, 'true');
+      } catch (err) {
+        console.error("Migration failed:", err);
       }
     };
+    
     migrateLocalData();
 
     return () => {
@@ -240,10 +245,14 @@ export const TaskProvider = ({ children }) => {
   };
 
   const deleteCategory = async (id) => {
-    // Reassign tasks to category '1' (Allgemein) before deleting
+    // Reassign tasks to the first available category before deleting
+    const fallbackCategory = categories.find(c => c.id !== id);
+    if (!fallbackCategory) return;
+    const fallbackId = fallbackCategory.id;
+
     const tasksToUpdate = tasks.filter(t => t.categoryId === id);
     for (const t of tasksToUpdate) {
-      await updateTask(t.id, { categoryId: '1' });
+      await updateTask(t.id, { categoryId: fallbackId });
     }
 
     if (!user) setCategories(categories.filter(c => c.id !== id));
