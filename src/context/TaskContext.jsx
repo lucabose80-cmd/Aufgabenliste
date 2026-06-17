@@ -240,10 +240,27 @@ export const TaskProvider = ({ children }) => {
   };
 
   const deleteCategory = async (id) => {
+    // Reassign tasks to category '1' (Allgemein) before deleting
+    const tasksToUpdate = tasks.filter(t => t.categoryId === id);
+    for (const t of tasksToUpdate) {
+      await updateTask(t.id, { categoryId: '1' });
+    }
+
     if (!user) setCategories(categories.filter(c => c.id !== id));
     
     if (user) {
       await deleteDoc(doc(db, 'users', user.uid, 'categories', id));
+    }
+  };
+
+  const updateCategory = async (id, name, color) => {
+    const updatedCat = { id, name, color };
+    if (!user) {
+      setCategories(categories.map(c => c.id === id ? updatedCat : c));
+    }
+    
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'categories', id), updatedCat);
     }
   };
 
@@ -282,6 +299,7 @@ export const TaskProvider = ({ children }) => {
       toggleSubTask,
       toggleTaskCompletion,
       addCategory,
+      updateCategory,
       deleteCategory,
       saveTimerSession,
       getTodayDateString,
