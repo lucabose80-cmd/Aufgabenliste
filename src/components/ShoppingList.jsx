@@ -1,87 +1,124 @@
 import React, { useState, useEffect } from 'react';
-import { useTaskContext } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { ShoppingCart, LogOut, Plus, Trash2, Check, Share2, Copy } from 'lucide-react';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, updateDoc, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { ShoppingCart, LogOut, Plus, Trash2, Check, UserPlus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const ShoppingList = () => {
-  const { shoppingListId, updateShoppingListId } = useTaskContext();
   const { user } = useAuth();
   
+  const [activeList, setActiveList] = useState(null);
   const [items, setItems] = useState([]);
   const [newItemText, setNewItemText] = useState('');
-  const [joinCode, setJoinCode] = useState('');
-  const [copied, setCopied] = useState(false);
+  
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUserToInvite, setSelectedUserToInvite] = useState('');
+  const [isListLoading, setIsListLoading] = useState(true);
 
-  // Subscribe to items if we have an active list
+  // 1. Listen to shared lists where user is a member
   useEffect(() => {
-    if (!user || !shoppingListId) {
+    if (!user) {
+      setActiveList(null);
+      setIsListLoading(false);
+      return;
+    }
+
+    const listsRef = collection(db, 'shared_lists');
+    const q = query(listsRef, where('members', 'array-contains', user.uid));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        // Assume user is only in one list
+        const listDoc = snapshot.docs[0];
+        setActiveList({ id: listDoc.id, ...listDoc.data() });
+      } else {
+        setActiveList(null);
+      }
+      setIsListLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // 2. Fetch all registered users for the dropdown
+  useEffect(() => {
+    if (!user || !activeList) return;
+
+    const fetchUsers = async () => {
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const usersList = [];
+        usersSnap.forEach(doc => {
+          const u = doc.data();
+          // Filter out current user and existing members
+          if (u.uid !== user.uid && !activeList.members?.includes(u.uid)) {
+            usersList.push(u);
+          }
+        });
+        setAllUsers(usersList);
+        if (usersList.length > 0) setSelectedUserToInvite(usersList[0].uid);
+      } catch (err) {
+        console.error("Fehler beim Laden der Benutzer:", err);
+      }
+    };
+    
+    fetchUsers();
+  }, [user, activeList]);
+
+  // 3. Listen to items of the active list
+  useEffect(() => {
+    if (!user || !activeList) {
       setItems([]);
       return;
     }
 
-    const itemsRef = collection(db, 'shared_lists', shoppingListId, 'items');
+    const itemsRef = collection(db, 'shared_lists', activeList.id, 'items');
     const q = query(itemsRef, orderBy('createdAt', 'desc'));
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeItems = onSnapshot(q, (snapshot) => {
       const loadedItems = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setItems(loadedItems);
-    }, (err) => {
-      console.error("Error loading shared list:", err);
-      // Fallback if list doesn't exist or permissions fail
-      if (err.code === 'permission-denied') {
-        alert("Zugriff auf diese Liste verweigert oder Liste existiert nicht.");
-        updateShoppingListId('');
-      }
     });
 
-    return () => unsubscribe();
-  }, [user, shoppingListId]);
-
-  const generateShortId = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
+    return () => unsubscribeItems();
+  }, [user, activeList]);
 
   const handleCreateList = async () => {
-    if (!user) {
-      alert("Bitte logge dich ein, um eine gemeinsame Liste zu erstellen.");
-      return;
-    }
-    const newListId = generateShortId();
-    // We create a dummy doc to initialize the list
+    if (!user) return;
+    const newListId = uuidv4();
     await setDoc(doc(db, 'shared_lists', newListId), {
       createdBy: user.uid,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      members: [user.uid]
     });
-    updateShoppingListId(newListId);
   };
 
-  const handleJoinList = () => {
-    if (!joinCode) return;
-    if (!user) {
-      alert("Bitte logge dich ein, um einer Liste beizutreten.");
-      return;
-    }
-    updateShoppingListId(joinCode.toUpperCase());
-    setJoinCode('');
+  const handleInviteUser = async () => {
+    if (!selectedUserToInvite || !activeList) return;
+    await updateDoc(doc(db, 'shared_lists', activeList.id), {
+      members: arrayUnion(selectedUserToInvite)
+    });
+    setSelectedUserToInvite('');
   };
 
-  const handleLeaveList = () => {
-    updateShoppingListId('');
-    setItems([]);
+  const handleLeaveList = async () => {
+    if (!user || !activeList) return;
+    // Remove self from members
+    await updateDoc(doc(db, 'shared_lists', activeList.id), {
+      members: arrayRemove(user.uid)
+    });
   };
 
   const handleAddItem = async (e) => {
     e.preventDefault();
-    if (!newItemText.trim() || !user || !shoppingListId) return;
+    if (!newItemText.trim() || !user || !activeList) return;
 
     const itemId = uuidv4();
-    await setDoc(doc(db, 'shared_lists', shoppingListId, 'items', itemId), {
+    await setDoc(doc(db, 'shared_lists', activeList.id, 'items', itemId), {
       text: newItemText.trim(),
       completed: false,
       createdAt: serverTimestamp(),
@@ -91,21 +128,15 @@ const ShoppingList = () => {
   };
 
   const toggleItem = async (id, currentStatus) => {
-    if (!user || !shoppingListId) return;
-    await updateDoc(doc(db, 'shared_lists', shoppingListId, 'items', id), {
+    if (!user || !activeList) return;
+    await updateDoc(doc(db, 'shared_lists', activeList.id, 'items', id), {
       completed: !currentStatus
     });
   };
 
   const deleteItem = async (id) => {
-    if (!user || !shoppingListId) return;
-    await deleteDoc(doc(db, 'shared_lists', shoppingListId, 'items', id));
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(shoppingListId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (!user || !activeList) return;
+    await deleteDoc(doc(db, 'shared_lists', activeList.id, 'items', id));
   };
 
   if (!user) {
@@ -118,38 +149,23 @@ const ShoppingList = () => {
     );
   }
 
-  if (!shoppingListId) {
+  if (isListLoading) {
+    return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Lade Liste...</div>;
+  }
+
+  if (!activeList) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', textAlign: 'center', padding: '3rem 1rem' }}>
           <ShoppingCart size={48} color="var(--accent-primary)" />
           <h2>Gemeinsame Einkaufsliste</h2>
           <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
-            Erstelle eine neue Liste und teile den Code mit jemandem, oder tritt einer bestehenden Liste bei.
+            Du hast aktuell keine Einkaufsliste. Aktiviere deine Liste, um andere Nutzer einzuladen und gemeinsam einzukaufen!
           </p>
 
           <button className="btn-primary" onClick={handleCreateList} style={{ padding: '1rem 2rem', fontSize: '1.1rem' }}>
-            <Plus size={20} /> Neue Liste erstellen
+            <Plus size={20} /> Liste aktivieren
           </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '300px', margin: '2rem 0' }}>
-            <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
-            <span style={{ color: 'var(--text-muted)' }}>ODER</span>
-            <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '300px' }}>
-            <input 
-              type="text" 
-              placeholder="Listen-Code (z.B. AB12CD)" 
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              style={{ textAlign: 'center', letterSpacing: '2px', fontSize: '1.1rem', textTransform: 'uppercase' }}
-            />
-            <button onClick={handleJoinList} style={{ padding: '1rem', background: 'var(--bg-card-hover)', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer', fontWeight: '500' }}>
-              Liste beitreten
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -164,14 +180,29 @@ const ShoppingList = () => {
             <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
               <ShoppingCart color="var(--accent-primary)" /> Einkaufsliste
             </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Code zum Teilen:</span>
-              <button 
-                onClick={handleCopyCode}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: 'bold', letterSpacing: '1px' }}
-              >
-                {shoppingListId} {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+              <UserPlus size={16} color="var(--text-muted)" />
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Teilnehmer hinzufügen:</span>
+              
+              {allUsers.length > 0 ? (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <select 
+                    value={selectedUserToInvite} 
+                    onChange={(e) => setSelectedUserToInvite(e.target.value)}
+                    style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                  >
+                    {allUsers.map(u => (
+                      <option key={u.uid} value={u.uid}>{u.email}</option>
+                    ))}
+                  </select>
+                  <button onClick={handleInviteUser} className="btn-primary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.9rem' }}>
+                    Einladen
+                  </button>
+                </div>
+              ) : (
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Alle registrierten Nutzer sind bereits eingeladen.</span>
+              )}
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -16,9 +17,20 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
+      
+      if (currentUser) {
+        try {
+          await setDoc(doc(db, 'users', currentUser.uid), {
+            email: currentUser.email,
+            uid: currentUser.uid
+          }, { merge: true });
+        } catch (err) {
+          console.error("Fehler beim Speichern des Nutzer-Verzeichnisses:", err);
+        }
+      }
     });
     return unsubscribe;
   }, []);

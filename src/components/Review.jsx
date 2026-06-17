@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Calendar, CheckSquare, BookOpen, Flame, Award } from 'lucide-react';
+import { Calendar, CheckSquare, BookOpen, Flame, Award, Activity } from 'lucide-react';
 import { format, isSameMonth, isSameYear, parseISO, subDays, startOfWeek } from 'date-fns';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { de } from 'date-fns/locale';
@@ -97,7 +97,15 @@ const Review = () => {
       const dateStr = format(d, 'yyyy-MM-dd');
       
       const daySessions = readingSessions.filter(s => s.date === dateStr);
-      readingData.push({ name: `${i}.`, amount: daySessions.reduce((acc, s) => acc + s.amount, 0) });
+      const dayAmount = daySessions.reduce((acc, s) => acc + s.amount, 0);
+      const dayTime = daySessions.reduce((acc, s) => acc + s.timeSpent, 0);
+      const daySpeed = dayTime > 0 ? Math.round(dayAmount / (dayTime / 3600)) : 0;
+      
+      readingData.push({ 
+        name: `${i}.`, 
+        amount: dayAmount,
+        speed: daySpeed
+      });
       
       let tCount = 0;
       tasks.forEach(task => {
@@ -111,7 +119,15 @@ const Review = () => {
       const monthName = format(new Date(today.getFullYear(), i, 1), 'MMM', { locale: de });
       
       const monthSessions = readingSessions.filter(s => s.date && s.date.startsWith(monthPrefix));
-      readingData.push({ name: monthName, amount: monthSessions.reduce((acc, s) => acc + s.amount, 0) });
+      const monthAmount = monthSessions.reduce((acc, s) => acc + s.amount, 0);
+      const monthTime = monthSessions.reduce((acc, s) => acc + s.timeSpent, 0);
+      const monthSpeed = monthTime > 0 ? Math.round(monthAmount / (monthTime / 3600)) : 0;
+      
+      readingData.push({ 
+        name: monthName, 
+        amount: monthAmount,
+        speed: monthSpeed
+      });
       
       let tCount = 0;
       tasks.forEach(task => {
@@ -254,6 +270,26 @@ const Review = () => {
                   itemStyle={{ color: 'var(--text-main)' }}
                 />
                 <Line type="monotone" dataKey="amount" name="Seiten" stroke="#ec4899" strokeWidth={3} dot={{ fill: '#ec4899', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Activity size={18} /> Lesegeschwindigkeit (Seiten pro Stunde)
+          </h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <LineChart data={readingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
+                  itemStyle={{ color: 'var(--text-main)' }}
+                />
+                <Line type="monotone" dataKey="speed" name="Seiten/h" stroke="var(--accent-primary)" strokeWidth={3} dot={{ fill: 'var(--accent-primary)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
