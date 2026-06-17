@@ -46,6 +46,11 @@ const TaskItem = ({ task, isWrongDay }) => {
     return `${m}:${s}`;
   };
 
+  const daysMap = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 0: 'So' };
+  const specificDaysString = task.type === 'specific-days' && task.specificDays 
+    ? task.specificDays.map(d => daysMap[d]).join(', ') 
+    : '';
+
   return (
     <div className="task-item card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%', opacity: (isCompleted || isWrongDay) ? 0.5 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -77,7 +82,7 @@ const TaskItem = ({ task, isWrongDay }) => {
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Typ: {task.type}
+                Typ: {task.type === 'specific-days' ? 'Bestimmte Tage' : task.type} {specificDaysString && `(${specificDaysString})`}
               </span>
               <div 
                 title="Kategorie"

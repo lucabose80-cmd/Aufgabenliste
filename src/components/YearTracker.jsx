@@ -5,7 +5,7 @@ import { useTaskContext } from '../context/TaskContext';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const YearTracker = () => {
-  const { tasks } = useTaskContext();
+  const { tasks, toggleTaskCompletion } = useTaskContext();
   const trackableTasks = tasks.filter(t => t.type !== 'general');
   const [expandedTaskId, setExpandedTaskId] = useState(null);
   
@@ -149,12 +149,14 @@ const YearTracker = () => {
                                     <div 
                                       key={dIdx}
                                       title={dateStr}
+                                      onClick={() => toggleTaskCompletion(task.id, dateStr)}
                                       style={{
                                         width: '100%',
                                         aspectRatio: '1/1',
                                         borderRadius: '2px',
                                         backgroundColor: style.color,
-                                        opacity: style.opacity
+                                        opacity: style.opacity,
+                                        cursor: 'pointer'
                                       }}
                                     />
                                   );
