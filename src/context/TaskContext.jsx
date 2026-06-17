@@ -9,7 +9,19 @@ export const useTaskContext = () => useContext(TaskContext);
 export const TaskProvider = ({ children }) => {
   const [tasks, setTasks] = useState(() => {
     const saved = localStorage.getItem('tasks');
-    return saved ? JSON.parse(saved) : [];
+    let loaded = saved ? JSON.parse(saved) : [];
+    loaded = loaded.map(t => {
+      if (t.type === undefined) {
+        return {
+          ...t,
+          type: t.isDaily ? 'daily' : 'general',
+          targetCount: 1,
+          specificDays: []
+        };
+      }
+      return t;
+    });
+    return loaded;
   });
 
   const [categories, setCategories] = useState(() => {
@@ -36,7 +48,9 @@ export const TaskProvider = ({ children }) => {
       id: uuidv4(),
       title: taskData.title,
       categoryId: taskData.categoryId || '1',
-      isDaily: taskData.isDaily || false,
+      type: taskData.type || 'general',
+      targetCount: taskData.targetCount || 1,
+      specificDays: taskData.specificDays || [],
       hasTimer: taskData.hasTimer !== undefined ? taskData.hasTimer : true,
       subTasks: taskData.subTasks || [], // { id, title, completed }
       completedDates: [],

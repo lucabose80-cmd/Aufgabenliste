@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Clock, Check, ChevronDown, ChevronRight, Play, Square, Save } from 'lucide-react';
+import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
+import { Trash2, Clock, Check, ChevronDown, ChevronRight, Play, Square, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const TaskItem = ({ task }) => {
   const { toggleTaskCompletion, toggleSubTask, deleteTask, getTodayDateString, saveTaskNoteAndTime } = useTaskContext();
@@ -12,7 +13,7 @@ const TaskItem = ({ task }) => {
   const [showNoteField, setShowNoteField] = useState(false);
 
   const today = getTodayDateString();
-  const isCompleted = task.isDaily ? task.completedDates.includes(today) : task.completedDates.length > 0;
+  const isCompleted = task.type === 'general' ? task.completedDates.length > 0 : task.completedDates.includes(today);
   
   const allSubTasksCompleted = task.subTasks.length === 0 || task.subTasks.every(st => st.completed);
 
@@ -65,15 +66,20 @@ const TaskItem = ({ task }) => {
             {isCompleted && <Check size={16} color="white" />}
           </button>
           
-          <span style={{ 
-            fontSize: '1.1rem', 
-            fontWeight: '600',
-            textDecoration: isCompleted ? 'line-through' : 'none',
-            color: isCompleted ? 'var(--text-muted)' : 'var(--text-main)',
-            wordBreak: 'break-word'
-          }}>
-            {task.title}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ 
+              fontSize: '1.1rem', 
+              fontWeight: '600',
+              textDecoration: isCompleted ? 'line-through' : 'none',
+              color: isCompleted ? 'var(--text-muted)' : 'var(--text-main)',
+              wordBreak: 'break-word'
+            }}>
+              {task.title}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', textTransform: 'uppercase' }}>
+              Typ: {task.type}
+            </span>
+          </div>
         </div>
         
         <button className="btn-icon" onClick={() => deleteTask(task.id)} style={{ color: 'var(--accent-danger)' }}>
@@ -146,7 +152,7 @@ const TaskItem = ({ task }) => {
                 type="number" 
                 value={amount} 
                 onChange={(e) => setAmount(e.target.value)} 
-                placeholder="Menge (z.B. Seiten) für Schnitt" 
+                placeholder="Menge (z.B. Seiten)" 
                 style={{ flex: 1, fontSize: '0.85rem' }}
               />
               <button className="btn-primary" onClick={handleSaveInfo} style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}>
@@ -160,96 +166,50 @@ const TaskItem = ({ task }) => {
   );
 };
 
-const TaskList = ({ view }) => {
-  const { tasks, addTask, categories } = useTaskContext();
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [subTasksText, setSubTasksText] = useState('');
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || '1');
-  const [hasTimer, setHasTimer] = useState(true);
+const TaskGrid = ({ view }) => {
+  const { tasks, categories } = useTaskContext();
 
-  const filteredTasks = tasks.filter(t => view === 'daily' ? t.isDaily : !t.isDaily);
-
-  const handleAddTask = (e) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) return;
-
-    const subTasks = subTasksText
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s)
-      .map(s => ({ id: Math.random().toString(), title: s, completed: false }));
-
-    addTask({
-      title: newTaskTitle,
-      categoryId,
-      isDaily: view === 'daily',
-      hasTimer,
-      subTasks
-    });
-
-    setNewTaskTitle('');
-    setSubTasksText('');
-  };
+  // If view is 'all', show everything. If 'longterm', show only general
+  const filteredTasks = tasks.filter(t => {
+    if (view === 'longterm') return t.type === 'general';
+    return true; // Startseite shows all tasks
+  });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div className="card">
-        <h3 style={{ marginBottom: '1rem' }}>Neue Aufgabe erstellen</h3>
-        <form onSubmit={handleAddTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <input 
-              type="text" 
-              placeholder="Titel der Aufgabe..." 
-              value={newTaskTitle}
-              onChange={e => setNewTaskTitle(e.target.value)}
-              style={{ flex: '1 1 200px' }}
-            />
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} style={{ flex: '1 1 150px' }}>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+      {categories.map(category => {
+        const categoryTasks = filteredTasks.filter(t => t.categoryId === category.id);
+        
+        if (categoryTasks.length === 0) return null;
+
+        return (
+          <div key={category.id}>
+            <h2 style={{ 
+              marginBottom: '1.5rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.75rem',
+              color: 'var(--text-main)'
+            }}>
+              <div style={{ width: '16px', height: '16px', borderRadius: '4px', backgroundColor: category.color }}></div>
+              {category.name}
+            </h2>
+            <div className="task-grid">
+              {categoryTasks.map(task => (
+                <TaskItem key={task.id} task={task} />
               ))}
-            </select>
+            </div>
           </div>
-          
-          <input 
-            type="text" 
-            placeholder="Unterpunkte (kommagetrennt, z.B. a, b, c)... optional" 
-            value={subTasksText}
-            onChange={e => setSubTasksText(e.target.value)}
-          />
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <input 
-              type="checkbox" 
-              id="hasTimer"
-              checked={hasTimer}
-              onChange={(e) => setHasTimer(e.target.checked)}
-              style={{ width: '16px', height: '16px' }}
-            />
-            <label htmlFor="hasTimer" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Timer & Infos für diese Aufgabe aktivieren</label>
-          </div>
-
-          <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}>
-            <Plus size={18} /> Hinzufügen
-          </button>
-        </form>
-      </div>
-
-      <div>
-        {filteredTasks.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-            Noch keine Aufgaben vorhanden.
-          </div>
-        ) : (
-          <div className="task-grid">
-            {filteredTasks.map(task => (
-              <TaskItem key={task.id} task={task} />
-            ))}
-          </div>
-        )}
-      </div>
+        );
+      })}
+      
+      {filteredTasks.length === 0 && (
+        <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".
+        </div>
+      )}
     </div>
   );
 };
 
-export default TaskList;
+export default TaskGrid;

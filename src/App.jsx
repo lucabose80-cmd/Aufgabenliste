@@ -2,36 +2,40 @@ import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
 import { TaskProvider } from './context/TaskContext';
 import Sidebar from './components/Sidebar';
-import TaskList from './components/TaskList';
+import TaskGrid from './components/TaskGrid';
 import YearTracker from './components/YearTracker';
 import CategoriesManager from './components/CategoriesManager';
+import TaskCreator from './components/TaskCreator';
 
 function MainApp() {
-  const [currentView, setCurrentView] = useState('daily');
+  const [currentView, setCurrentView] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const renderContent = () => {
     switch (currentView) {
-      case 'daily':
-        return <TaskList view="daily" />;
+      case 'home':
+        return <TaskGrid view="all" />;
+      case 'create':
+        return <TaskCreator />;
       case 'tracker':
         return <YearTracker />;
       case 'longterm':
-        return <TaskList view="longterm" />;
+        return <TaskGrid view="longterm" />;
       case 'categories':
         return <CategoriesManager />;
       default:
-        return <TaskList view="daily" />;
+        return <TaskGrid view="all" />;
     }
   };
 
   const getViewTitle = () => {
     switch (currentView) {
-      case 'daily': return 'Startseite (Tägliche Routinen)';
+      case 'home': return 'Startseite';
+      case 'create': return 'Neue Aufgabe erstellen';
       case 'tracker': return 'Jahres-Tracker';
-      case 'longterm': return 'Alle To-Dos';
+      case 'longterm': return 'Allgemeine To-Dos';
       case 'categories': return 'Kategorien verwalten';
       default: return 'TaskMaster';
     }
