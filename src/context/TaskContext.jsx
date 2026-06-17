@@ -66,6 +66,11 @@ export const TaskProvider = ({ children }) => {
     const unsubscribeTasks = onSnapshot(tasksRef, (snapshot) => {
       const fbTasks = snapshot.docs.map(doc => doc.data());
       setTasks(fbTasks);
+    }, (error) => {
+      console.error("Firestore Tasks Sync Error:", error);
+      if (error.code === 'permission-denied') {
+        alert("Datenbank-Fehler: Keine Berechtigung! Bitte prüfe deine Firestore Security Rules.");
+      }
     });
 
     const categoriesRef = collection(db, 'users', user.uid, 'categories');
@@ -73,6 +78,8 @@ export const TaskProvider = ({ children }) => {
       const fbCategories = snapshot.docs.map(doc => doc.data());
       setCategories(fbCategories);
       setIsLoading(false);
+    }, (error) => {
+      console.error("Firestore Categories Sync Error:", error);
     });
 
     // Check if we need to migrate local tasks to Firestore
