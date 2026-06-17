@@ -106,18 +106,19 @@ const YearTracker = () => {
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '2px', flex: 2, overflow: 'hidden', height: '16px' }}>
-                      {/* Very condensed view: just sampling days linearly */}
-                      {allDays.filter((_, idx) => idx % 3 === 0).map((day, idx) => {
+                    <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateRows: 'repeat(7, 1fr)', gap: '1px', height: '28px', overflow: 'hidden', marginLeft: 'auto' }}>
+                      {/* Detailed mini-heatmap (GitHub style) */}
+                      {allDays.map((day, idx) => {
                         const style = evaluateDay(day, task);
                         return (
                           <div 
                             key={idx}
                             style={{
-                              width: '4px',
-                              height: '100%',
+                              width: '3px',
+                              height: '3px',
                               backgroundColor: style.color,
-                              opacity: style.opacity
+                              opacity: style.opacity,
+                              borderRadius: '1px'
                             }}
                           />
                         );

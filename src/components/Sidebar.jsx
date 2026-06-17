@@ -1,11 +1,12 @@
 import React from 'react';
-import { Home, CheckSquare, Calendar, Folder, BarChart2, PlusSquare } from 'lucide-react';
+import { Home, CheckSquare, Calendar, Folder, BarChart2, PlusSquare, Activity } from 'lucide-react';
 
 const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   const menuItems = [
     { id: 'home', label: 'Startseite', icon: <Home size={20} /> },
     { id: 'create', label: 'Aufgabe erstellen', icon: <PlusSquare size={20} /> },
     { id: 'tracker', label: 'Jahres-Tracker', icon: <BarChart2 size={20} /> },
+    { id: 'statistics', label: 'Statistiken', icon: <Activity size={20} /> },
     { id: 'categories', label: 'Kategorien', icon: <Folder size={20} /> },
   ];
 

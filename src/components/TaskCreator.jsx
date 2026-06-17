@@ -10,7 +10,8 @@ const TaskCreator = () => {
   const [type, setType] = useState('daily');
   const [targetCount, setTargetCount] = useState(1);
   const [specificDays, setSpecificDays] = useState([]);
-  const [subTasksText, setSubTasksText] = useState('');
+  const [subTasks, setSubTasks] = useState([]);
+  const [currentSubTask, setCurrentSubTask] = useState('');
   const [hasTimer, setHasTimer] = useState(true);
 
   const daysOfWeek = [
@@ -33,11 +34,11 @@ const TaskCreator = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const subTasks = subTasksText
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s)
-      .map(s => ({ id: Math.random().toString(), title: s, completed: false }));
+    const formattedSubTasks = subTasks.map(s => ({ 
+      id: Math.random().toString(), 
+      title: s, 
+      completed: false 
+    }));
 
     addTask({
       title,
@@ -46,11 +47,12 @@ const TaskCreator = () => {
       targetCount: type === 'x-times' ? parseInt(targetCount, 10) : (type === 'weekly' ? 1 : 0),
       specificDays: type === 'specific-days' ? specificDays : [],
       hasTimer,
-      subTasks
+      subTasks: formattedSubTasks
     });
 
     setTitle('');
-    setSubTasksText('');
+    setSubTasks([]);
+    setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
     alert('Aufgabe erfolgreich erstellt!');
@@ -133,13 +135,53 @@ const TaskCreator = () => {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Unterpunkte (optional, kommagetrennt)</label>
-          <input 
-            type="text" 
-            value={subTasksText}
-            onChange={e => setSubTasksText(e.target.value)}
-            placeholder="z.B. a, b, c..." 
-          />
+          <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Unterpunkte (optional)</label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input 
+              type="text" 
+              value={currentSubTask}
+              onChange={e => setCurrentSubTask(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (currentSubTask.trim()) {
+                    setSubTasks([...subTasks, currentSubTask.trim()]);
+                    setCurrentSubTask('');
+                  }
+                }
+              }}
+              placeholder="Neuer Unterpunkt..." 
+              style={{ flex: 1 }}
+            />
+            <button 
+              type="button" 
+              className="btn-primary" 
+              onClick={() => {
+                if (currentSubTask.trim()) {
+                  setSubTasks([...subTasks, currentSubTask.trim()]);
+                  setCurrentSubTask('');
+                }
+              }}
+            >
+              Hinzufügen
+            </button>
+          </div>
+          {subTasks.length > 0 && (
+            <ul style={{ listStyleType: 'none', padding: 0, margin: '0.5rem 0 0 0', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {subTasks.map((st, idx) => (
+                <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', padding: '0.5rem', borderRadius: '4px' }}>
+                  <span style={{ fontSize: '0.9rem' }}>{st}</span>
+                  <button 
+                    type="button"
+                    onClick={() => setSubTasks(subTasks.filter((_, i) => i !== idx))}
+                    style={{ color: 'var(--accent-danger)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 0.5rem' }}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>

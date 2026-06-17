@@ -6,6 +6,7 @@ import TaskGrid from './components/TaskGrid';
 import YearTracker from './components/YearTracker';
 import CategoriesManager from './components/CategoriesManager';
 import TaskCreator from './components/TaskCreator';
+import Statistics from './components/Statistics';
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
@@ -21,6 +22,8 @@ function MainApp() {
         return <TaskCreator />;
       case 'tracker':
         return <YearTracker />;
+      case 'statistics':
+        return <Statistics />;
       case 'categories':
         return <CategoriesManager />;
       default:
@@ -33,6 +36,7 @@ function MainApp() {
       case 'home': return 'Startseite';
       case 'create': return 'Neue Aufgabe erstellen';
       case 'tracker': return 'Jahres-Tracker';
+      case 'statistics': return 'Statistiken';
       case 'categories': return 'Kategorien verwalten';
       default: return 'TaskMaster';
     }

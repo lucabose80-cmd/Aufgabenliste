@@ -16,9 +16,11 @@ export const TaskProvider = ({ children }) => {
           ...t,
           type: t.isDaily ? 'daily' : 'general',
           targetCount: 1,
-          specificDays: []
+          specificDays: [],
+          timerLogs: t.timerLogs || []
         };
       }
+      if (!t.timerLogs) t.timerLogs = [];
       return t;
     });
     return loaded;
@@ -54,9 +56,9 @@ export const TaskProvider = ({ children }) => {
       hasTimer: taskData.hasTimer !== undefined ? taskData.hasTimer : true,
       subTasks: taskData.subTasks || [], // { id, title, completed }
       completedDates: [],
-      timeSpent: 0, // in seconds
-      note: '',
-      averageSpeed: null, // e.g. "20.5 Seiten/h"
+      timeSpent: 0, // total seconds historically
+      timerLogs: [], // Array of { date, timeSpent, amount }
+      averageSpeed: null, // e.g. "20.5 S/h"
       createdAt: new Date().toISOString(),
     };
     setTasks([...tasks, newTask]);
@@ -83,27 +85,36 @@ export const TaskProvider = ({ children }) => {
   };
 
   const toggleTaskCompletion = (taskId, date = getTodayDateString()) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId) {
-        // Can only complete if all subtasks are completed
-        const allSubTasksCompleted = task.subTasks.every(st => st.completed);
-        if (!allSubTasksCompleted && task.subTasks.length > 0) {
-          return task; // Do not toggle if subtasks exist and are not completed
-        }
+    let shouldDelete = false;
 
-        const isCompletedOnDate = task.completedDates.includes(date);
-        let newCompletedDates;
-        
-        if (isCompletedOnDate) {
-          newCompletedDates = task.completedDates.filter(d => d !== date);
-        } else {
-          newCompletedDates = [...task.completedDates, date];
-        }
-        
-        return { ...task, completedDates: newCompletedDates };
+    setTasks(prev => {
+      const taskIndex = prev.findIndex(t => t.id === taskId);
+      if (taskIndex === -1) return prev;
+      
+      const task = prev[taskIndex];
+      const allSubTasksCompleted = task.subTasks.every(st => st.completed);
+      if (!allSubTasksCompleted && task.subTasks.length > 0) {
+        return prev; 
       }
-      return task;
-    }));
+
+      // If general task, delete it permanently
+      if (task.type === 'general') {
+        return prev.filter(t => t.id !== taskId);
+      }
+
+      const isCompletedOnDate = task.completedDates.includes(date);
+      let newCompletedDates;
+      
+      if (isCompletedOnDate) {
+        newCompletedDates = task.completedDates.filter(d => d !== date);
+      } else {
+        newCompletedDates = [...task.completedDates, date];
+      }
+      
+      const nextTasks = [...prev];
+      nextTasks[taskIndex] = { ...task, completedDates: newCompletedDates };
+      return nextTasks;
+    });
   };
 
   const addCategory = (name, color) => {
@@ -114,19 +125,24 @@ export const TaskProvider = ({ children }) => {
     setCategories(categories.filter(c => c.id !== id));
   };
 
-  const saveTaskNoteAndTime = (taskId, note, timeSpent, amount = null) => {
-    setTasks(tasks.map(task => {
+  const saveTimerSession = (taskId, timeSpent, amount = null) => {
+    const today = getTodayDateString();
+    setTasks(prev => prev.map(task => {
       if (task.id === taskId) {
-        let averageSpeed = task.averageSpeed;
-        const totalSeconds = task.timeSpent + timeSpent;
+        const newLog = { date: today, timeSpent, amount: amount ? parseFloat(amount) : 0 };
+        const updatedLogs = [...(task.timerLogs || []), newLog];
         
-        if (amount && !isNaN(amount) && totalSeconds > 0) {
+        const totalSeconds = updatedLogs.reduce((acc, log) => acc + log.timeSpent, 0);
+        const totalAmount = updatedLogs.reduce((acc, log) => acc + log.amount, 0);
+        
+        let averageSpeed = task.averageSpeed;
+        if (totalAmount > 0 && totalSeconds > 0) {
           const hours = totalSeconds / 3600;
-          const speed = (parseFloat(amount) / hours).toFixed(1);
-          averageSpeed = `${speed}/h`;
+          const speed = (totalAmount / hours).toFixed(1);
+          averageSpeed = `${speed} S/h`;
         }
         
-        return { ...task, note, timeSpent: totalSeconds, averageSpeed };
+        return { ...task, timeSpent: totalSeconds, timerLogs: updatedLogs, averageSpeed };
       }
       return task;
     }));
@@ -143,7 +159,7 @@ export const TaskProvider = ({ children }) => {
       toggleTaskCompletion,
       addCategory,
       deleteCategory,
-      saveTaskNoteAndTime,
+      saveTimerSession,
       getTodayDateString
     }}>
       {children}

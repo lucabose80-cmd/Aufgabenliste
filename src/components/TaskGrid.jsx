@@ -4,13 +4,12 @@ import { Trash2, Clock, Check, ChevronDown, ChevronRight, Play, Square, Save } f
 import { useState, useEffect } from 'react';
 
 const TaskItem = ({ task }) => {
-  const { toggleTaskCompletion, toggleSubTask, deleteTask, getTodayDateString, saveTaskNoteAndTime } = useTaskContext();
+  const { toggleTaskCompletion, toggleSubTask, deleteTask, getTodayDateString, saveTimerSession } = useTaskContext();
   const [expanded, setExpanded] = useState(false);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
-  const [note, setNote] = useState(task.note || '');
   const [amount, setAmount] = useState('');
-  const [showNoteField, setShowNoteField] = useState(false);
+  const [showAmountField, setShowAmountField] = useState(false);
 
   const today = getTodayDateString();
   const isCompleted = task.type === 'general' ? task.completedDates.length > 0 : task.completedDates.includes(today);
@@ -31,13 +30,13 @@ const TaskItem = ({ task }) => {
 
   const handleStopTimer = () => {
     setIsTimerRunning(false);
-    setShowNoteField(true);
+    setShowAmountField(true);
   };
 
   const handleSaveInfo = () => {
-    saveTaskNoteAndTime(task.id, note, timerSeconds, amount);
+    saveTimerSession(task.id, timerSeconds, amount);
     setTimerSeconds(0);
-    setShowNoteField(false);
+    setShowAmountField(false);
     setAmount('');
   };
 
@@ -48,7 +47,7 @@ const TaskItem = ({ task }) => {
   };
 
   return (
-    <div className="task-item card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
+    <div className="task-item card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%', opacity: isCompleted ? 0.5 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
           <button 
@@ -128,10 +127,9 @@ const TaskItem = ({ task }) => {
       </div>
 
       <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {(task.note || task.averageSpeed) && (
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {task.note && <div>Notiz: {task.note}</div>}
-            {task.averageSpeed && <div style={{ color: 'var(--accent-secondary)' }}>Schnitt: {task.averageSpeed}</div>}
+        {task.averageSpeed && (
+          <div style={{ fontSize: '0.85rem', color: 'var(--accent-secondary)' }}>
+            Schnitt: {task.averageSpeed}
           </div>
         )}
 
@@ -149,27 +147,18 @@ const TaskItem = ({ task }) => {
           </div>
         )}
 
-        {showNoteField && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+        {showAmountField && (
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
             <input 
-              type="text" 
-              value={note} 
-              onChange={(e) => setNote(e.target.value)} 
-              placeholder="Notiz..." 
-              style={{ width: '100%', fontSize: '0.85rem' }}
+              type="number" 
+              value={amount} 
+              onChange={(e) => setAmount(e.target.value)} 
+              placeholder="Menge (z.B. Seiten)" 
+              style={{ flex: 1, fontSize: '0.85rem' }}
             />
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input 
-                type="number" 
-                value={amount} 
-                onChange={(e) => setAmount(e.target.value)} 
-                placeholder="Menge (z.B. Seiten)" 
-                style={{ flex: 1, fontSize: '0.85rem' }}
-              />
-              <button className="btn-primary" onClick={handleSaveInfo} style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}>
-                <Save size={14} /> Speichern
-              </button>
-            </div>
+            <button className="btn-primary" onClick={handleSaveInfo} style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}>
+              <Save size={14} /> Speichern
+            </button>
           </div>
         )}
       </div>
@@ -178,7 +167,8 @@ const TaskItem = ({ task }) => {
 };
 
 const TaskGrid = () => {
-  const { tasks, categories } = useTaskContext();
+  const { tasks, categories, getTodayDateString } = useTaskContext();
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const taskTypes = [
     { id: 'daily', label: 'Tägliche Routinen' },
@@ -188,16 +178,51 @@ const TaskGrid = () => {
     { id: 'general', label: 'Allgemeine To-Dos' },
   ];
 
-  // Enrich tasks with category color for the badge
-  const enrichedTasks = tasks.map(t => {
+  const today = getTodayDateString();
+  const dayOfWeek = new Date().getDay();
+
+  // Enrich tasks and filter based on advanced logic
+  const filteredTasks = tasks.map(t => {
     const cat = categories.find(c => c.id === t.categoryId);
     return { ...t, categoryColor: cat ? cat.color : 'var(--border-color)' };
+  }).filter(t => {
+    // 1. Wrong day for specific-days
+    if (t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek)) {
+      return false; 
+    }
+
+    // 2. Completed for today
+    const isCompletedToday = t.completedDates.includes(today);
+    
+    if (isCompletedToday && !showCompleted && t.type !== 'general') {
+      return false;
+    }
+
+    return true;
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-      {taskTypes.map(typeGroup => {
-        const typeTasks = enrichedTasks.filter(t => t.type === typeGroup.id);
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button 
+          onClick={() => setShowCompleted(!showCompleted)}
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: 'var(--border-radius)',
+            backgroundColor: showCompleted ? 'var(--accent-primary)' : 'transparent',
+            border: `1px solid ${showCompleted ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+            color: showCompleted ? 'white' : 'var(--text-muted)',
+            fontSize: '0.85rem',
+            cursor: 'pointer'
+          }}
+        >
+          {showCompleted ? 'Ausgeblendete verbergen' : 'Erledigte anzeigen'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+        {taskTypes.map(typeGroup => {
+          const typeTasks = filteredTasks.filter(t => t.type === typeGroup.id);
         
         if (typeTasks.length === 0) return null;
 
@@ -221,6 +246,14 @@ const TaskGrid = () => {
         );
       })}
       
+      </div>
+      
+      {filteredTasks.length === 0 && tasks.length > 0 && (
+        <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          Alles erledigt für heute! 🎉
+        </div>
+      )}
+
       {tasks.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
           Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".
