@@ -14,7 +14,6 @@ const TaskCreator = () => {
   const [specificDays, setSpecificDays] = useState([]);
   const [subTasks, setSubTasks] = useState([]);
   const [currentSubTask, setCurrentSubTask] = useState('');
-  const [hasTimer, setHasTimer] = useState(true);
 
   const daysOfWeek = [
     { id: 1, label: 'Mo' },
@@ -51,7 +50,6 @@ const TaskCreator = () => {
       type,
       targetCount: type === 'x-times' ? parseInt(targetCount, 10) : (type === 'weekly' ? 1 : 0),
       specificDays: type === 'specific-days' ? specificDays : [],
-      hasTimer,
       subTasks: formattedSubTasks
     };
 
@@ -79,7 +77,6 @@ const TaskCreator = () => {
     setTargetCount(task.targetCount);
     setSpecificDays(task.specificDays);
     setSubTasks(task.subTasks.map(st => st.title));
-    setHasTimer(task.hasTimer);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -219,16 +216,7 @@ const TaskCreator = () => {
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-          <input 
-            type="checkbox" 
-            id="hasTimer"
-            checked={hasTimer}
-            onChange={(e) => setHasTimer(e.target.checked)}
-            style={{ width: '18px', height: '18px' }}
-          />
-          <label htmlFor="hasTimer" style={{ fontSize: '0.95rem' }}>Timer & Infos für diese Aufgabe aktivieren</label>
-        </div>
+
 
         <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
           <button type="submit" className="btn-primary" style={{ padding: '0.75rem 1.5rem', flex: 1, display: 'flex', justifyContent: 'center' }}>

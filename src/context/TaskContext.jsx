@@ -15,6 +15,9 @@ export const TaskProvider = ({ children }) => {
   // States
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [readingSessions, setReadingSessions] = useState([]);
+  const [calorieLogs, setCalorieLogs] = useState([]);
+  const [calorieGoal, setCalorieGoal] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load from LocalStorage if NOT logged in
@@ -44,17 +47,29 @@ export const TaskProvider = ({ children }) => {
         { id: '3', name: 'Lernen', color: '#ec4899' },
       ];
       setCategories(loadedCategories);
+
+      const savedReading = localStorage.getItem('readingSessions');
+      setReadingSessions(savedReading ? JSON.parse(savedReading) : []);
+
+      const savedCalories = localStorage.getItem('calorieLogs');
+      setCalorieLogs(savedCalories ? JSON.parse(savedCalories) : []);
+
+      const savedGoal = localStorage.getItem('calorieGoal');
+      setCalorieGoal(savedGoal || '');
+
       setIsLoading(false);
     }
   }, [user]);
 
-  // Sync to LocalStorage if NOT logged in
   useEffect(() => {
     if (!user && !isLoading) {
       localStorage.setItem('tasks', JSON.stringify(tasks));
       localStorage.setItem('categories', JSON.stringify(categories));
+      localStorage.setItem('readingSessions', JSON.stringify(readingSessions));
+      localStorage.setItem('calorieLogs', JSON.stringify(calorieLogs));
+      localStorage.setItem('calorieGoal', calorieGoal);
     }
-  }, [tasks, categories, user, isLoading]);
+  }, [tasks, categories, readingSessions, calorieLogs, calorieGoal, user, isLoading]);
 
   // Firestore Realtime Listeners
   useEffect(() => {
@@ -77,9 +92,25 @@ export const TaskProvider = ({ children }) => {
     const unsubscribeCategories = onSnapshot(categoriesRef, (snapshot) => {
       const fbCategories = snapshot.docs.map(doc => doc.data());
       setCategories(fbCategories);
+    });
+
+    const readingRef = collection(db, 'users', user.uid, 'readingSessions');
+    const unsubscribeReading = onSnapshot(readingRef, (snapshot) => {
+      setReadingSessions(snapshot.docs.map(doc => doc.data()));
+    });
+
+    const caloriesRef = collection(db, 'users', user.uid, 'calorieLogs');
+    const unsubscribeCalories = onSnapshot(caloriesRef, (snapshot) => {
+      setCalorieLogs(snapshot.docs.map(doc => doc.data()));
+    });
+
+    const settingsRef = collection(db, 'users', user.uid, 'settings');
+    const unsubscribeSettings = onSnapshot(settingsRef, (snapshot) => {
+      const mainDoc = snapshot.docs.find(d => d.id === 'main');
+      if (mainDoc && mainDoc.data().calorieGoal !== undefined) {
+        setCalorieGoal(mainDoc.data().calorieGoal);
+      }
       setIsLoading(false);
-    }, (error) => {
-      console.error("Firestore Categories Sync Error:", error);
     });
 
     // Check if we need to migrate local tasks to Firestore
@@ -134,6 +165,9 @@ export const TaskProvider = ({ children }) => {
     return () => {
       unsubscribeTasks();
       unsubscribeCategories();
+      unsubscribeReading();
+      unsubscribeCalories();
+      unsubscribeSettings();
     };
   }, [user]);
 
@@ -160,7 +194,7 @@ export const TaskProvider = ({ children }) => {
       type: taskData.type || 'general',
       targetCount: taskData.targetCount || 1,
       specificDays: taskData.specificDays || [],
-      hasTimer: taskData.hasTimer !== undefined ? taskData.hasTimer : true,
+      hasTimer: false,
       subTasks: taskData.subTasks || [],
       completedDates: [],
       timeSpent: 0,
@@ -218,19 +252,10 @@ export const TaskProvider = ({ children }) => {
     const isCompletedOnDate = task.completedDates.includes(date);
     let newCompletedDates;
     let updatedTask;
-    
+
     if (isCompletedOnDate) {
       newCompletedDates = task.completedDates.filter(d => d !== date);
-      const newLogs = (task.timerLogs || []).filter(l => l.date !== date);
-      const totalSeconds = newLogs.reduce((acc, log) => acc + log.timeSpent, 0);
-      const totalAmount = newLogs.reduce((acc, log) => acc + log.amount, 0);
-      let averageSpeed = null;
-      if (totalAmount > 0 && totalSeconds > 0) {
-        const hours = totalSeconds / 3600;
-        const speed = (totalAmount / hours).toFixed(1);
-        averageSpeed = `${speed} S/h`;
-      }
-      updatedTask = { ...task, completedDates: newCompletedDates, timerLogs: newLogs, timeSpent: totalSeconds, averageSpeed };
+      updatedTask = { ...task, completedDates: newCompletedDates };
     } else {
       newCompletedDates = [...task.completedDates, date];
       updatedTask = { ...task, completedDates: newCompletedDates };
@@ -280,29 +305,36 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const saveTimerSession = async (taskId, timeSpent, amount = null, date = getTodayDateString()) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    const newLog = { date, timeSpent, amount: amount ? parseFloat(amount) : 0 };
-    const updatedLogs = [...(task.timerLogs || []), newLog];
-    
-    const totalSeconds = updatedLogs.reduce((acc, log) => acc + log.timeSpent, 0);
-    const totalAmount = updatedLogs.reduce((acc, log) => acc + log.amount, 0);
-    
-    let averageSpeed = task.averageSpeed;
-    if (totalAmount > 0 && totalSeconds > 0) {
-      const hours = totalSeconds / 3600;
-      const speed = (totalAmount / hours).toFixed(1);
-      averageSpeed = `${speed} S/h`;
+  const saveReadingSession = async (timeSpent, amount, date = getTodayDateString()) => {
+    const newSession = { id: uuidv4(), date, timeSpent, amount: parseFloat(amount) || 0 };
+    if (!user) setReadingSessions([...readingSessions, newSession]);
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'readingSessions', newSession.id), newSession);
     }
-    
-    const updatedTask = { ...task, timeSpent: totalSeconds, timerLogs: updatedLogs, averageSpeed };
+  };
 
+  const saveCalorieLog = async (difference, date = getTodayDateString()) => {
+    const newLog = { id: uuidv4(), date, difference: parseInt(difference, 10) || 0 };
     if (!user) {
-      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+      // Overwrite if same date exists, else append
+      const exists = calorieLogs.find(l => l.date === date);
+      if (exists) {
+        setCalorieLogs(calorieLogs.map(l => l.date === date ? { ...l, difference: newLog.difference } : l));
+      } else {
+        setCalorieLogs([...calorieLogs, newLog]);
+      }
     }
-    await saveTaskToFirestore(updatedTask);
+    if (user) {
+      // Use date as doc ID so it overwrites existing for the same day
+      await setDoc(doc(db, 'users', user.uid, 'calorieLogs', date), { ...newLog, id: date });
+    }
+  };
+
+  const updateCalorieGoal = async (goal) => {
+    setCalorieGoal(goal);
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'main'), { calorieGoal: goal }, { merge: true });
+    }
   };
 
   const forceSync = async () => {
@@ -347,6 +379,9 @@ export const TaskProvider = ({ children }) => {
     <TaskContext.Provider value={{
       tasks,
       categories,
+      readingSessions,
+      calorieLogs,
+      calorieGoal,
       addTask,
       updateTask,
       deleteTask,
@@ -355,8 +390,10 @@ export const TaskProvider = ({ children }) => {
       addCategory,
       updateCategory,
       deleteCategory,
-      saveTimerSession,
       getTodayDateString,
+      saveReadingSession,
+      saveCalorieLog,
+      updateCalorieGoal,
       forceSync,
       isLoading
     }}>

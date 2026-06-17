@@ -4,47 +4,13 @@ import { Trash2, Clock, Check, ChevronDown, ChevronRight, Play, Square, Save } f
 import { useState, useEffect } from 'react';
 
 const TaskItem = ({ task, isWrongDay }) => {
-  const { toggleTaskCompletion, toggleSubTask, getTodayDateString, saveTimerSession } = useTaskContext();
+  const { toggleTaskCompletion, toggleSubTask, getTodayDateString } = useTaskContext();
   const [expanded, setExpanded] = useState(false);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [amount, setAmount] = useState('');
-  const [showAmountField, setShowAmountField] = useState(false);
 
   const today = getTodayDateString();
   const isCompleted = task.type === 'general' ? task.completedDates.length > 0 : task.completedDates.includes(today);
   
   const allSubTasksCompleted = task.subTasks.length === 0 || task.subTasks.every(st => st.completed);
-
-  useEffect(() => {
-    let interval = null;
-    if (isTimerRunning) {
-      interval = setInterval(() => {
-        setTimerSeconds(s => s + 1);
-      }, 1000);
-    } else if (!isTimerRunning && timerSeconds !== 0) {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timerSeconds]);
-
-  const handleStopTimer = () => {
-    setIsTimerRunning(false);
-    setShowAmountField(true);
-  };
-
-  const handleSaveInfo = () => {
-    saveTimerSession(task.id, timerSeconds, amount);
-    setTimerSeconds(0);
-    setShowAmountField(false);
-    setAmount('');
-  };
-
-  const formatTime = (totalSeconds) => {
-    const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const s = (totalSeconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
 
   const daysMap = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 0: 'So' };
   const specificDaysString = task.type === 'specific-days' && task.specificDays 
@@ -135,43 +101,6 @@ const TaskItem = ({ task, isWrongDay }) => {
                 </span>
               </div>
             ))}
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {task.averageSpeed && (
-          <div style={{ fontSize: '0.85rem', color: 'var(--accent-secondary)' }}>
-            Schnitt: {task.averageSpeed}
-          </div>
-        )}
-
-        {task.hasTimer && (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', padding: '0.25rem 0.5rem', borderRadius: '4px', gap: '0.5rem' }}>
-              <Clock size={16} color="var(--text-muted)" />
-              <span style={{ fontFamily: 'monospace' }}>{formatTime(task.timeSpent + timerSeconds)}</span>
-              {isTimerRunning ? (
-                <button onClick={handleStopTimer} style={{ color: 'var(--accent-danger)' }}><Square size={16} fill="currentColor" /></button>
-              ) : (
-                <button onClick={() => setIsTimerRunning(true)} style={{ color: 'var(--accent-success)' }}><Play size={16} fill="currentColor" /></button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {showAmountField && (
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <input 
-              type="number" 
-              value={amount} 
-              onChange={(e) => setAmount(e.target.value)} 
-              placeholder="Menge (z.B. Seiten)" 
-              style={{ flex: 1, fontSize: '0.85rem' }}
-            />
-            <button className="btn-primary" onClick={handleSaveInfo} style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}>
-              <Save size={14} /> Speichern
-            </button>
           </div>
         )}
       </div>

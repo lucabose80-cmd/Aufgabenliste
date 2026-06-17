@@ -1,13 +1,11 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Clock, BookOpen, Activity } from 'lucide-react';
+import { Clock, BookOpen, Activity, Flame } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
 const Statistics = () => {
-  const { tasks, categories } = useTaskContext();
+  const { readingSessions, calorieLogs } = useTaskContext();
   
-  // Only show tasks that actually have timer logs
-  const tasksWithStats = tasks.filter(t => t.timerLogs && t.timerLogs.length > 0);
-
   const formatTime = (totalSeconds) => {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -15,81 +13,115 @@ const Statistics = () => {
     return `${m}m`;
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div className="card">
-        <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Activity color="var(--accent-primary)" />
-          Lesestatistiken & Timer
-        </h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-          Hier siehst du deinen wahren Durchschnitt (Gesamtmenge / Gesamtzeit) über alle getrackten Tage hinweg.
-        </p>
+  // --- Lesestatistik ---
+  const totalReadingSeconds = readingSessions.reduce((acc, session) => acc + session.timeSpent, 0);
+  const totalReadingAmount = readingSessions.reduce((acc, session) => acc + session.amount, 0);
+  const totalReadingHours = totalReadingSeconds / 3600;
+  const averageReadingSpeed = totalReadingHours > 0 ? (totalReadingAmount / totalReadingHours).toFixed(1) : 0;
 
-        {tasksWithStats.length === 0 ? (
+  // --- Kalorien Wochenbilanz ---
+  const today = new Date();
+  const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+  const endOfCurrentWeek = endOfWeek(today, { weekStartsOn: 1 });
+
+  const currentWeekLogs = calorieLogs.filter(log => {
+    const logDate = parseISO(log.date);
+    return isWithinInterval(logDate, { start: startOfCurrentWeek, end: endOfCurrentWeek });
+  });
+
+  const weeklyCalorieBalance = currentWeekLogs.reduce((acc, log) => acc + log.difference, 0);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
+      
+      {/* LESE-STATISTIK */}
+      <div className="card">
+        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <BookOpen color="var(--accent-primary)" />
+          Lesestatistik
+        </h2>
+        
+        {readingSessions.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-            Noch keine Statistiken vorhanden. Nutze den Timer auf einer Aufgabe, um Daten zu sammeln!
+            Noch keine Lese-Sessions vorhanden. Nutze den Timer unter "Lesegeschwindigkeit".
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-            {tasksWithStats.map(task => {
-              const cat = categories.find(c => c.id === task.categoryId);
-              
-              const totalSeconds = task.timerLogs.reduce((acc, log) => acc + log.timeSpent, 0);
-              const totalAmount = task.timerLogs.reduce((acc, log) => acc + log.amount, 0);
-              const totalHours = totalSeconds / 3600;
-              const trueSpeed = totalHours > 0 ? (totalAmount / totalHours).toFixed(1) : 0;
+          <div style={{ 
+            border: '1px solid var(--border-color)', 
+            borderRadius: 'var(--border-radius)', 
+            padding: '1.5rem', 
+            backgroundColor: 'var(--bg-main)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Clock size={14} /> Gesamtzeit
+                </span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{formatTime(totalReadingSeconds)}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <BookOpen size={14} /> Gelesen
+                </span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{totalReadingAmount} Seiten</span>
+              </div>
+            </div>
 
-              return (
-                <div key={task.id} style={{ 
-                  border: '1px solid var(--border-color)', 
-                  borderRadius: 'var(--border-radius)', 
-                  padding: '1.5rem', 
-                  backgroundColor: 'var(--bg-main)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: cat ? cat.color : 'var(--border-color)' }} />
-                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{task.title}</h3>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Clock size={14} /> Gesamtzeit
-                      </span>
-                      <span style={{ fontSize: '1.2rem', fontWeight: '600' }}>{formatTime(totalSeconds)}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <BookOpen size={14} /> Gesamtmenge
-                      </span>
-                      <span style={{ fontSize: '1.2rem', fontWeight: '600' }}>{totalAmount}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ 
-                    marginTop: 'auto', 
-                    paddingTop: '1rem', 
-                    borderTop: '1px solid var(--border-color)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Wahrer Durchschnitt:</span>
-                    <span style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-secondary)' }}>
-                      {trueSpeed} S/h
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+            <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Durchschnittliche Geschwindigkeit</span>
+              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>
+                {averageReadingSpeed} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-main)' }}>Seiten/h</span>
+              </span>
+            </div>
           </div>
         )}
       </div>
+
+      {/* KALORIEN-BILANZ */}
+      <div className="card">
+        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Flame color="var(--accent-danger)" />
+          Kalorien-Wochenbilanz
+        </h2>
+        
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+          Woche vom {format(startOfCurrentWeek, 'dd.MM.')} bis {format(endOfCurrentWeek, 'dd.MM.')}
+        </p>
+
+        <div style={{ 
+          border: '1px solid var(--border-color)', 
+          borderRadius: 'var(--border-radius)', 
+          padding: '2rem', 
+          backgroundColor: 'var(--bg-main)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem'
+        }}>
+          <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Gesamt-Abweichung diese Woche:</span>
+          <div style={{ 
+            fontSize: '3rem', 
+            fontWeight: 'bold', 
+            color: weeklyCalorieBalance > 0 ? 'var(--accent-danger)' : (weeklyCalorieBalance < 0 ? 'var(--accent-success)' : 'var(--text-main)') 
+          }}>
+            {weeklyCalorieBalance > 0 ? '+' : ''}{weeklyCalorieBalance} kcal
+          </div>
+          {weeklyCalorieBalance > 0 && (
+            <p style={{ color: 'var(--accent-danger)', textAlign: 'center' }}>Du bist über deinem Wochenziel.</p>
+          )}
+          {weeklyCalorieBalance < 0 && (
+            <p style={{ color: 'var(--accent-success)', textAlign: 'center' }}>Du bist unter deinem Wochenziel. Super!</p>
+          )}
+          {weeklyCalorieBalance === 0 && (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Du bist exakt im Ziel (oder hast noch nichts eingetragen).</p>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 };

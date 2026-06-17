@@ -7,6 +7,8 @@ import YearTracker from './components/YearTracker';
 import CategoriesManager from './components/CategoriesManager';
 import TaskCreator from './components/TaskCreator';
 import Statistics from './components/Statistics';
+import ReadingSpeed from './components/ReadingSpeed';
+import Calories from './components/Calories';
 import AuthModal from './components/AuthModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { User } from 'lucide-react';
@@ -29,6 +31,10 @@ function MainApp() {
         return <YearTracker />;
       case 'statistics':
         return <Statistics />;
+      case 'reading-speed':
+        return <ReadingSpeed />;
+      case 'calories':
+        return <Calories />;
       case 'categories':
         return <CategoriesManager />;
       default:
@@ -42,6 +48,8 @@ function MainApp() {
       case 'create': return 'Neue Aufgabe erstellen';
       case 'tracker': return 'Jahres-Tracker';
       case 'statistics': return 'Statistiken';
+      case 'reading-speed': return 'Lesegeschwindigkeit';
+      case 'calories': return 'Kalorienziel';
       case 'categories': return 'Kategorien verwalten';
       default: return 'TaskMaster';
     }

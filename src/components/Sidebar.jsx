@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, CheckSquare, Calendar, Folder, BarChart2, PlusSquare, Activity, RefreshCw } from 'lucide-react';
+import { Home, CheckSquare, Calendar, Folder, BarChart2, PlusSquare, Activity, RefreshCw, BookOpen, Flame } from 'lucide-react';
 import { useTaskContext } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,9 +9,11 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   
   const menuItems = [
     { id: 'home', label: 'Startseite', icon: <Home size={20} /> },
-    { id: 'create', label: 'Aufgabe erstellen', icon: <PlusSquare size={20} /> },
     { id: 'tracker', label: 'Jahres-Tracker', icon: <BarChart2 size={20} /> },
     { id: 'statistics', label: 'Statistiken', icon: <Activity size={20} /> },
+    { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <BookOpen size={20} /> },
+    { id: 'calories', label: 'Kalorienziel', icon: <Flame size={20} /> },
+    { id: 'create', label: 'Aufgabe erstellen', icon: <PlusSquare size={20} /> },
     { id: 'categories', label: 'Kategorien', icon: <Folder size={20} /> },
   ];
 

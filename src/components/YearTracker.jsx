@@ -5,14 +5,9 @@ import { useTaskContext } from '../context/TaskContext';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const YearTracker = () => {
-  const { tasks, toggleTaskCompletion, saveTimerSession } = useTaskContext();
+  const { tasks, toggleTaskCompletion } = useTaskContext();
   const trackableTasks = tasks.filter(t => t.type !== 'general');
   const [expandedTaskId, setExpandedTaskId] = useState(null);
-  
-  const [manualEntry, setManualEntry] = useState(null);
-  const [manualMinutes, setManualMinutes] = useState('');
-  const [manualAmount, setManualAmount] = useState('');
-  
   const today = startOfToday();
   const currentYear = new Date().getFullYear();
   const yearStart = startOfYear(new Date());
@@ -75,17 +70,7 @@ const YearTracker = () => {
 
   const handleDayClick = (task, dateStr) => {
     const isCompleted = task.completedDates.includes(dateStr);
-    if (isCompleted) {
-      toggleTaskCompletion(task.id, dateStr);
-    } else {
-      if (task.hasTimer) {
-        setManualEntry({ taskId: task.id, dateStr });
-        setManualMinutes('');
-        setManualAmount('');
-      } else {
-        toggleTaskCompletion(task.id, dateStr);
-      }
-    }
+    toggleTaskCompletion(task.id, dateStr);
   };
 
   return (
@@ -203,50 +188,6 @@ const YearTracker = () => {
           </div>
         )}
       </div>
-      
-      {manualEntry && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div className="card" style={{ width: '90%', maxWidth: '400px', backgroundColor: 'var(--bg-main)' }}>
-            <h3 style={{ marginBottom: '1rem' }}>Nachtragen: {manualEntry.dateStr}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Dauer (Minuten)</label>
-                <input type="number" value={manualMinutes} onChange={e => setManualMinutes(e.target.value)} placeholder="z.B. 30" />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Menge (optional, z.B. Seiten)</label>
-                <input type="number" value={manualAmount} onChange={e => setManualAmount(e.target.value)} placeholder="z.B. 10" />
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button 
-                  className="btn-primary" 
-                  style={{ flex: 1, padding: '0.75rem', display: 'flex', justifyContent: 'center' }}
-                  onClick={() => {
-                    const mins = parseInt(manualMinutes, 10) || 0;
-                    const amt = parseFloat(manualAmount) || 0;
-                    toggleTaskCompletion(manualEntry.taskId, manualEntry.dateStr);
-                    if (mins > 0 || amt > 0) {
-                      saveTimerSession(manualEntry.taskId, mins * 60, amt, manualEntry.dateStr);
-                    }
-                    setManualEntry(null);
-                  }}
-                >
-                  Speichern
-                </button>
-                <button 
-                  onClick={() => setManualEntry(null)}
-                  style={{ flex: 1, padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer' }}
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
