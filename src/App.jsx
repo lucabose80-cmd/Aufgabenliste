@@ -7,12 +7,15 @@ import YearTracker from './components/YearTracker';
 import CategoriesManager from './components/CategoriesManager';
 import TaskCreator from './components/TaskCreator';
 import Statistics from './components/Statistics';
+import AuthModal from './components/AuthModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { User } from 'lucide-react';
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user, loginWithGoogle, logout } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -63,16 +66,23 @@ function MainApp() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {user ? (
               <>
-                <img src={user.photoURL} alt="Profile" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                  <User size={20} />
+                  <span style={{ fontSize: '0.9rem', display: 'none', '@media (min-width: 600px)': { display: 'inline' } }}>
+                    {user.email}
+                  </span>
+                </div>
                 <button className="btn btn-secondary" onClick={logout} style={{ padding: '0.5rem 1rem' }}>Logout</button>
               </>
             ) : (
-              <button className="btn btn-primary" onClick={loginWithGoogle} style={{ padding: '0.5rem 1rem' }}>Login mit Google</button>
+              <button className="btn btn-primary" onClick={() => setIsAuthModalOpen(true)} style={{ padding: '0.5rem 1rem' }}>Einloggen</button>
             )}
           </div>
         </header>
         {renderContent()}
       </main>
+      
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 }
