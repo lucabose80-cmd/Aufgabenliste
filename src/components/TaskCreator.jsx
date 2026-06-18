@@ -127,7 +127,12 @@ const TaskCreator = () => {
                 fullWidth
               >
                 {categories.map(c => (
-                  <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                  <MenuItem key={c.id} value={c.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: c.color }} />
+                      {c.name}
+                    </Box>
+                  </MenuItem>
                 ))}
               </TextField>
               
@@ -259,44 +264,112 @@ const TaskCreator = () => {
         {tasks.length === 0 ? (
           <Typography color="text.secondary">Keine Aufgaben vorhanden.</Typography>
         ) : (
-          <List>
-            {tasks.map((task, idx) => (
-              <React.Fragment key={task.id}>
-                <ListItem 
-                  sx={{ 
-                    bgcolor: 'background.default', 
-                    borderRadius: 2,
-                    mb: 1,
-                    border: 1,
-                    borderColor: 'divider'
-                  }}
-                >
-                  <ListItemText 
-                    primary={task.title} 
-                    primaryTypographyProps={{ fontWeight: 'bold' }}
-                    secondary={`Typ: ${task.type}`}
-                    secondaryTypographyProps={{ textTransform: 'uppercase', fontSize: '0.75rem' }}
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton color="primary" onClick={() => handleEdit(task)} sx={{ mr: 1 }}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton 
-                      color="error" 
-                      onClick={() => {
-                        if(window.confirm('Aufgabe wirklich endgültig löschen?')) {
-                          deleteTask(task.id);
-                          if (editingTaskId === task.id) handleCancelEdit();
-                        }
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              </React.Fragment>
-            ))}
-          </List>
+          <Box>
+            {categories.map(cat => {
+              const catTasks = tasks.filter(t => t.categoryId === cat.id);
+              if (catTasks.length === 0) return null;
+              
+              return (
+                <Box key={cat.id} sx={{ mb: 4 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: cat.color, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: cat.color }} />
+                    {cat.name}
+                  </Typography>
+                  <List disablePadding>
+                    {catTasks.map((task) => (
+                      <ListItem 
+                        key={task.id}
+                        sx={{ 
+                          bgcolor: 'background.default', 
+                          borderRadius: 2,
+                          mb: 1.5,
+                          border: 1,
+                          borderColor: 'divider',
+                          borderLeft: `4px solid ${cat.color}`
+                        }}
+                      >
+                        <ListItemText 
+                          primary={task.title} 
+                          primaryTypographyProps={{ fontWeight: 'bold' }}
+                          secondary={`Typ: ${task.type}`}
+                          secondaryTypographyProps={{ textTransform: 'uppercase', fontSize: '0.75rem' }}
+                        />
+                        <ListItemSecondaryAction>
+                          <IconButton color="primary" onClick={() => handleEdit(task)} sx={{ mr: 1 }}>
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton 
+                            color="error" 
+                            onClick={() => {
+                              if(window.confirm('Aufgabe wirklich endgültig löschen?')) {
+                                deleteTask(task.id);
+                                if (editingTaskId === task.id) handleCancelEdit();
+                              }
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              );
+            })}
+            
+            {/* Catch any tasks that might have a missing/deleted category */}
+            {(() => {
+              const missingTasks = tasks.filter(t => !categories.find(c => c.id === t.categoryId));
+              if (missingTasks.length === 0) return null;
+              
+              return (
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'text.secondary' }} />
+                    Ohne Kategorie
+                  </Typography>
+                  <List disablePadding>
+                    {missingTasks.map((task) => (
+                      <ListItem 
+                        key={task.id}
+                        sx={{ 
+                          bgcolor: 'background.default', 
+                          borderRadius: 2,
+                          mb: 1.5,
+                          border: 1,
+                          borderColor: 'divider',
+                          borderLeft: `4px solid gray`
+                        }}
+                      >
+                        <ListItemText 
+                          primary={task.title} 
+                          primaryTypographyProps={{ fontWeight: 'bold' }}
+                          secondary={`Typ: ${task.type}`}
+                          secondaryTypographyProps={{ textTransform: 'uppercase', fontSize: '0.75rem' }}
+                        />
+                        <ListItemSecondaryAction>
+                          <IconButton color="primary" onClick={() => handleEdit(task)} sx={{ mr: 1 }}>
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton 
+                            color="error" 
+                            onClick={() => {
+                              if(window.confirm('Aufgabe wirklich endgültig löschen?')) {
+                                deleteTask(task.id);
+                                if (editingTaskId === task.id) handleCancelEdit();
+                              }
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              );
+            })()}
+          </Box>
         )}
       </Card>
     </Box>
