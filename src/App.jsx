@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button, BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import HomeIcon from '@mui/icons-material/Home';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import AddBoxIcon from '@mui/icons-material/AddBox';
 import { createAppTheme } from './Theme';
 import { TaskProvider, useTaskContext } from './context/TaskContext';
 import Sidebar from './components/Sidebar';
@@ -119,9 +124,26 @@ function MainApp() {
           </Toolbar>
         </AppBar>
         
-        <Box component="main" sx={{ flexGrow: 1, overflow: 'auto', p: { xs: 2, sm: 3 } }}>
+        <Box component="main" sx={{ flexGrow: 1, overflow: 'auto', p: { xs: 2, sm: 3 }, pb: { xs: 10, sm: 3 } }}>
           {renderContent()}
         </Box>
+
+        {/* Bottom Navigation for Mobile */}
+        <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, display: { md: 'none' }, zIndex: 1100 }} elevation={8}>
+          <BottomNavigation
+            showLabels
+            value={currentView}
+            onChange={(event, newValue) => {
+              setCurrentView(newValue);
+            }}
+          >
+            <BottomNavigationAction label="Start" value="home" icon={<HomeIcon />} />
+            <BottomNavigationAction label="Lesen" value="reading-speed" icon={<MenuBookIcon />} />
+            <BottomNavigationAction label="Neu" value="create" icon={<AddBoxIcon />} />
+            <BottomNavigationAction label="Rückblick" value="review" icon={<EmojiEventsIcon />} />
+            <BottomNavigationAction label="Shopping" value="shopping" icon={<ShoppingCartIcon />} />
+          </BottomNavigation>
+        </Paper>
       </Box>
       
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
