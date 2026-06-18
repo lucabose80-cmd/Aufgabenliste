@@ -187,14 +187,17 @@ const Review = () => {
           <span style={{ fontSize: '3rem', fontWeight: 'bold' }}>{totalTasksCompleted}</span>
         </div>
 
-        {/* Card 2: Lesen */}
+        {/* Card 2: Lesegeschwindigkeit */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
           <div style={{ padding: '1rem', background: 'rgba(236, 72, 153, 0.1)', borderRadius: '50%' }}>
-            <BookOpen size={32} color="#ec4899" />
+            <Activity size={32} color="#ec4899" />
           </div>
-          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Gelesen</h3>
-          <span style={{ fontSize: '3rem', fontWeight: 'bold', color: '#ec4899' }}>{totalReadingAmount} <span style={{ fontSize: '1rem', color: 'var(--text-main)' }}>S.</span></span>
-          <span style={{ color: 'var(--text-muted)' }}>in {totalReadingHours} Stunden</span>
+          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Lesegeschwindigkeit (Ø)</h3>
+          <span style={{ fontSize: '3rem', fontWeight: 'bold', color: '#ec4899' }}>
+            {totalReadingHours > 0 ? Math.round(totalReadingAmount / totalReadingHours) : 0} 
+            <span style={{ fontSize: '1rem', color: 'var(--text-main)', marginLeft: '4px' }}>S./h</span>
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>basierend auf {totalReadingAmount} Seiten</span>
         </div>
 
         {/* Card 3: Kalorien */}
@@ -261,49 +264,7 @@ const Review = () => {
             </ResponsiveContainer>
           </div>
         </div>
-
-        <div className="card">
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <BookOpen size={18} /> Gelesene Seiten im Verlauf
-          </h3>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <LineChart data={readingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
-                  itemStyle={{ color: 'var(--text-main)' }}
-                />
-                <Line type="monotone" dataKey="amount" name="Seiten" stroke="#ec4899" strokeWidth={3} dot={{ fill: '#ec4899', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={18} /> Lesegeschwindigkeit (Seiten pro Stunde)
-          </h3>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <LineChart data={readingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
-                  itemStyle={{ color: 'var(--text-main)' }}
-                />
-                <Line type="monotone" dataKey="speed" name="Seiten/h" stroke="var(--accent-primary)" strokeWidth={3} dot={{ fill: 'var(--accent-primary)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
       </div>
-
     </div>
   );
 };

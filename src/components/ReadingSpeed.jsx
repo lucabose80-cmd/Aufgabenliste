@@ -11,6 +11,8 @@ const ReadingSpeed = () => {
   const [accumulatedTime, setAccumulatedTime] = useState(0);
   
   const [amount, setAmount] = useState('');
+  const [startPage, setStartPage] = useState('');
+  const [endPage, setEndPage] = useState('');
   const [showAmountField, setShowAmountField] = useState(false);
 
   // Edit State
@@ -44,23 +46,44 @@ const ReadingSpeed = () => {
     setIsTimerRunning(true);
   };
 
-  const handleStopTimer = () => {
+  const handlePauseTimer = () => {
     setIsTimerRunning(false);
     if (startTime) {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       setAccumulatedTime(prev => prev + elapsed);
-      setTimerSeconds(accumulatedTime + elapsed);
     }
     setStartTime(null);
+  };
+
+  const handleStopTimer = () => {
+    if (isTimerRunning) {
+      handlePauseTimer();
+    }
     setShowAmountField(true);
   };
 
   const handleSaveInfo = () => {
-    saveReadingSession(timerSeconds, amount);
+    // Falls start/end ausgefüllt sind, Amount berechnen
+    let finalAmount = amount;
+    if (startPage !== '' && endPage !== '') {
+      const s = parseInt(startPage, 10);
+      const e = parseInt(endPage, 10);
+      if (!isNaN(s) && !isNaN(e) && e >= s) {
+        finalAmount = (e - s).toString(); // oder e - s + 1, je nachdem wie man liest (meist e - s)
+        // Im Standard "Ich habe Seite 10 bis Seite 20 gelesen" liest man Seite 10 mit, also 20 - 10 = 10 Seiten? Oder 11? 
+        // Machen wir e - s, da es oft "bis Seite 20" bedeutet, d.h. man hat die 20. Seite nicht voll oder fängt bei 10 an.
+        // User sagte "errechnet es", also einfach:
+        finalAmount = (e - s).toString();
+      }
+    }
+
+    saveReadingSession(timerSeconds, finalAmount);
     setTimerSeconds(0);
     setAccumulatedTime(0);
     setShowAmountField(false);
     setAmount('');
+    setStartPage('');
+    setEndPage('');
   };
 
   const formatTime = (totalSeconds) => {
@@ -98,46 +121,99 @@ const ReadingSpeed = () => {
             {formatTime(timerSeconds)}
           </div>
           
-          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             {!showAmountField && (
-              isTimerRunning ? (
-                <button onClick={handleStopTimer} style={{ background: 'var(--accent-danger)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem' }}>
-                  <Square size={24} fill="currentColor" /> Stoppen
-                </button>
-              ) : (
-                <button onClick={handleStartTimer} style={{ background: 'var(--accent-success)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem' }}>
-                  <Play size={24} fill="currentColor" /> {timerSeconds === 0 ? 'Starten' : 'Fortsetzen'}
-                </button>
-              )
+              <>
+                {isTimerRunning ? (
+                  <>
+                    <button onClick={handlePauseTimer} style={{ background: 'var(--accent-warning)', color: '#000', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                      <Square size={24} fill="transparent" /> Pausieren
+                    </button>
+                    <button onClick={handleStopTimer} style={{ background: 'var(--accent-danger)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                      <Square size={24} fill="currentColor" /> Stoppen & Speichern
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={handleStartTimer} style={{ background: 'var(--accent-success)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                      <Play size={24} fill="currentColor" /> {timerSeconds === 0 ? 'Starten' : 'Fortsetzen'}
+                    </button>
+                    {timerSeconds > 0 && (
+                      <button onClick={handleStopTimer} style={{ background: 'var(--accent-danger)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                        <Square size={24} fill="currentColor" /> Stoppen & Speichern
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
 
         {showAmountField && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '2rem', padding: '1.5rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)' }}>
-            <h3 style={{ marginBottom: '0.5rem' }}>Lese-Session speichern</h3>
-            <p style={{ color: 'var(--text-muted)' }}>Wie viele Seiten hast du in dieser Zeit ({formatTime(timerSeconds)}) gelesen?</p>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <input 
-                type="number" 
-                value={amount} 
-                onChange={(e) => setAmount(e.target.value)} 
-                placeholder="Anzahl Seiten" 
-                style={{ flex: 1, fontSize: '1.1rem' }}
-              />
-              <button className="btn-primary" onClick={handleSaveInfo} style={{ padding: '0.75rem 1.5rem' }}>
-                <Save size={18} /> Speichern
-              </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '2rem', padding: '1.5rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)' }}>
+            <div>
+              <h3 style={{ marginBottom: '0.5rem' }}>Lese-Session speichern</h3>
+              <p style={{ color: 'var(--text-muted)' }}>Wie viele Seiten hast du in dieser Zeit ({formatTime(timerSeconds)}) gelesen?</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: '80px' }}>Von Seite:</span>
+                <input 
+                  type="number" 
+                  value={startPage} 
+                  onChange={(e) => {
+                    setStartPage(e.target.value);
+                    setAmount('');
+                  }} 
+                  placeholder="z.B. 10" 
+                  style={{ flex: 1, minWidth: '100px' }}
+                />
+                <span style={{ color: 'var(--text-muted)', minWidth: '80px', textAlign: 'right' }}>Bis Seite:</span>
+                <input 
+                  type="number" 
+                  value={endPage} 
+                  onChange={(e) => {
+                    setEndPage(e.target.value);
+                    setAmount('');
+                  }} 
+                  placeholder="z.B. 25" 
+                  style={{ flex: 1, minWidth: '100px' }}
+                />
+              </div>
+
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>ODER direkt Anzahl Seiten eingeben:</div>
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <input 
+                  type="number" 
+                  value={amount} 
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    setStartPage('');
+                    setEndPage('');
+                  }} 
+                  placeholder="Gelesene Seiten gesamt" 
+                  style={{ flex: 1, fontSize: '1.1rem' }}
+                />
+                <button className="btn-primary" onClick={handleSaveInfo} style={{ padding: '0.75rem 1.5rem' }}>
+                  <Save size={18} /> Speichern
+                </button>
+              </div>
             </div>
             <button 
               onClick={() => {
                 setTimerSeconds(0);
+                setAccumulatedTime(0);
                 setShowAmountField(false);
                 setAmount('');
+                setStartPage('');
+                setEndPage('');
               }}
-              style={{ padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', background: 'transparent', color: 'var(--text-danger)', cursor: 'pointer', marginTop: '0.5rem' }}
+              style={{ padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', background: 'transparent', color: 'var(--text-danger)', cursor: 'pointer', alignSelf: 'flex-start' }}
             >
-              Verwerfen
+              Verwerfen & Timer zurücksetzen
             </button>
           </div>
         )}

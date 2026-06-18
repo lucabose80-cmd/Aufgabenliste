@@ -206,10 +206,14 @@ const TaskGrid = () => {
   const { tasks, categories, getTodayDateString, reorderTasks } = useTaskContext();
   const [showCompleted, setShowCompleted] = useState(false);
 
-  const displayGroups = [
-    { id: 'routines', label: 'Tägliche Routinen', types: ['daily', 'weekly', 'x-times', 'specific-days'] },
-    { id: 'general', label: 'Allgemeine To-Dos', types: ['general'] }
-  ];
+  const displayGroups = categories.map(cat => ({
+    id: cat.id,
+    label: cat.name,
+    color: cat.color
+  }));
+
+  // Fange Aufgaben ohne gültige Kategorie auf
+  displayGroups.push({ id: 'uncategorized', label: 'Ohne Kategorie', color: 'var(--border-color)' });
 
   const today = getTodayDateString();
   const dayOfWeek = new Date().getDay();
@@ -270,8 +274,13 @@ const TaskGrid = () => {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
           {displayGroups.map(group => {
-            const typeTasks = filteredTasks.filter(t => group.types.includes(t.type));
-            if (typeTasks.length === 0) return null;
+            const catTasks = filteredTasks.filter(t => {
+              if (group.id === 'uncategorized') {
+                return !categories.find(c => c.id === t.categoryId);
+              }
+              return t.categoryId === group.id;
+            });
+            if (catTasks.length === 0) return null;
 
             return (
               <div key={group.id}>
@@ -280,16 +289,20 @@ const TaskGrid = () => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.75rem',
-                  color: 'var(--text-main)'
+                  color: group.color
                 }}>
                   {group.label}
                 </h2>
                 <SortableContext 
-                  items={typeTasks.map(t => t.id)}
+                  items={catTasks.map(t => t.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="task-grid">
-                    {typeTasks.map(task => (
+                  <div className="task-grid" style={{
+                    borderLeft: `2px solid ${group.color}`,
+                    paddingLeft: '1rem',
+                    marginLeft: '0.5rem'
+                  }}>
+                    {catTasks.map(task => (
                       <SortableTaskItem key={task.id} task={task} isWrongDay={task.isWrongDay} />
                     ))}
                   </div>

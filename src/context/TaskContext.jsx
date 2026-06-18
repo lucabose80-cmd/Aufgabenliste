@@ -197,6 +197,48 @@ export const TaskProvider = ({ children }) => {
 
   const getTodayDateString = () => format(new Date(), 'yyyy-MM-dd');
 
+  // Auto-reset subtasks for a new day
+  useEffect(() => {
+    if (tasks.length === 0 || isLoading) return;
+    const today = getTodayDateString();
+    let hasChanges = false;
+    const updatedTasks = tasks.map(task => {
+      if (task.type !== 'general' && task.subTasks && task.subTasks.length > 0) {
+        if (!task.completedDates.includes(today) && task.lastResetDate !== today) {
+          const needsReset = task.subTasks.some(st => st.completed);
+          if (needsReset) {
+            hasChanges = true;
+            return {
+              ...task,
+              subTasks: task.subTasks.map(st => ({ ...st, completed: false })),
+              lastResetDate: today
+            };
+          } else if (task.lastResetDate !== today) {
+            hasChanges = true;
+            return { ...task, lastResetDate: today };
+          }
+        }
+      }
+      return task;
+    });
+
+    if (hasChanges) {
+      if (!user) {
+        setTasks(updatedTasks);
+      } else {
+        const batch = writeBatch(db);
+        updatedTasks.forEach(t => {
+          const original = tasks.find(orig => orig.id === t.id);
+          if (original && (original.lastResetDate !== t.lastResetDate || JSON.stringify(original.subTasks) !== JSON.stringify(t.subTasks))) {
+            const ref = doc(db, 'users', user.uid, 'tasks', t.id);
+            batch.update(ref, { subTasks: t.subTasks, lastResetDate: t.lastResetDate });
+          }
+        });
+        batch.commit().catch(err => console.error("Auto-reset error:", err));
+      }
+    }
+  }, [tasks, isLoading, user]);
+
   // Firestore Sync Helper
   const saveTaskToFirestore = async (taskData) => {
     if (user) {
