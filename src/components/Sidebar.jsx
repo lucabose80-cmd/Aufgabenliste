@@ -91,15 +91,23 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
     <Box component="nav" sx={{ width: { md: 280 }, flexShrink: { md: 0 } }}>
       {/* Mobile Drawer */}
       <Drawer
+        anchor="bottom"
         variant="temporary"
         open={isOpen}
         onClose={toggleSidebar}
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 280 },
+          '& .MuiDrawer-paper': { 
+            boxSizing: 'border-box', 
+            width: '100%',
+            maxHeight: '80vh',
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+          },
         }}
       >
+        <Box sx={{ width: 40, height: 4, bgcolor: 'divider', borderRadius: 2, mx: 'auto', mt: 2, mb: 1 }} />
         {drawerContent}
       </Drawer>
       {/* Desktop Drawer */}

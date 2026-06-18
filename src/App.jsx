@@ -89,15 +89,7 @@ function MainApp() {
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'background.default' }}>
         <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar>
-            <IconButton
-              edge="start"
-              color="inherit"
-              aria-label="menu"
-              onClick={toggleSidebar}
-              sx={{ mr: 2, display: { md: 'none' } }}
-            >
-              <MenuIcon />
-            </IconButton>
+            {/* Removed Hamburger Menu for Mobile */}
             <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
               {getViewTitle()}
             </Typography>
@@ -134,14 +126,24 @@ function MainApp() {
             showLabels
             value={currentView}
             onChange={(event, newValue) => {
-              setCurrentView(newValue);
+              if (newValue !== 'more') {
+                setCurrentView(newValue);
+              }
             }}
           >
             <BottomNavigationAction label="Start" value="home" icon={<HomeIcon />} />
             <BottomNavigationAction label="Lesen" value="reading-speed" icon={<MenuBookIcon />} />
-            <BottomNavigationAction label="Neu" value="create" icon={<AddBoxIcon />} />
             <BottomNavigationAction label="Rückblick" value="review" icon={<EmojiEventsIcon />} />
             <BottomNavigationAction label="Shopping" value="shopping" icon={<ShoppingCartIcon />} />
+            <BottomNavigationAction 
+              label="Mehr" 
+              value="more" 
+              icon={<MenuIcon />} 
+              onClick={(e) => {
+                e.preventDefault();
+                toggleSidebar();
+              }}
+            />
           </BottomNavigation>
         </Paper>
       </Box>
