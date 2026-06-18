@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Trash2, Plus, Edit2, Check, X } from 'lucide-react';
+import { Box, Card, Typography, TextField, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 
 const CategoriesManager = () => {
   const { categories, addCategory, updateCategory, deleteCategory } = useTaskContext();
@@ -10,6 +15,9 @@ const CategoriesManager = () => {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [catToDelete, setCatToDelete] = useState(null);
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -36,85 +44,112 @@ const CategoriesManager = () => {
     setEditingId(null);
   };
 
+  const handleDeleteClick = (catId) => {
+    setCatToDelete(catId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (catToDelete) {
+      deleteCategory(catToDelete);
+    }
+    setDeleteConfirmOpen(false);
+    setCatToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmOpen(false);
+    setCatToDelete(null);
+  };
+
   return (
-    <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h3 style={{ marginBottom: '1.5rem' }}>Kategorien verwalten</h3>
+    <Card sx={{ maxWidth: 600, mx: 'auto', p: { xs: 2, sm: 3 } }}>
+      <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>Kategorien verwalten</Typography>
       
-      <form onSubmit={handleAdd} style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-        <input 
-          type="text" 
+      <Box component="form" onSubmit={handleAdd} sx={{ display: 'flex', gap: 2, mb: 4, alignItems: 'center' }}>
+        <TextField 
+          size="small"
           value={newCatName} 
           onChange={e => setNewCatName(e.target.value)} 
           placeholder="Neue Kategorie..." 
-          style={{ flex: 1 }}
+          fullWidth
         />
         <input 
           type="color" 
           value={newCatColor} 
           onChange={e => setNewCatColor(e.target.value)} 
-          style={{ width: '50px', height: '40px', padding: '0', cursor: 'pointer' }}
+          style={{ width: '50px', height: '40px', padding: '0', cursor: 'pointer', border: 'none', borderRadius: '4px' }}
         />
-        <button type="submit" className="btn-primary">
-          <Plus size={18} /> Hinzufügen
-        </button>
-      </form>
+        <Button type="submit" variant="contained" startIcon={<AddIcon />}>
+          Hinzufügen
+        </Button>
+      </Box>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {categories.map(cat => (
-          <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius-sm)' }}>
+          <Box key={cat.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, bgcolor: 'background.default', borderRadius: 2, border: 1, borderColor: 'divider' }}>
             
             {editingId === cat.id ? (
               // EDIT MODE
-              <div style={{ display: 'flex', flex: 1, gap: '1rem', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', flex: 1, gap: 2, alignItems: 'center' }}>
                 <input 
                   type="color" 
                   value={editColor} 
                   onChange={e => setEditColor(e.target.value)} 
-                  style={{ width: '40px', height: '30px', padding: '0', cursor: 'pointer' }}
+                  style={{ width: '40px', height: '30px', padding: '0', cursor: 'pointer', border: 'none', borderRadius: '4px' }}
                 />
-                <input 
-                  type="text" 
+                <TextField 
+                  size="small"
                   value={editName} 
                   onChange={e => setEditName(e.target.value)} 
-                  style={{ flex: 1, padding: '0.25rem 0.5rem' }}
+                  fullWidth
                 />
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="btn-icon" onClick={saveEditing} style={{ color: 'var(--accent-success)' }} title="Speichern">
-                    <Check size={18} />
-                  </button>
-                  <button className="btn-icon" onClick={cancelEditing} style={{ color: 'var(--text-secondary)' }} title="Abbrechen">
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <IconButton onClick={saveEditing} color="success" size="small">
+                    <CheckIcon />
+                  </IconButton>
+                  <IconButton onClick={cancelEditing} color="default" size="small">
+                    <CloseIcon />
+                  </IconButton>
+                </Box>
+              </Box>
             ) : (
               // VIEW MODE
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: cat.color }}></div>
-                  <span style={{ fontWeight: '500' }}>{cat.name}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="btn-icon" onClick={() => startEditing(cat)} style={{ color: 'var(--text-secondary)' }} title="Bearbeiten">
-                    <Edit2 size={18} />
-                  </button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: cat.color }} />
+                  <Typography fontWeight="bold">{cat.name}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <IconButton onClick={() => startEditing(cat)} color="default" size="small">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
                   {categories.length > 1 && (
-                    <button className="btn-icon" onClick={() => {
-                      if(window.confirm('Kategorie wirklich löschen? Alle zugehörigen Aufgaben werden nach "Allgemein" verschoben.')) {
-                        deleteCategory(cat.id);
-                      }
-                    }} style={{ color: 'var(--accent-danger)' }} title="Löschen">
-                      <Trash2 size={18} />
-                    </button>
+                    <IconButton onClick={() => handleDeleteClick(cat.id)} color="error" size="small">
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   )}
-                </div>
+                </Box>
               </>
             )}
 
-          </div>
+          </Box>
         ))}
-      </div>
-    </div>
+      </Box>
+
+      <Dialog open={deleteConfirmOpen} onClose={cancelDelete}>
+        <DialogTitle>Kategorie löschen?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Möchtest du diese Kategorie wirklich löschen? Alle zugehörigen Aufgaben werden nach "Allgemein" verschoben.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDelete} color="inherit">Abbrechen</Button>
+          <Button onClick={confirmDelete} color="error" variant="contained">Löschen</Button>
+        </DialogActions>
+      </Dialog>
+    </Card>
   );
 };
 

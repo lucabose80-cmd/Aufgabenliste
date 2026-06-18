@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Flame, Plus, Save, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Box, Card, Typography, TextField, Button, IconButton, Divider } from '@mui/material';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import AddIcon from '@mui/icons-material/Add';
+import SaveIcon from '@mui/icons-material/Save';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const Calories = () => {
   const { calorieGoal, updateCalorieGoal, calorieLogs, saveCalorieLog, deleteCalorieLog, getTodayDateString } = useTaskContext();
@@ -38,80 +43,79 @@ const Calories = () => {
   const todayLog = calorieLogs.find(l => l.date === todayStr);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
-      <div className="card">
-        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Flame color="var(--accent-danger)" /> Kalorienziel
-        </h2>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
+      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+        <Typography variant="h5" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <LocalFireDepartmentIcon color="error" fontSize="large" /> Kalorienziel
+        </Typography>
 
-        <div style={{ marginBottom: '2rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Mein tägliches Kalorienziel</label>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <input 
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>Mein tägliches Kalorienziel</Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField 
               type="number" 
               value={goalInput}
               onChange={(e) => setGoalInput(e.target.value)}
               placeholder="z.B. 2000"
-              style={{ flex: 1 }}
+              fullWidth
+              sx={{ flex: 1, minWidth: 200 }}
             />
-            <button className="btn-primary" onClick={handleSaveGoal} style={{ padding: '0.75rem 1.5rem' }}>
-              <Save size={18} /> Speichern
-            </button>
-          </div>
-        </div>
+            <Button variant="contained" color="primary" onClick={handleSaveGoal} startIcon={<SaveIcon />}>
+              Speichern
+            </Button>
+          </Box>
+        </Box>
 
-        <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '2rem 0' }} />
+        <Divider sx={{ my: 4 }} />
 
-        <div>
-          <h3 style={{ marginBottom: '1rem' }}>Heutige Bilanz ({format(new Date(), 'dd.MM.yyyy')})</h3>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+        <Box>
+          <Typography variant="h6" gutterBottom>Heutige Bilanz ({format(new Date(), 'dd.MM.yyyy')})</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Gib ein, wie viele Kalorien du heute drüber (positiv) oder drunter (negativ) warst.
-          </p>
+          </Typography>
 
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <input 
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField 
               type="text" 
               inputMode="numeric"
               value={differenceInput}
               onChange={(e) => setDifferenceInput(e.target.value)}
               placeholder="z.B. +200 oder -100"
-              style={{ flex: 1, minWidth: '150px' }}
+              fullWidth
+              sx={{ flex: 1, minWidth: 200 }}
             />
             {!todayLog ? (
-              <button className="btn-primary" onClick={handleSaveDifference} style={{ padding: '0.75rem 1.5rem', flexShrink: 0 }}>
-                <Plus size={18} /> Eintragen
-              </button>
+              <Button variant="contained" color="primary" onClick={handleSaveDifference} startIcon={<AddIcon />}>
+                Eintragen
+              </Button>
             ) : (
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button className="btn-primary" onClick={handleAddDifference} style={{ padding: '0.75rem 1rem', flexShrink: 0 }}>
-                  <Plus size={18} /> Dazu addieren
-                </button>
-                <button className="btn-secondary" onClick={handleSaveDifference} style={{ padding: '0.75rem 1rem', flexShrink: 0 }}>
-                  <Edit2 size={18} /> Überschreiben
-                </button>
-              </div>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button variant="contained" color="primary" onClick={handleAddDifference} startIcon={<AddIcon />}>
+                  Dazu addieren
+                </Button>
+                <Button variant="outlined" color="primary" onClick={handleSaveDifference} startIcon={<EditIcon />}>
+                  Überschreiben
+                </Button>
+              </Box>
             )}
-          </div>
+          </Box>
           
           {todayLog && (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', borderRadius: 'var(--border-radius)', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
+            <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: 'background.default', border: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+              <Typography>
                 Du hast heute bereits eingetragen: 
-                <strong style={{ marginLeft: '0.5rem', color: todayLog.difference > 0 ? 'var(--accent-danger)' : 'var(--accent-success)' }}>
+                <Typography component="span" fontWeight="bold" color={todayLog.difference > 0 ? 'error.main' : 'success.main'} sx={{ ml: 1 }}>
                   {todayLog.difference > 0 ? '+' : ''}{todayLog.difference} kcal
-                </strong>
-              </div>
-              <button 
-                onClick={handleDeleteLog}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', color: 'var(--accent-danger)', cursor: 'pointer' }}
-              >
-                <Trash2 size={16} /> Löschen
-              </button>
-            </div>
+                </Typography>
+              </Typography>
+              <IconButton color="error" onClick={handleDeleteLog} title="Löschen">
+                <DeleteIcon />
+              </IconButton>
+            </Box>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Card>
+    </Box>
   );
 };
 

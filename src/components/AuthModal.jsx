@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Typography, IconButton, Box, Alert, InputAdornment } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
 const AuthModal = ({ isOpen, onClose }) => {
   const { loginWithEmail, registerWithEmail } = useAuth();
@@ -9,8 +12,6 @@ const AuthModal = ({ isOpen, onClose }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,91 +42,89 @@ const AuthModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', 
-      alignItems: 'center', justifyContent: 'center', zIndex: 1000
-    }}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-        backgroundColor: 'var(--bg-color)', padding: '2rem', borderRadius: 'var(--border-radius)',
-        width: '90%', maxWidth: '400px', position: 'relative'
-      }}>
-        <button onClick={onClose} style={{
-          position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none',
-          color: 'var(--text-secondary)', cursor: 'pointer'
-        }}>
-          <X size={24} />
-        </button>
+    <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+        {isLogin ? 'Anmelden' : 'Registrieren'}
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent>
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          
+          {error && (
+            <Alert severity="error">{error}</Alert>
+          )}
 
-        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-          {isLogin ? 'Anmelden' : 'Registrieren'}
-        </h2>
-
-        {error && (
-          <div style={{ backgroundColor: '#ef444420', color: '#ef4444', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', fontSize: '0.9rem' }}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>E-Mail Adresse</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={{
-                  width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.2rem',
-                  backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-color)',
-                  borderRadius: '0.5rem', color: 'var(--text-color)'
-                }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Passwort</label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength="6"
-                style={{
-                  width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.2rem',
-                  backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-color)',
-                  borderRadius: '0.5rem', color: 'var(--text-color)'
-                }}
-              />
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            label="E-Mail Adresse"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailOutlinedIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            label="Passwort"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            inputProps={{ minLength: 6 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockOutlinedIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
             disabled={loading}
-            style={{ marginTop: '0.5rem', padding: '0.75rem', fontSize: '1rem' }}
+            size="large"
+            sx={{ mt: 2, mb: 2 }}
           >
             {loading ? 'Bitte warten...' : (isLogin ? 'Einloggen' : 'Account erstellen')}
-          </button>
-        </form>
+          </Button>
 
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-          {isLogin ? "Noch keinen Account? " : "Bereits einen Account? "}
-          <button 
-            onClick={() => { setIsLogin(!isLogin); setError(''); }}
-            style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            {isLogin ? 'Hier registrieren' : 'Hier anmelden'}
-          </button>
-        </div>
-      </div>
-    </div>
+          <Box sx={{ textAlign: 'center', mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {isLogin ? "Noch keinen Account? " : "Bereits einen Account? "}
+              <Button 
+                variant="text" 
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                sx={{ textTransform: 'none', fontWeight: 'bold' }}
+              >
+                {isLogin ? 'Hier registrieren' : 'Hier anmelden'}
+              </Button>
+            </Typography>
+          </Box>
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { format, eachDayOfInterval, startOfYear, endOfYear, getMonth, isAfter, startOfToday, startOfWeek, endOfWeek, isSameDay, getWeek } from 'date-fns';
+import { format, eachDayOfInterval, startOfYear, endOfYear, getMonth, isAfter, startOfToday, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useTaskContext } from '../context/TaskContext';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Box, Card, Typography, Collapse, IconButton, Grid, Tooltip } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 const YearTracker = () => {
   const { tasks, toggleTaskCompletion } = useTaskContext();
@@ -15,7 +17,6 @@ const YearTracker = () => {
   
   const allDays = eachDayOfInterval({ start: yearStart, end: yearEnd });
   
-  // Group days by month for expanded view
   const months = Array.from({ length: 12 }, (_, i) => allDays.filter(d => getMonth(d) === i));
 
   const evaluateDay = (day, task) => {
@@ -24,16 +25,15 @@ const YearTracker = () => {
     const isCompleted = task.completedDates.includes(dateStr);
 
     if (task.type === 'daily') {
-      if (isFuture) return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.3 };
-      if (isCompleted) return { color: 'var(--accent-success)', border: 'var(--accent-success)', opacity: 1 };
-      return { color: 'var(--accent-danger)', border: 'var(--accent-danger)', opacity: 0.8 };
+      if (isFuture) return { color: 'background.default', border: 'divider', opacity: 0.3 };
+      if (isCompleted) return { color: 'success.main', border: 'success.dark', opacity: 1 };
+      return { color: 'error.main', border: 'error.dark', opacity: 0.8 };
     }
 
-    // For weekly, x-times and specific-days: evaluate the whole week
     const weekStart = startOfWeek(day, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
     
-    if (isFuture) return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.3 };
+    if (isFuture) return { color: 'background.default', border: 'divider', opacity: 0.3 };
 
     const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
     
@@ -50,17 +50,17 @@ const YearTracker = () => {
     const weekGoalMet = completedCountInWeek >= target;
 
     if (weekGoalMet) {
-      return { color: 'var(--accent-success)', border: 'var(--accent-success)', opacity: 1 };
+      return { color: 'success.main', border: 'success.dark', opacity: 1 };
     } else {
       if (isCompleted) {
-        return { color: 'var(--accent-success)', border: 'var(--accent-success)', opacity: 1 };
+        return { color: 'success.main', border: 'success.dark', opacity: 1 };
       }
       const isCurrentWeek = daysInWeek.some(d => isSameDay(d, today));
       if (isCurrentWeek && !weekGoalMet) {
-        return { color: 'var(--bg-main)', border: 'var(--border-color)', opacity: 0.3 };
+        return { color: 'background.default', border: 'divider', opacity: 0.3 };
       }
 
-      return { color: 'var(--accent-danger)', border: 'var(--accent-danger)', opacity: 0.8 };
+      return { color: 'error.main', border: 'error.dark', opacity: 0.8 };
     }
   };
 
@@ -68,23 +68,23 @@ const YearTracker = () => {
     setExpandedTaskId(prev => prev === id ? null : id);
   };
 
-  const handleDayClick = (task, dateStr) => {
-    const isCompleted = task.completedDates.includes(dateStr);
+  const handleDayClick = (e, task, dateStr) => {
+    e.stopPropagation();
     toggleTaskCompletion(task.id, dateStr);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>Jahres-Tracker {currentYear}</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 1000, mx: 'auto' }}>
+      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+        <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold' }}>Jahres-Tracker {currentYear}</Typography>
+        <Typography color="text.secondary" sx={{ mb: 4 }}>
           Klicke auf eine Aufgabe, um die detaillierte Monatsansicht zu öffnen.
-        </p>
+        </Typography>
 
         {trackableTasks.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>Füge tägliche/wöchentliche Aufgaben hinzu, um den Tracker zu nutzen.</p>
+          <Typography color="text.secondary">Füge tägliche/wöchentliche Aufgaben hinzu, um den Tracker zu nutzen.</Typography>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {trackableTasks.map(task => {
               const isExpanded = expandedTaskId === task.id;
 
@@ -105,90 +105,121 @@ const YearTracker = () => {
               };
 
               return (
-                <div key={task.id} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', padding: '1rem', backgroundColor: 'var(--bg-main)' }}>
+                <Box 
+                  key={task.id} 
+                  sx={{ 
+                    border: 1, 
+                    borderColor: 'divider', 
+                    borderRadius: 2, 
+                    p: 2, 
+                    bgcolor: 'background.paper',
+                    boxShadow: isExpanded ? 3 : 0,
+                    transition: 'box-shadow 0.3s'
+                  }}
+                >
                   
-                  {/* Header / Minimized View */}
-                  <div 
+                  <Box 
                     onClick={() => toggleExpand(task.id)}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                    sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      cursor: 'pointer' 
+                    }}
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, marginRight: '1rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{task.title}</h3>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1, mr: 2 }}>
+                      <Typography variant="h6" fontWeight="bold">{task.title}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
                         Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
-                      </span>
-                    </div>
+                      </Typography>
+                    </Box>
 
-                    <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateRows: 'repeat(7, 1fr)', gap: '1px', height: '28px', overflow: 'hidden', marginLeft: 'auto' }}>
-                      {/* Detailed mini-heatmap (GitHub style) */}
+                    <Box sx={{ 
+                      display: 'grid', 
+                      gridAutoFlow: 'column', 
+                      gridTemplateRows: 'repeat(7, 1fr)', 
+                      gap: '1px', 
+                      height: 28, 
+                      overflow: 'hidden', 
+                      ml: 'auto',
+                      mr: 2,
+                      opacity: isExpanded ? 0.5 : 1,
+                      transition: 'opacity 0.3s'
+                    }}>
                       {allDays.map((day, idx) => {
                         const style = evaluateDay(day, task);
                         return (
-                          <div 
+                          <Box 
                             key={idx}
-                            style={{
-                              width: '3px',
-                              height: '3px',
-                              backgroundColor: style.color,
+                            sx={{
+                              width: 3,
+                              height: 3,
+                              bgcolor: style.color,
                               opacity: style.opacity,
                               borderRadius: '1px'
                             }}
                           />
                         );
                       })}
-                    </div>
+                    </Box>
 
-                    <div style={{ marginLeft: '1rem', color: 'var(--text-muted)' }}>
-                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                    </div>
-                  </div>
+                    <IconButton size="small">
+                      {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  </Box>
 
-                  {/* Expanded View */}
-                  {isExpanded && (
-                    <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                    <Box sx={{ mt: 4, pt: 3, borderTop: 1, borderColor: 'divider' }}>
+                      <Grid container spacing={3}>
                         {months.map((monthDays, idx) => {
                           const monthName = format(new Date(currentYear, idx, 1), 'MMM', { locale: de });
                           
                           return (
-                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                              <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{monthName}</h4>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-                                {monthDays.map((day, dIdx) => {
-                                  const dateStr = format(day, 'yyyy-MM-dd');
-                                  const style = evaluateDay(day, task);
-                                  
-                                  return (
-                                    <div 
-                                      key={dIdx}
-                                      title={dateStr}
-                                      onClick={() => handleDayClick(task, dateStr)}
-                                      style={{
-                                        width: '100%',
-                                        aspectRatio: '1/1',
-                                        borderRadius: '2px',
-                                        backgroundColor: style.color,
-                                        opacity: style.opacity,
-                                        cursor: 'pointer'
-                                      }}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
+                            <Grid item xs={12} sm={6} md={4} lg={3} key={idx}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Typography variant="caption" color="text.secondary" fontWeight="bold">{monthName}</Typography>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+                                  {monthDays.map((day, dIdx) => {
+                                    const dateStr = format(day, 'yyyy-MM-dd');
+                                    const style = evaluateDay(day, task);
+                                    
+                                    return (
+                                      <Tooltip title={dateStr} key={dIdx} arrow placement="top">
+                                        <Box 
+                                          onClick={(e) => handleDayClick(e, task, dateStr)}
+                                          sx={{
+                                            width: '100%',
+                                            aspectRatio: '1/1',
+                                            borderRadius: '2px',
+                                            bgcolor: style.color,
+                                            opacity: style.opacity,
+                                            cursor: 'pointer',
+                                            '&:hover': {
+                                              opacity: 1,
+                                              transform: 'scale(1.1)'
+                                            },
+                                            transition: 'transform 0.1s'
+                                          }}
+                                        />
+                                      </Tooltip>
+                                    );
+                                  })}
+                                </Box>
+                              </Box>
+                            </Grid>
                           );
                         })}
-                      </div>
-                    </div>
-                  )}
+                      </Grid>
+                    </Box>
+                  </Collapse>
 
-                </div>
+                </Box>
               );
             })}
-          </div>
+          </Box>
         )}
-      </div>
-    </div>
+      </Card>
+    </Box>
   );
 };
 

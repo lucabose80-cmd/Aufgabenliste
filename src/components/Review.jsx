@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Calendar, CheckSquare, BookOpen, Flame, Award, Activity } from 'lucide-react';
 import { format, isSameMonth, isSameYear, parseISO, subDays, startOfWeek } from 'date-fns';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { de } from 'date-fns/locale';
+import { Box, Card, Typography, Button, Stack, useTheme } from '@mui/material';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
 const Review = () => {
   const { tasks, readingSessions, calorieLogs } = useTaskContext();
-  const [viewMode, setViewMode] = useState('month'); // 'month' or 'year'
+  const [viewMode, setViewMode] = useState('month'); 
+  const theme = useTheme();
 
   const today = new Date();
 
-  // Filter Logik
   const isDateInView = (dateStr) => {
     if (!dateStr) return false;
     const date = parseISO(dateStr);
@@ -19,7 +24,6 @@ const Review = () => {
     return isSameYear(date, today);
   };
 
-  // 1. Aufgaben (Tasks)
   let totalTasksCompleted = 0;
   tasks.forEach(task => {
     task.completedDates.forEach(dateStr => {
@@ -29,13 +33,11 @@ const Review = () => {
     });
   });
 
-  // 2. Lese-Statistik
   const filteredReading = readingSessions.filter(session => isDateInView(session.date));
   const totalReadingAmount = filteredReading.reduce((acc, s) => acc + s.amount, 0);
   const totalReadingSeconds = filteredReading.reduce((acc, s) => acc + s.timeSpent, 0);
   const totalReadingHours = (totalReadingSeconds / 3600).toFixed(1);
 
-  // 3. Kalorien
   const filteredCalories = calorieLogs.filter(log => isDateInView(log.date));
   
   const weeklySums = {};
@@ -49,7 +51,6 @@ const Review = () => {
   const totalWeeks = Object.keys(weeklySums).length;
   const successfulWeeks = Object.values(weeklySums).filter(sum => sum <= 0).length;
   
-  // 4. Längste aktuelle Streaks (nur zur Info, da wir Streaks aktuell über die ganze Zeit rechnen)
   const allStreaks = [];
 
   tasks.filter(t => t.type === 'daily').forEach(task => {
@@ -87,8 +88,6 @@ const Review = () => {
   allStreaks.sort((a, b) => b.streak - a.streak);
   const topStreaks = allStreaks.slice(0, 3);
 
-  // --- Chart Data ---
-  const readingData = [];
   const taskData = [];
   
   if (viewMode === 'month') {
@@ -96,17 +95,6 @@ const Review = () => {
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(today.getFullYear(), today.getMonth(), i);
       const dateStr = format(d, 'yyyy-MM-dd');
-      
-      const daySessions = readingSessions.filter(s => s.date === dateStr);
-      const dayAmount = daySessions.reduce((acc, s) => acc + s.amount, 0);
-      const dayTime = daySessions.reduce((acc, s) => acc + s.timeSpent, 0);
-      const daySpeed = dayTime > 0 ? Math.round(dayAmount / (dayTime / 3600)) : 0;
-      
-      readingData.push({ 
-        name: `${i}.`, 
-        amount: dayAmount,
-        speed: daySpeed
-      });
       
       let tCount = 0;
       tasks.forEach(task => {
@@ -118,17 +106,6 @@ const Review = () => {
     for (let i = 0; i < 12; i++) {
       const monthPrefix = format(new Date(today.getFullYear(), i, 1), 'yyyy-MM');
       const monthName = format(new Date(today.getFullYear(), i, 1), 'MMM', { locale: de });
-      
-      const monthSessions = readingSessions.filter(s => s.date && s.date.startsWith(monthPrefix));
-      const monthAmount = monthSessions.reduce((acc, s) => acc + s.amount, 0);
-      const monthTime = monthSessions.reduce((acc, s) => acc + s.timeSpent, 0);
-      const monthSpeed = monthTime > 0 ? Math.round(monthAmount / (monthTime / 3600)) : 0;
-      
-      readingData.push({ 
-        name: monthName, 
-        amount: monthAmount,
-        speed: monthSpeed
-      });
       
       let tCount = 0;
       tasks.forEach(task => {
@@ -143,129 +120,111 @@ const Review = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10 }}>
       
-      <div style={{ display: 'flex', gap: '1rem', backgroundColor: 'var(--bg-card)', padding: '0.5rem', borderRadius: 'var(--border-radius)', width: 'fit-content' }}>
-        <button 
+      <Box sx={{ display: 'flex', gap: 2, bgcolor: 'background.paper', p: 1, borderRadius: 3, width: 'fit-content' }}>
+        <Button 
+          variant={viewMode === 'month' ? 'contained' : 'text'}
           onClick={() => setViewMode('month')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            borderRadius: 'var(--border-radius)',
-            border: 'none',
-            background: viewMode === 'month' ? 'var(--accent-primary)' : 'transparent',
-            color: viewMode === 'month' ? 'white' : 'var(--text-muted)',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
+          sx={{ borderRadius: 2 }}
         >
           {format(today, 'MMMM', { locale: de })}
-        </button>
-        <button 
+        </Button>
+        <Button 
+          variant={viewMode === 'year' ? 'contained' : 'text'}
           onClick={() => setViewMode('year')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            borderRadius: 'var(--border-radius)',
-            border: 'none',
-            background: viewMode === 'year' ? 'var(--accent-primary)' : 'transparent',
-            color: viewMode === 'year' ? 'white' : 'var(--text-muted)',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
+          sx={{ borderRadius: 2 }}
         >
           {format(today, 'yyyy')}
-        </button>
-      </div>
+        </Button>
+      </Box>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 3 }}>
         
-        {/* Card 1: Aufgaben */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
-          <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '50%' }}>
-            <CheckSquare size={32} color="var(--accent-primary)" />
-          </div>
-          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Aufgaben erledigt</h3>
-          <span style={{ fontSize: '3rem', fontWeight: 'bold' }}>{totalTasksCompleted}</span>
-        </div>
+        <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
+          <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: '50%', display: 'flex', color: 'primary.contrastText' }}>
+            <CheckBoxIcon fontSize="large" />
+          </Box>
+          <Typography variant="h6" color="text.secondary">Aufgaben erledigt</Typography>
+          <Typography variant="h3" fontWeight="bold">{totalTasksCompleted}</Typography>
+        </Card>
 
-        {/* Card 2: Lesegeschwindigkeit */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
-          <div style={{ padding: '1rem', background: 'rgba(236, 72, 153, 0.1)', borderRadius: '50%' }}>
-            <Activity size={32} color="#ec4899" />
-          </div>
-          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Lesegeschwindigkeit (Ø)</h3>
-          <span style={{ fontSize: '3rem', fontWeight: 'bold', color: '#ec4899' }}>
+        <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
+          <Box sx={{ p: 2, bgcolor: '#fce4ec', borderRadius: '50%', display: 'flex', color: '#ec4899' }}>
+            <ShowChartIcon fontSize="large" />
+          </Box>
+          <Typography variant="h6" color="text.secondary">Lesegeschwindigkeit (Ø)</Typography>
+          <Typography variant="h3" fontWeight="bold" color="#ec4899">
             {totalReadingHours > 0 ? Math.round(totalReadingAmount / totalReadingHours) : 0} 
-            <span style={{ fontSize: '1rem', color: 'var(--text-main)', marginLeft: '4px' }}>S./h</span>
-          </span>
-          <span style={{ color: 'var(--text-muted)' }}>basierend auf {totalReadingAmount} Seiten</span>
-        </div>
+            <Typography component="span" variant="h6" color="text.primary" sx={{ ml: 1 }}>S./h</Typography>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">basierend auf {totalReadingAmount} Seiten</Typography>
+        </Card>
 
-        {/* Card 3: Kalorien */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
-          <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '50%' }}>
-            <Flame size={32} color="var(--accent-danger)" />
-          </div>
-          <h3 style={{ margin: 0, color: 'var(--text-muted)' }}>Kalorienziel</h3>
-          <span style={{ 
-            fontSize: '3rem', 
-            fontWeight: 'bold', 
-            color: successfulWeeks === totalWeeks && totalWeeks > 0 ? 'var(--accent-success)' : 'var(--text-main)' 
-          }}>
+        <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
+          <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: '50%', display: 'flex', color: 'error.contrastText' }}>
+            <LocalFireDepartmentIcon fontSize="large" />
+          </Box>
+          <Typography variant="h6" color="text.secondary">Kalorienziel</Typography>
+          <Typography 
+            variant="h3" 
+            fontWeight="bold" 
+            color={successfulWeeks === totalWeeks && totalWeeks > 0 ? 'success.main' : 'text.primary'}
+          >
             {successfulWeeks} / {totalWeeks}
-          </span>
-          <span style={{ color: 'var(--text-muted)' }}>Wochen erreicht</span>
-        </div>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">Wochen erreicht</Typography>
+        </Card>
 
-      </div>
+      </Box>
 
-      {/* Highlights */}
-      <div className="card">
-        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Award color="var(--accent-warning)" /> Highlights (Top Streaks)
-        </h2>
+      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+        <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <EmojiEventsIcon color="warning" /> Highlights (Top Streaks)
+        </Typography>
         {topStreaks.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <Stack spacing={2}>
             {topStreaks.map((s, index) => (
-              <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '2rem' }}>
+              <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, bgcolor: 'background.default', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                <Typography variant="h4">
                   {index === 0 ? '🔥' : index === 1 ? '✨' : '⭐'}
-                </div>
-                <div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{s.title}</div>
-                  <div style={{ color: 'var(--text-muted)' }}>Schon <strong>{s.streak} Tage</strong> in Folge geschafft!</div>
-                </div>
-              </div>
+                </Typography>
+                <Box>
+                  <Typography variant="h6" fontWeight="bold">{s.title}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Schon <Typography component="span" fontWeight="bold">{s.streak} Tage</Typography> in Folge geschafft!
+                  </Typography>
+                </Box>
+              </Box>
             ))}
-          </div>
+          </Stack>
         ) : (
-          <p style={{ color: 'var(--text-muted)' }}>Noch keine aktiven Streaks (tägliche Aufgaben an aufeinanderfolgenden Tagen) vorhanden.</p>
+          <Typography color="text.secondary">Noch keine aktiven Streaks vorhanden.</Typography>
         )}
-      </div>
+      </Card>
 
-      {/* --- Diagramme --- */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
-        
-        <div className="card">
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CheckSquare size={18} /> Erledigte Aufgaben im Verlauf
-          </h3>
-          <div style={{ width: '100%', height: 300 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3, mt: 2 }}>
+        <Card sx={{ p: { xs: 2, sm: 4 } }}>
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CheckBoxIcon fontSize="small" /> Erledigte Aufgaben im Verlauf
+          </Typography>
+          <Box sx={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>
               <BarChart data={taskData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} vertical={false} />
+                <XAxis dataKey="name" stroke={theme.palette.text.secondary} fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke={theme.palette.text.secondary} fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px' }}
-                  itemStyle={{ color: 'var(--text-main)' }}
+                  contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, borderRadius: 8 }}
+                  itemStyle={{ color: theme.palette.text.primary }}
                 />
-                <Bar dataKey="count" name="Aufgaben" fill="var(--accent-primary)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" name="Aufgaben" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-    </div>
+          </Box>
+        </Card>
+      </Box>
+    </Box>
   );
 };
 

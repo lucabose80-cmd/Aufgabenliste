@@ -1,73 +1,119 @@
 import React from 'react';
-import { Home, CheckSquare, Calendar, Folder, BarChart2, PlusSquare, Activity, RefreshCw, BookOpen, Flame, Award, Settings, ShoppingCart } from 'lucide-react';
 import { useTaskContext } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
+import { Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Box, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
+
+// MUI Icons
+import HomeIcon from '@mui/icons-material/Home';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'; // Award
+import BarChartIcon from '@mui/icons-material/BarChart';
+import ShowChartIcon from '@mui/icons-material/ShowChart'; // Activity
+import MenuBookIcon from '@mui/icons-material/MenuBook'; // BookOpen
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'; // Flame
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import AddBoxIcon from '@mui/icons-material/AddBox'; // PlusSquare
+import FolderIcon from '@mui/icons-material/Folder';
+import SettingsIcon from '@mui/icons-material/Settings';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import SyncIcon from '@mui/icons-material/Sync';
 
 const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   const { forceSync } = useTaskContext();
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const menuItems = [
-    { id: 'home', label: 'Startseite', icon: <Home size={20} /> },
-    { id: 'review', label: 'Rückblick', icon: <Award size={20} /> },
-    { id: 'tracker', label: 'Jahres-Tracker', icon: <BarChart2 size={20} /> },
-    { id: 'statistics', label: 'Statistiken', icon: <Activity size={20} /> },
-    { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <BookOpen size={20} /> },
-    { id: 'calories', label: 'Kalorienziel', icon: <Flame size={20} /> },
-    { id: 'shopping', label: 'Einkaufsliste', icon: <ShoppingCart size={20} /> },
-    { id: 'create', label: 'Aufgabe erstellen', icon: <PlusSquare size={20} /> },
-    { id: 'categories', label: 'Kategorien', icon: <Folder size={20} /> },
-    { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> },
+    { id: 'home', label: 'Startseite', icon: <HomeIcon /> },
+    { id: 'review', label: 'Rückblick', icon: <EmojiEventsIcon /> },
+    { id: 'tracker', label: 'Jahres-Tracker', icon: <BarChartIcon /> },
+    { id: 'statistics', label: 'Statistiken', icon: <ShowChartIcon /> },
+    { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <MenuBookIcon /> },
+    { id: 'calories', label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
+    { id: 'shopping', label: 'Einkaufsliste', icon: <ShoppingCartIcon /> },
+    { id: 'create', label: 'Aufgabe erstellen', icon: <AddBoxIcon /> },
+    { id: 'categories', label: 'Kategorien', icon: <FolderIcon /> },
+    { id: 'settings', label: 'Einstellungen', icon: <SettingsIcon /> },
   ];
 
-  return (
-    <>
-      <div className={`sidebar ${isOpen ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column' }}>
-        <div className="sidebar-header">
-          <CheckSquare size={24} color="var(--accent-primary)" />
-          <span>TaskMaster</span>
-        </div>
-        <nav className="sidebar-nav" style={{ flex: 1 }}>
-          {menuItems.map(item => (
-            <button
-              key={item.id}
-              className={`nav-item ${currentView === item.id ? 'active' : ''}`}
+  const drawerContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <CheckBoxIcon color="primary" fontSize="large" />
+        <Typography variant="h6" fontWeight="bold">TaskMaster</Typography>
+      </Box>
+      <List sx={{ flexGrow: 1, overflowY: 'auto', px: 1 }}>
+        {menuItems.map((item) => (
+          <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
+            <ListItemButton 
+              selected={currentView === item.id}
               onClick={() => {
                 setCurrentView(item.id);
-                if (window.innerWidth <= 768) toggleSidebar();
+                if (isMobile) toggleSidebar();
               }}
+              sx={{ borderRadius: 2 }}
             >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        
-        {user && (
-          <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => {
-                forceSync();
-                if (window.innerWidth <= 768) toggleSidebar();
-              }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-            >
-              <RefreshCw size={16} /> Cloud Sync erzwingen
-            </button>
-          </div>
-        )}
-      </div>
+              <ListItemIcon sx={{ color: currentView === item.id ? 'primary.main' : 'inherit', minWidth: 40 }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText 
+                primary={item.label} 
+                primaryTypographyProps={{ 
+                  fontWeight: currentView === item.id ? 'bold' : 'normal',
+                  color: currentView === item.id ? 'primary.main' : 'inherit'
+                }} 
+              />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
       
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div 
-          className="mobile-overlay" 
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 40 }}
-          onClick={toggleSidebar}
-        ></div>
+      {user && (
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Button 
+            variant="outlined" 
+            fullWidth 
+            startIcon={<SyncIcon />}
+            onClick={() => {
+              forceSync();
+              if (isMobile) toggleSidebar();
+            }}
+            sx={{ borderRadius: 8 }}
+          >
+            Cloud Sync
+          </Button>
+        </Box>
       )}
-    </>
+    </Box>
+  );
+
+  return (
+    <Box component="nav" sx={{ width: { md: 280 }, flexShrink: { md: 0 } }}>
+      {/* Mobile Drawer */}
+      <Drawer
+        variant="temporary"
+        open={isOpen}
+        onClose={toggleSidebar}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 280 },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+      {/* Desktop Drawer */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: 'none', md: 'block' },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 280, borderRight: 1, borderColor: 'divider' },
+        }}
+        open
+      >
+        {drawerContent}
+      </Drawer>
+    </Box>
   );
 };
 

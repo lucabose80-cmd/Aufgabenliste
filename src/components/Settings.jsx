@@ -1,6 +1,10 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Settings as SettingsIcon, Moon, Sun, Check } from 'lucide-react';
+import { Box, Card, Typography, Grid, Button, IconButton } from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const COLORS = [
   { name: 'Indigo (Standard)', hex: '#6366f1' },
@@ -24,92 +28,118 @@ const Settings = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
-      <div className="card">
-        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <SettingsIcon color="var(--accent-primary)" /> Personalisierung
-        </h2>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
+      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+        <Typography variant="h5" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <SettingsIcon color="primary" fontSize="large" /> Personalisierung
+        </Typography>
 
         {/* Theme Toggle */}
-        <div style={{ marginBottom: '2.5rem' }}>
-          <h3 style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '1rem' }}>Erscheinungsbild</h3>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button 
-              onClick={() => handleThemeChange('dark')}
-              style={{
-                flex: 1,
-                padding: '1.5rem',
-                borderRadius: 'var(--border-radius)',
-                border: `2px solid ${theme === 'dark' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-                background: 'var(--bg-main)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.5rem',
-                cursor: 'pointer'
-              }}
-            >
-              <Moon size={24} color={theme === 'dark' ? 'var(--accent-primary)' : 'var(--text-main)'} />
-              <span style={{ fontWeight: '500' }}>Dark Mode</span>
-            </button>
-            <button 
-              onClick={() => handleThemeChange('light')}
-              style={{
-                flex: 1,
-                padding: '1.5rem',
-                borderRadius: 'var(--border-radius)',
-                border: `2px solid ${theme === 'light' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-                background: 'var(--bg-main)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.5rem',
-                cursor: 'pointer'
-              }}
-            >
-              <Sun size={24} color={theme === 'light' ? 'var(--accent-primary)' : 'var(--text-main)'} />
-              <span style={{ fontWeight: '500' }}>Light Mode</span>
-            </button>
-          </div>
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', marginBottom: '2.5rem' }} />
-
-        {/* Accent Color Selection */}
-        <div>
-          <h3 style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '1rem' }}>Hauptfarbe (Akzent)</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
-            {COLORS.map((c) => (
-              <button
-                key={c.hex}
-                onClick={() => handleColorChange(c.hex)}
-                style={{
-                  padding: '1rem',
-                  borderRadius: 'var(--border-radius)',
-                  border: `2px solid ${accentColor === c.hex ? c.hex : 'var(--border-color)'}`,
-                  background: 'var(--bg-main)',
+        <Box sx={{ mb: 5 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>Erscheinungsbild</Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Button 
+                variant="outlined"
+                fullWidth
+                onClick={() => handleThemeChange('dark')}
+                sx={{
+                  py: 3,
+                  border: 2,
+                  borderColor: theme === 'dark' ? 'primary.main' : 'divider',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  cursor: 'pointer',
-                  position: 'relative'
+                  gap: 1,
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'background.paper',
+                  }
                 }}
               >
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: c.hex }} />
-                <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>{c.name}</span>
-                {accentColor === c.hex && (
-                  <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem' }}>
-                    <Check size={14} color={c.hex} />
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+                <DarkModeIcon color={theme === 'dark' ? 'primary' : 'inherit'} fontSize="large" />
+                <Typography fontWeight="bold">Dark Mode</Typography>
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Button 
+                variant="outlined"
+                fullWidth
+                onClick={() => handleThemeChange('light')}
+                sx={{
+                  py: 3,
+                  border: 2,
+                  borderColor: theme === 'light' ? 'primary.main' : 'divider',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'background.paper',
+                  }
+                }}
+              >
+                <LightModeIcon color={theme === 'light' ? 'primary' : 'inherit'} fontSize="large" />
+                <Typography fontWeight="bold">Light Mode</Typography>
+              </Button>
+            </Grid>
+          </Grid>
+        </Box>
 
-      </div>
-    </div>
+        {/* Accent Color Selection */}
+        <Box>
+          <Typography variant="h6" color="text.secondary" gutterBottom>Hauptfarbe (Akzent)</Typography>
+          <Grid container spacing={2}>
+            {COLORS.map((c) => (
+              <Grid item xs={6} sm={4} md={3} key={c.hex}>
+                <Box
+                  onClick={() => handleColorChange(c.hex)}
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    border: 2,
+                    borderColor: accentColor === c.hex ? c.hex : 'divider',
+                    bgcolor: 'background.paper',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 1,
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      borderColor: c.hex,
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: c.hex, boxShadow: 2 }} />
+                  <Typography variant="caption" fontWeight="bold" align="center">{c.name}</Typography>
+                  
+                  {accentColor === c.hex && (
+                    <CheckCircleIcon 
+                      sx={{ 
+                        position: 'absolute', 
+                        top: 8, 
+                        right: 8, 
+                        color: c.hex,
+                        fontSize: 20,
+                        bgcolor: 'background.paper',
+                        borderRadius: '50%'
+                      }} 
+                    />
+                  )}
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+
+      </Card>
+    </Box>
   );
 };
 

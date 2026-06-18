@@ -1,7 +1,10 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Clock, BookOpen, Activity, Flame } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO, eachWeekOfInterval, startOfYear, endOfYear } from 'date-fns';
+import { Box, Card, Typography, Tooltip, Grid } from '@mui/material';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 
 const Statistics = () => {
   const { readingSessions, calorieLogs } = useTaskContext();
@@ -13,13 +16,11 @@ const Statistics = () => {
     return `${m}m`;
   };
 
-  // --- Lesestatistik ---
   const totalReadingSeconds = readingSessions.reduce((acc, session) => acc + session.timeSpent, 0);
   const totalReadingAmount = readingSessions.reduce((acc, session) => acc + session.amount, 0);
   const totalReadingHours = totalReadingSeconds / 3600;
   const averageReadingSpeed = totalReadingHours > 0 ? (totalReadingAmount / totalReadingHours).toFixed(1) : 0;
 
-  // --- Kalorien Wochenbilanz ---
   const today = new Date();
   const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
   const endOfCurrentWeek = endOfWeek(today, { weekStartsOn: 1 });
@@ -31,7 +32,6 @@ const Statistics = () => {
 
   const weeklyCalorieBalance = currentWeekLogs.reduce((acc, log) => acc + log.difference, 0);
 
-  // Heatmap Logik: Alle Wochen des aktuellen Jahres
   const getAllWeeksOfYear = () => {
     const now = new Date();
     const weeksList = eachWeekOfInterval(
@@ -62,139 +62,151 @@ const Statistics = () => {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10 }}>
       
       {/* LESE-STATISTIK */}
-      <div className="card">
-        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <BookOpen color="var(--accent-primary)" />
+      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+        <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <MenuBookIcon color="primary" />
           Lesestatistik
-        </h2>
+        </Typography>
         
         {readingSessions.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+          <Typography color="text.secondary" align="center" sx={{ p: 4 }}>
             Noch keine Lese-Sessions vorhanden. Nutze den Timer unter "Lesegeschwindigkeit".
-          </div>
+          </Typography>
         ) : (
-          <div style={{ 
-            border: '1px solid var(--border-color)', 
-            borderRadius: 'var(--border-radius)', 
-            padding: '1.5rem', 
-            backgroundColor: 'var(--bg-main)',
+          <Box sx={{ 
+            border: 1, 
+            borderColor: 'divider', 
+            borderRadius: 2, 
+            p: 3, 
+            bgcolor: 'background.default',
             display: 'flex',
             flexDirection: 'column',
-            gap: '1rem'
+            gap: 2
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <Clock size={14} /> Gesamtzeit
-                </span>
-                <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{formatTime(totalReadingSeconds)}</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <BookOpen size={14} /> Gelesen
-                </span>
-                <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{totalReadingAmount} Seiten</span>
-              </div>
-            </div>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <AccessTimeIcon fontSize="small" /> Gesamtzeit
+                  </Typography>
+                  <Typography variant="h5" fontWeight="bold">{formatTime(totalReadingSeconds)}</Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={6}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <MenuBookIcon fontSize="small" /> Gelesen
+                  </Typography>
+                  <Typography variant="h5" fontWeight="bold">{totalReadingAmount} Seiten</Typography>
+                </Box>
+              </Grid>
+            </Grid>
 
-            <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Durchschnittliche Geschwindigkeit</span>
-              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>
-                {averageReadingSpeed} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-main)' }}>Seiten/h</span>
-              </span>
-            </div>
-          </div>
+            <Box sx={{ mt: 1, pt: 2, borderTop: 1, borderStyle: 'dashed', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">Durchschnittliche Geschwindigkeit</Typography>
+              <Typography variant="h4" fontWeight="bold" color="primary.main">
+                {averageReadingSpeed} <Typography component="span" variant="h6" fontWeight="normal" color="text.primary">Seiten/h</Typography>
+              </Typography>
+            </Box>
+          </Box>
         )}
-      </div>
+      </Card>
 
       {/* KALORIEN-BILANZ */}
-      <div className="card">
-        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Flame color="var(--accent-danger)" />
+      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+        <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <LocalFireDepartmentIcon color="error" />
           Kalorien-Wochenbilanz
-        </h2>
+        </Typography>
         
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
           Woche vom {format(startOfCurrentWeek, 'dd.MM.')} bis {format(endOfCurrentWeek, 'dd.MM.')}
-        </p>
+        </Typography>
 
-        <div style={{ 
-          border: '1px solid var(--border-color)', 
-          borderRadius: 'var(--border-radius)', 
-          padding: '2rem', 
-          backgroundColor: 'var(--bg-main)',
+        <Box sx={{ 
+          border: 1, 
+          borderColor: 'divider', 
+          borderRadius: 2, 
+          p: 4, 
+          bgcolor: 'background.default',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '1rem'
+          gap: 2
         }}>
-          <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Gesamt-Abweichung diese Woche:</span>
-          <div style={{ 
-            fontSize: '3rem', 
-            fontWeight: 'bold', 
-            color: weeklyCalorieBalance > 0 ? 'var(--accent-danger)' : (weeklyCalorieBalance < 0 ? 'var(--accent-success)' : 'var(--text-main)') 
-          }}>
-            {weeklyCalorieBalance > 0 ? '+' : ''}{weeklyCalorieBalance} <span style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: 'normal' }}>kcal</span>
-          </div>
+          <Typography color="text.secondary">Gesamt-Abweichung diese Woche:</Typography>
+          <Typography 
+            variant="h2" 
+            fontWeight="bold" 
+            color={weeklyCalorieBalance > 0 ? 'error.main' : (weeklyCalorieBalance < 0 ? 'success.main' : 'text.primary')}
+          >
+            {weeklyCalorieBalance > 0 ? '+' : ''}{weeklyCalorieBalance} <Typography component="span" variant="h6" fontWeight="normal" color="text.primary">kcal</Typography>
+          </Typography>
           {weeklyCalorieBalance > 0 && (
-            <p style={{ color: 'var(--accent-danger)', textAlign: 'center' }}>Du bist über deinem Wochenziel.</p>
+            <Typography color="error.main" align="center">Du bist über deinem Wochenziel.</Typography>
           )}
           {weeklyCalorieBalance < 0 && (
-            <p style={{ color: 'var(--accent-success)', textAlign: 'center' }}>Du bist unter deinem Wochenziel. Super!</p>
+            <Typography color="success.main" align="center">Du bist unter deinem Wochenziel. Super!</Typography>
           )}
           {weeklyCalorieBalance === 0 && (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Du bist exakt im Ziel (oder hast noch nichts eingetragen).</p>
+            <Typography color="text.secondary" align="center">Du bist exakt im Ziel (oder hast noch nichts eingetragen).</Typography>
           )}
-        </div>
+        </Box>
 
-        <h3 style={{ marginTop: '2rem', marginBottom: '1rem' }}>Jahres-Übersicht</h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+        <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>Jahres-Übersicht</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Grün = Unter/im Ziel, Rot = Über dem Ziel, Grau = Keine Einträge
-        </p>
+        </Typography>
 
-        <div style={{ 
+        <Box sx={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(20px, 1fr))', 
-          gap: '4px', 
+          gap: 0.5, 
           width: '100%' 
         }}>
           {weekData.map((data, idx) => {
-            let bgColor = 'var(--bg-main)';
-            let borderColor = 'var(--border-color)';
+            let bgColor = 'background.default';
+            let borderColor = 'divider';
             if (data.hasData) {
               if (data.sum <= 0) {
-                bgColor = 'var(--accent-success)';
-                borderColor = 'var(--accent-success)';
+                bgColor = 'success.main';
+                borderColor = 'success.dark';
               } else {
-                bgColor = 'var(--accent-danger)';
-                borderColor = 'var(--accent-danger)';
+                bgColor = 'error.main';
+                borderColor = 'error.dark';
               }
             }
 
+            const title = `${format(data.start, 'dd.MM')} - ${format(data.end, 'dd.MM')}: ${data.hasData ? (data.sum > 0 ? '+' + data.sum : data.sum) + ' kcal' : 'Keine Daten'}`;
+
             return (
-              <div 
-                key={idx} 
-                title={`${format(data.start, 'dd.MM')} - ${format(data.end, 'dd.MM')}: ${data.hasData ? (data.sum > 0 ? '+' + data.sum : data.sum) + ' kcal' : 'Keine Daten'}`}
-                style={{
-                  aspectRatio: '1/1',
-                  minHeight: '20px',
-                  borderRadius: '4px',
-                  backgroundColor: bgColor,
-                  border: `1px solid ${borderColor}`,
-                  opacity: data.hasData ? 0.8 : 0.5,
-                  cursor: 'help'
-                }}
-              />
+              <Tooltip title={title} key={idx} arrow placement="top">
+                <Box
+                  sx={{
+                    aspectRatio: '1/1',
+                    minHeight: 20,
+                    borderRadius: 1,
+                    bgcolor: bgColor,
+                    border: 1,
+                    borderColor: borderColor,
+                    opacity: data.hasData ? 0.8 : 0.5,
+                    cursor: 'pointer',
+                    '&:hover': {
+                      opacity: 1,
+                    }
+                  }}
+                />
+              </Tooltip>
             );
           })}
-        </div>
-      </div>
+        </Box>
+      </Card>
 
-    </div>
+    </Box>
   );
 };
 

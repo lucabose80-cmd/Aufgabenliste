@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { BookOpen, Play, Square, Save, Trash2, Edit2, X, Check } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
+import { 
+  Box, Card, Typography, TextField, Button, IconButton, 
+  List, ListItem, ListItemText, ListItemSecondaryAction, Divider 
+} from '@mui/material';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import StopIcon from '@mui/icons-material/Stop';
+import PauseIcon from '@mui/icons-material/Pause';
+import SaveIcon from '@mui/icons-material/Save';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/Check';
+import ClearIcon from '@mui/icons-material/Clear';
 
 const ReadingSpeed = () => {
   const { readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession } = useTaskContext();
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0); // Display seconds
+  const [timerSeconds, setTimerSeconds] = useState(0); 
   const [startTime, setStartTime] = useState(null);
   const [accumulatedTime, setAccumulatedTime] = useState(0);
   
@@ -15,7 +27,6 @@ const ReadingSpeed = () => {
   const [endPage, setEndPage] = useState('');
   const [showAmountField, setShowAmountField] = useState(false);
 
-  // Edit State
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editMinutes, setEditMinutes] = useState(0);
   const [editAmount, setEditAmount] = useState('');
@@ -63,17 +74,12 @@ const ReadingSpeed = () => {
   };
 
   const handleSaveInfo = () => {
-    // Falls start/end ausgefüllt sind, Amount berechnen
     let finalAmount = amount;
     if (startPage !== '' && endPage !== '') {
       const s = parseInt(startPage, 10);
       const e = parseInt(endPage, 10);
       if (!isNaN(s) && !isNaN(e) && e >= s) {
-        finalAmount = (e - s).toString(); // oder e - s + 1, je nachdem wie man liest (meist e - s)
-        // Im Standard "Ich habe Seite 10 bis Seite 20 gelesen" liest man Seite 10 mit, also 20 - 10 = 10 Seiten? Oder 11? 
-        // Machen wir e - s, da es oft "bis Seite 20" bedeutet, d.h. man hat die 20. Seite nicht voll oder fängt bei 10 an.
-        // User sagte "errechnet es", also einfach:
-        finalAmount = (e - s).toString();
+        finalAmount = (e - s).toString(); 
       }
     }
 
@@ -110,99 +116,131 @@ const ReadingSpeed = () => {
     .slice(0, 10);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
-      <div className="card">
-        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <BookOpen color="var(--accent-primary)" /> Lesegeschwindigkeit
-        </h2>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
+      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+        <Typography variant="h5" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <MenuBookIcon color="primary" fontSize="large" /> Lesegeschwindigkeit
+        </Typography>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '3rem 0' }}>
-          <div style={{ fontSize: '4rem', fontFamily: 'monospace', fontWeight: 'bold', color: isTimerRunning ? 'var(--accent-primary)' : 'var(--text-main)', transition: 'color 0.3s ease' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 4 }}>
+          <Typography 
+            variant="h2" 
+            sx={{ 
+              fontFamily: 'monospace', 
+              fontWeight: 'bold', 
+              color: isTimerRunning ? 'primary.main' : 'text.primary',
+              transition: 'color 0.3s ease'
+            }}
+          >
             {formatTime(timerSeconds)}
-          </div>
+          </Typography>
           
-          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Box sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
             {!showAmountField && (
               <>
                 {isTimerRunning ? (
                   <>
-                    <button onClick={handlePauseTimer} style={{ background: 'var(--accent-warning)', color: '#000', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                      <Square size={24} fill="transparent" /> Pausieren
-                    </button>
-                    <button onClick={handleStopTimer} style={{ background: 'var(--accent-danger)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                      <Square size={24} fill="currentColor" /> Stoppen & Speichern
-                    </button>
+                    <Button 
+                      variant="contained" 
+                      color="warning" 
+                      onClick={handlePauseTimer}
+                      startIcon={<PauseIcon />}
+                      size="large"
+                      sx={{ borderRadius: 8, px: 4 }}
+                    >
+                      Pausieren
+                    </Button>
+                    <Button 
+                      variant="contained" 
+                      color="error" 
+                      onClick={handleStopTimer}
+                      startIcon={<StopIcon />}
+                      size="large"
+                      sx={{ borderRadius: 8, px: 4 }}
+                    >
+                      Stoppen & Speichern
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <button onClick={handleStartTimer} style={{ background: 'var(--accent-success)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                      <Play size={24} fill="currentColor" /> {timerSeconds === 0 ? 'Starten' : 'Fortsetzen'}
-                    </button>
+                    <Button 
+                      variant="contained" 
+                      color="success" 
+                      onClick={handleStartTimer}
+                      startIcon={<PlayArrowIcon />}
+                      size="large"
+                      sx={{ borderRadius: 8, px: 4 }}
+                    >
+                      {timerSeconds === 0 ? 'Starten' : 'Fortsetzen'}
+                    </Button>
                     {timerSeconds > 0 && (
-                      <button onClick={handleStopTimer} style={{ background: 'var(--accent-danger)', color: 'white', padding: '1rem 2rem', borderRadius: '50px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                        <Square size={24} fill="currentColor" /> Stoppen & Speichern
-                      </button>
+                      <Button 
+                        variant="contained" 
+                        color="error" 
+                        onClick={handleStopTimer}
+                        startIcon={<StopIcon />}
+                        size="large"
+                        sx={{ borderRadius: 8, px: 4 }}
+                      >
+                        Stoppen & Speichern
+                      </Button>
                     )}
                   </>
                 )}
               </>
             )}
-          </div>
-        </div>
+          </Box>
+        </Box>
 
         {showAmountField && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '2rem', padding: '1.5rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)' }}>
-            <div>
-              <h3 style={{ marginBottom: '0.5rem' }}>Lese-Session speichern</h3>
-              <p style={{ color: 'var(--text-muted)' }}>Wie viele Seiten hast du in dieser Zeit ({formatTime(timerSeconds)}) gelesen?</p>
-            </div>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 4, p: 3, bgcolor: 'background.default', borderRadius: 2 }}>
+            <Box>
+              <Typography variant="h6" gutterBottom>Lese-Session speichern</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Wie viele Seiten hast du in dieser Zeit ({formatTime(timerSeconds)}) gelesen?
+              </Typography>
+            </Box>
             
-            <div style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-muted)', minWidth: '80px' }}>Von Seite:</span>
-                <input 
+            <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80 }}>Von Seite:</Typography>
+                <TextField 
                   type="number" 
                   value={startPage} 
-                  onChange={(e) => {
-                    setStartPage(e.target.value);
-                    setAmount('');
-                  }} 
+                  onChange={(e) => { setStartPage(e.target.value); setAmount(''); }} 
                   placeholder="z.B. 10" 
-                  style={{ flex: 1, minWidth: '100px' }}
+                  size="small"
+                  sx={{ flex: 1, minWidth: 100 }}
                 />
-                <span style={{ color: 'var(--text-muted)', minWidth: '80px', textAlign: 'right' }}>Bis Seite:</span>
-                <input 
+                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80, textAlign: 'right' }}>Bis Seite:</Typography>
+                <TextField 
                   type="number" 
                   value={endPage} 
-                  onChange={(e) => {
-                    setEndPage(e.target.value);
-                    setAmount('');
-                  }} 
+                  onChange={(e) => { setEndPage(e.target.value); setAmount(''); }} 
                   placeholder="z.B. 25" 
-                  style={{ flex: 1, minWidth: '100px' }}
+                  size="small"
+                  sx={{ flex: 1, minWidth: 100 }}
                 />
-              </div>
+              </Box>
 
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>ODER direkt Anzahl Seiten eingeben:</div>
+              <Divider><Typography variant="caption" color="text.secondary">ODER</Typography></Divider>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <input 
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField 
                   type="number" 
                   value={amount} 
-                  onChange={(e) => {
-                    setAmount(e.target.value);
-                    setStartPage('');
-                    setEndPage('');
-                  }} 
+                  onChange={(e) => { setAmount(e.target.value); setStartPage(''); setEndPage(''); }} 
                   placeholder="Gelesene Seiten gesamt" 
-                  style={{ flex: 1, fontSize: '1.1rem' }}
+                  fullWidth
                 />
-                <button className="btn-primary" onClick={handleSaveInfo} style={{ padding: '0.75rem 1.5rem' }}>
-                  <Save size={18} /> Speichern
-                </button>
-              </div>
-            </div>
-            <button 
+                <Button variant="contained" color="primary" onClick={handleSaveInfo} startIcon={<SaveIcon />}>
+                  Speichern
+                </Button>
+              </Box>
+            </Box>
+            <Button 
+              variant="outlined" 
+              color="error"
               onClick={() => {
                 setTimerSeconds(0);
                 setAccumulatedTime(0);
@@ -211,79 +249,73 @@ const ReadingSpeed = () => {
                 setStartPage('');
                 setEndPage('');
               }}
-              style={{ padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius)', background: 'transparent', color: 'var(--text-danger)', cursor: 'pointer', alignSelf: 'flex-start' }}
+              sx={{ alignSelf: 'flex-start' }}
             >
               Verwerfen & Timer zurücksetzen
-            </button>
-          </div>
+            </Button>
+          </Box>
         )}
-      </div>
+      </Card>
 
       {recentSessions.length > 0 && (
-        <div className="card">
-          <h3 style={{ marginBottom: '1.5rem' }}>Letzte Lese-Einträge</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <Card sx={{ p: { xs: 2, sm: 4 } }}>
+          <Typography variant="h6" sx={{ mb: 3 }}>Letzte Lese-Einträge</Typography>
+          <List>
             {recentSessions.map(session => (
-              <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)' }}>
-                
+              <ListItem key={session.id} sx={{ bgcolor: 'background.default', borderRadius: 2, mb: 1, border: 1, borderColor: 'divider', px: 2 }}>
                 {editingSessionId === session.id ? (
-                  <div style={{ display: 'flex', gap: '1rem', flex: 1, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input 
+                  <Box sx={{ display: 'flex', gap: 2, flex: 1, alignItems: 'center', flexWrap: 'wrap', py: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <TextField 
                         type="number" 
                         value={editMinutes} 
                         onChange={(e) => setEditMinutes(e.target.value)}
-                        style={{ width: '80px', padding: '0.25rem 0.5rem' }}
-                      /> 
-                      <span style={{ color: 'var(--text-muted)' }}>Min.</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input 
+                        size="small"
+                        sx={{ width: 80 }}
+                      />
+                      <Typography variant="body2">Min.</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <TextField 
                         type="number" 
                         value={editAmount} 
                         onChange={(e) => setEditAmount(e.target.value)}
-                        style={{ width: '80px', padding: '0.25rem 0.5rem' }}
+                        size="small"
+                        sx={{ width: 80 }}
                       />
-                      <span style={{ color: 'var(--text-muted)' }}>Seiten</span>
-                    </div>
-                  </div>
+                      <Typography variant="body2">Seiten</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+                      <IconButton color="success" onClick={() => handleSaveEdit(session.id)}>
+                        <CheckIcon />
+                      </IconButton>
+                      <IconButton color="error" onClick={() => setEditingSessionId(null)}>
+                        <ClearIcon />
+                      </IconButton>
+                    </Box>
+                  </Box>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 'bold' }}>{format(parseISO(session.date), 'dd.MM.yyyy')}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                      {formatTime(session.timeSpent)} gelesen • {session.amount} Seiten
-                    </span>
-                  </div>
+                  <>
+                    <ListItemText 
+                      primary={`${formatTime(session.timeSpent)} gelesen`} 
+                      secondary={`${session.amount} Seiten | ${format(new Date(session.date), 'dd.MM.yyyy HH:mm')}`}
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton color="primary" onClick={() => handleEditClick(session)} sx={{ mr: 1 }}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton color="error" onClick={() => deleteReadingSession(session.id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </>
                 )}
-
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {editingSessionId === session.id ? (
-                    <>
-                      <button onClick={() => handleSaveEdit(session.id)} style={{ background: 'var(--accent-success)', color: 'white', border: 'none', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
-                        <Check size={18} />
-                      </button>
-                      <button onClick={() => setEditingSessionId(null)} style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
-                        <X size={18} />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => handleEditClick(session)} style={{ background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
-                        <Edit2 size={18} />
-                      </button>
-                      <button onClick={() => { if(window.confirm('Eintrag löschen?')) deleteReadingSession(session.id) }} style={{ background: 'transparent', color: 'var(--accent-danger)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}>
-                        <Trash2 size={18} />
-                      </button>
-                    </>
-                  )}
-                </div>
-
-              </div>
+              </ListItem>
             ))}
-          </div>
-        </div>
+          </List>
+        </Card>
       )}
-    </div>
+    </Box>
   );
 };
 

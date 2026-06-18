@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Check, GripVertical, Flame } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import {
   DndContext,
@@ -11,13 +10,17 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip } from '@mui/material';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 
 const SortableTaskItem = ({ task, isWrongDay }) => {
   const { toggleTaskCompletion, toggleSubTask, getTodayDateString } = useTaskContext();
@@ -37,8 +40,6 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     opacity: isDragging ? 0.5 : ((task.isCompleted || isWrongDay) ? 0.5 : 1),
     position: 'relative',
     zIndex: isDragging ? 999 : 1,
-    borderLeft: `4px solid ${task.categoryColor || 'var(--accent-primary)'}`,
-    backgroundColor: task.categoryColor ? `${task.categoryColor}15` : undefined
   };
 
   const today = getTodayDateString();
@@ -65,10 +66,8 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     }
   };
 
-  // Streak Logik
   const calculateStreak = () => {
     if (task.type !== 'daily') return 0;
-    
     const completedDates = task.completedDates || [];
     if (completedDates.length === 0) return 0;
 
@@ -81,7 +80,6 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
       return 0;
     }
 
-    // Wenn heute nicht gemacht, aber gestern, beginnen wir mit gestern als Startpunkt der Rückwärts-Prüfung
     if (!completedDates.includes(todayStr)) {
       checkDate = subDays(checkDate, 1);
     }
@@ -101,104 +99,100 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
   const streak = calculateStreak();
 
   return (
-    <div ref={setNodeRef} style={style} className={`task-item card ${isWrongDay ? 'task-wrong-day' : ''}`}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1 }}>
-            
-            {/* Drag Handle */}
-            <div 
-              {...attributes} 
-              {...listeners} 
-              style={{ cursor: 'grab', display: 'flex', alignItems: 'center', paddingTop: '2px', color: 'var(--text-muted)' }}
-            >
-              <GripVertical size={20} />
-            </div>
+    <Card 
+      ref={setNodeRef} 
+      style={style} 
+      sx={{ 
+        p: 2, 
+        borderLeft: 4, 
+        borderColor: task.categoryColor || 'primary.main',
+        bgcolor: task.categoryColor ? `${task.categoryColor}10` : 'background.paper',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box 
+          {...attributes} 
+          {...listeners} 
+          sx={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'text.secondary', mt: 0.5 }}
+        >
+          <DragIndicatorIcon fontSize="small" />
+        </Box>
 
-            <button 
-              onClick={() => toggleTaskCompletion(task.id)}
-              disabled={!allSubTasksCompleted && task.subTasks.length > 0}
-              style={{
-                width: '24px', height: '24px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-                border: `2px solid ${isCompleted ? 'var(--accent-success)' : 'var(--border-color)'}`,
-                backgroundColor: isCompleted ? 'var(--accent-success)' : 'transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: (!allSubTasksCompleted && task.subTasks.length > 0) ? 'not-allowed' : 'pointer',
-                opacity: (!allSubTasksCompleted && task.subTasks.length > 0) ? 0.5 : 1
-              }}
-            >
-              {isCompleted && <Check size={16} color="white" />}
-            </button>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-              <span style={{ 
-                fontSize: '1.1rem', 
-                fontWeight: '600',
-                textDecoration: isCompleted ? 'line-through' : 'none',
-                color: isCompleted ? 'var(--text-muted)' : 'var(--text-main)',
-                wordBreak: 'break-word',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}>
-                {task.title}
-                {streak > 0 && (
-                  <span title={`${streak} Tage in Folge!`} style={{ display: 'flex', alignItems: 'center', fontSize: '0.85rem', color: 'var(--accent-danger)', background: 'var(--bg-main)', padding: '0.1rem 0.4rem', borderRadius: '50px', border: '1px solid var(--border-color)' }}>
-                    <Flame size={14} style={{ marginRight: '2px' }} /> {streak}
-                  </span>
-                )}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
-                </span>
-              </div>
+        <Checkbox
+          checked={isCompleted}
+          onChange={() => toggleTaskCompletion(task.id)}
+          disabled={!allSubTasksCompleted && task.subTasks.length > 0}
+          icon={<CheckBoxOutlineBlankIcon />}
+          checkedIcon={<CheckBoxIcon color="success" />}
+          sx={{ p: 0.5, mr: 1 }}
+        />
+        
+        <Box sx={{ flex: 1 }}>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontWeight: 600, 
+              fontSize: '1.1rem',
+              textDecoration: isCompleted ? 'line-through' : 'none',
+              color: isCompleted ? 'text.secondary' : 'text.primary',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+            {task.title}
+            {streak > 0 && (
+              <MuiTooltip title={`${streak} Tage in Folge!`}>
+                <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.8rem', color: 'error.main', bgcolor: 'background.default', px: 1, py: 0.25, borderRadius: 4, border: 1, borderColor: 'divider' }}>
+                  <LocalFireDepartmentIcon fontSize="small" sx={{ mr: 0.5 }} /> {streak}
+                </Box>
+              </MuiTooltip>
+            )}
+          </Typography>
+          
+          <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', mt: 0.5, display: 'block' }}>
+            Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
+          </Typography>
 
-              {totalSubTasksCount > 0 && (
-                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span>Teilaufgaben</span>
-                    <span>{progressPercentage}% ({completedSubTasksCount}/{totalSubTasksCount})</span>
-                  </div>
-                  <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${progressPercentage}%`, backgroundColor: 'var(--accent-primary)', transition: 'width 0.3s ease' }} />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ flex: 1 }}>
-          {task.subTasks.length > 0 && (
-            <div style={{ marginLeft: '3.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {task.subTasks.map(st => (
-                <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <button 
-                    onClick={() => toggleSubTask(task.id, st.id)}
-                    style={{
-                      width: '18px', height: '18px', borderRadius: '4px',
-                      border: `2px solid ${st.completed ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-                      backgroundColor: st.completed ? 'var(--accent-primary)' : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}
-                  >
-                    {st.completed && <Check size={12} color="white" />}
-                  </button>
-                  <span style={{ 
-                    textDecoration: st.completed ? 'line-through' : 'none',
-                    color: st.completed ? 'var(--text-muted)' : 'var(--text-main)',
-                    fontSize: '0.9rem'
-                  }}>
-                    {st.title}
-                  </span>
-                </div>
-              ))}
-            </div>
+          {totalSubTasksCount > 0 && (
+            <Box sx={{ mt: 1.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">Teilaufgaben</Typography>
+                <Typography variant="caption" color="text.secondary">{progressPercentage}% ({completedSubTasksCount}/{totalSubTasksCount})</Typography>
+              </Box>
+              <LinearProgress variant="determinate" value={progressPercentage} sx={{ height: 6, borderRadius: 3 }} />
+            </Box>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+
+      {task.subTasks.length > 0 && (
+        <Box sx={{ ml: 6, mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {task.subTasks.map(st => (
+            <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Checkbox
+                checked={st.completed}
+                onChange={() => toggleSubTask(task.id, st.id)}
+                size="small"
+                sx={{ p: 0.5 }}
+              />
+              <Typography 
+                variant="body2"
+                sx={{ 
+                  textDecoration: st.completed ? 'line-through' : 'none',
+                  color: st.completed ? 'text.secondary' : 'text.primary',
+                }}
+              >
+                {st.title}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Card>
   );
 };
 
@@ -212,17 +206,15 @@ const TaskGrid = () => {
     color: cat.color
   }));
 
-  // Fange Aufgaben ohne gültige Kategorie auf
-  displayGroups.push({ id: 'uncategorized', label: 'Ohne Kategorie', color: 'var(--border-color)' });
+  displayGroups.push({ id: 'uncategorized', label: 'Ohne Kategorie', color: 'text.secondary' });
 
   const today = getTodayDateString();
   const dayOfWeek = new Date().getDay();
 
-  // Tasks anreichern und sortieren
   const filteredTasks = tasks.map(t => {
     const cat = categories.find(c => c.id === t.categoryId);
     const isWrongDay = t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek);
-    return { ...t, categoryColor: cat ? cat.color : 'var(--border-color)', isWrongDay };
+    return { ...t, categoryColor: cat ? cat.color : undefined, isWrongDay };
   }).filter(t => {
     if (t.isWrongDay && !showCompleted) return false; 
     const isCompletedToday = t.completedDates.includes(today);
@@ -233,7 +225,7 @@ const TaskGrid = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Verhindert, dass normale Klicks als Drag interpretiert werden
+        distance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -249,30 +241,24 @@ const TaskGrid = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button 
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button 
+          variant={showCompleted ? "contained" : "outlined"} 
           onClick={() => setShowCompleted(!showCompleted)}
-          style={{
-            padding: '0.5rem 1rem',
-            borderRadius: 'var(--border-radius)',
-            backgroundColor: showCompleted ? 'var(--accent-primary)' : 'transparent',
-            border: `1px solid ${showCompleted ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-            color: showCompleted ? 'white' : 'var(--text-muted)',
-            fontSize: '0.85rem',
-            cursor: 'pointer'
-          }}
+          size="small"
+          sx={{ borderRadius: 8 }}
         >
           {showCompleted ? 'Ausgeblendete verbergen' : 'Erledigte anzeigen'}
-        </button>
-      </div>
+        </Button>
+      </Box>
 
       <DndContext 
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {displayGroups.map(group => {
             const catTasks = filteredTasks.filter(t => {
               if (group.id === 'uncategorized') {
@@ -283,48 +269,45 @@ const TaskGrid = () => {
             if (catTasks.length === 0) return null;
 
             return (
-              <div key={group.id}>
-                <h2 style={{ 
-                  marginBottom: '1.5rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.75rem',
-                  color: group.color
-                }}>
+              <Box key={group.id}>
+                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: group.color !== 'text.secondary' ? group.color : 'text.primary', fontWeight: 'bold' }}>
                   {group.label}
-                </h2>
+                </Typography>
                 <SortableContext 
                   items={catTasks.map(t => t.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="task-grid" style={{
-                    borderLeft: `2px solid ${group.color}`,
-                    paddingLeft: '1rem',
-                    marginLeft: '0.5rem'
+                  <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                    gap: 2,
+                    borderLeft: group.color !== 'text.secondary' ? 4 : 0,
+                    borderColor: group.color,
+                    pl: group.color !== 'text.secondary' ? 2 : 0,
                   }}>
                     {catTasks.map(task => (
                       <SortableTaskItem key={task.id} task={task} isWrongDay={task.isWrongDay} />
                     ))}
-                  </div>
+                  </Box>
                 </SortableContext>
-              </div>
+              </Box>
             );
           })}
-        </div>
+        </Box>
       </DndContext>
       
       {filteredTasks.length === 0 && tasks.length > 0 && (
-        <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-          Alles erledigt für heute! 🎉
-        </div>
+        <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+          <Typography variant="h6">Alles erledigt für heute! 🎉</Typography>
+        </Card>
       )}
 
       {tasks.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-          Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".
-        </div>
+        <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+          <Typography variant="h6">Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".</Typography>
+        </Card>
       )}
-    </div>
+    </Box>
   );
 };
 

@@ -2,8 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, updateDoc, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { ShoppingCart, LogOut, Plus, Trash2, Check, UserPlus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { Box, Card, Typography, TextField, Button, IconButton, Select, MenuItem, CircularProgress, List, ListItem, ListItemText, ListItemSecondaryAction, Divider, Checkbox } from '@mui/material';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import LogoutIcon from '@mui/icons-material/Logout';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 const ShoppingList = () => {
   const { user } = useAuth();
@@ -16,7 +21,6 @@ const ShoppingList = () => {
   const [selectedUserToInvite, setSelectedUserToInvite] = useState('');
   const [isListLoading, setIsListLoading] = useState(true);
 
-  // 1. Listen to shared lists where user is a member
   useEffect(() => {
     if (!user) {
       setActiveList(null);
@@ -29,7 +33,6 @@ const ShoppingList = () => {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
-        // Assume user is only in one list
         const listDoc = snapshot.docs[0];
         setActiveList({ id: listDoc.id, ...listDoc.data() });
       } else {
@@ -41,7 +44,6 @@ const ShoppingList = () => {
     return () => unsubscribe();
   }, [user]);
 
-  // 2. Fetch all registered users for the dropdown
   useEffect(() => {
     if (!user || !activeList) return;
 
@@ -51,7 +53,6 @@ const ShoppingList = () => {
         const usersList = [];
         usersSnap.forEach(doc => {
           const u = doc.data();
-          // Filter out current user and existing members
           if (u.uid !== user.uid && !activeList.members?.includes(u.uid)) {
             usersList.push(u);
           }
@@ -66,7 +67,6 @@ const ShoppingList = () => {
     fetchUsers();
   }, [user, activeList]);
 
-  // 3. Listen to items of the active list
   useEffect(() => {
     if (!user || !activeList) {
       setItems([]);
@@ -107,7 +107,6 @@ const ShoppingList = () => {
 
   const handleLeaveList = async () => {
     if (!user || !activeList) return;
-    // Remove self from members
     await updateDoc(doc(db, 'shared_lists', activeList.id), {
       members: arrayRemove(user.uid)
     });
@@ -141,129 +140,140 @@ const ShoppingList = () => {
 
   if (!user) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem', alignItems: 'center', textAlign: 'center', marginTop: '3rem' }}>
-        <ShoppingCart size={48} color="var(--text-muted)" />
-        <h2 style={{ color: 'var(--text-muted)' }}>Gemeinsame Einkaufsliste</h2>
-        <p style={{ color: 'var(--text-muted)' }}>Du musst eingeloggt sein, um diese Funktion zu nutzen.</p>
-      </div>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pb: 10, alignItems: 'center', textAlign: 'center', mt: 4, maxWidth: 800, mx: 'auto' }}>
+        <ShoppingCartIcon sx={{ fontSize: 60, color: 'text.secondary' }} />
+        <Typography variant="h5" color="text.secondary">Gemeinsame Einkaufsliste</Typography>
+        <Typography color="text.secondary">Du musst eingeloggt sein, um diese Funktion zu nutzen.</Typography>
+      </Box>
     );
   }
 
   if (isListLoading) {
-    return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Lade Liste...</div>;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (!activeList) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '5rem' }}>
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', textAlign: 'center', padding: '3rem 1rem' }}>
-          <ShoppingCart size={48} color="var(--accent-primary)" />
-          <h2>Gemeinsame Einkaufsliste</h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
+        <Card sx={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', textAlign: 'center', p: { xs: 3, sm: 6 } }}>
+          <ShoppingCartIcon color="primary" sx={{ fontSize: 60 }} />
+          <Typography variant="h4" fontWeight="bold">Gemeinsame Einkaufsliste</Typography>
+          <Typography color="text.secondary" sx={{ maxWidth: 400 }}>
             Du hast aktuell keine Einkaufsliste. Aktiviere deine Liste, um andere Nutzer einzuladen und gemeinsam einzukaufen!
-          </p>
+          </Typography>
 
-          <button className="btn-primary" onClick={handleCreateList} style={{ padding: '1rem 2rem', fontSize: '1.1rem' }}>
-            <Plus size={20} /> Liste aktivieren
-          </button>
-        </div>
-      </div>
+          <Button variant="contained" size="large" onClick={handleCreateList} startIcon={<AddIcon />}>
+            Liste aktivieren
+          </Button>
+        </Card>
+      </Box>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '5rem' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pb: 10, maxWidth: 800, mx: 'auto' }}>
       
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-              <ShoppingCart color="var(--accent-primary)" /> Einkaufsliste
-            </h2>
+      <Card sx={{ p: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+              <ShoppingCartIcon color="primary" /> Einkaufsliste
+            </Typography>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-              <UserPlus size={16} color="var(--text-muted)" />
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Teilnehmer hinzufügen:</span>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+              <PersonAddIcon fontSize="small" color="action" />
+              <Typography variant="body2" color="text.secondary">Teilnehmer hinzufügen:</Typography>
               
               {allUsers.length > 0 ? (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <select 
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Select 
                     value={selectedUserToInvite} 
                     onChange={(e) => setSelectedUserToInvite(e.target.value)}
-                    style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                    size="small"
+                    sx={{ minWidth: 150 }}
                   >
                     {allUsers.map(u => (
-                      <option key={u.uid} value={u.uid}>{u.email}</option>
+                      <MenuItem key={u.uid} value={u.uid}>{u.email}</MenuItem>
                     ))}
-                  </select>
-                  <button onClick={handleInviteUser} className="btn-primary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.9rem' }}>
+                  </Select>
+                  <Button variant="contained" onClick={handleInviteUser} size="small">
                     Einladen
-                  </button>
-                </div>
+                  </Button>
+                </Box>
               ) : (
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Alle registrierten Nutzer sind bereits eingeladen.</span>
+                <Typography variant="body2" color="text.secondary" fontStyle="italic">Alle registrierten Nutzer sind bereits eingeladen.</Typography>
               )}
-            </div>
-          </div>
+            </Box>
+          </Box>
 
-          <button onClick={handleLeaveList} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', background: 'transparent', padding: '0.5rem', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
-            <LogOut size={16} /> Verlassen
-          </button>
-        </div>
+          <Button 
+            variant="outlined" 
+            color="error"
+            onClick={handleLeaveList} 
+            startIcon={<LogoutIcon />}
+            size="small"
+          >
+            Verlassen
+          </Button>
+        </Box>
 
-        <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem' }}>
-          <input 
-            type="text" 
+        <Box component="form" onSubmit={handleAddItem} sx={{ display: 'flex', gap: 1, mt: 4 }}>
+          <TextField 
             placeholder="Artikel hinzufügen..." 
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
-            style={{ flex: 1, padding: '0.75rem 1rem', fontSize: '1rem' }}
+            fullWidth
+            variant="outlined"
           />
-          <button type="submit" className="btn-primary" style={{ padding: '0 1.5rem' }}>
-            <Plus size={20} />
-          </button>
-        </form>
-      </div>
+          <Button type="submit" variant="contained" color="primary" sx={{ px: 3 }}>
+            <AddIcon />
+          </Button>
+        </Box>
+      </Card>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {items.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', background: 'var(--bg-main)', borderRadius: 'var(--border-radius)', border: '1px dashed var(--border-color)' }}>
-            Noch keine Artikel auf der Liste.
-          </div>
+          <Card sx={{ p: 6, textAlign: 'center', border: 1, borderStyle: 'dashed', borderColor: 'divider', bgcolor: 'background.default' }}>
+            <Typography color="text.secondary">Noch keine Artikel auf der Liste.</Typography>
+          </Card>
         ) : (
-          items.map(item => (
-            <div key={item.id} className="card" style={{ display: 'flex', alignItems: 'center', padding: '1rem', gap: '1rem', opacity: item.completed ? 0.6 : 1 }}>
-              <button 
-                onClick={() => toggleItem(item.id, item.completed)}
-                style={{
-                  width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
-                  border: `2px solid ${item.completed ? 'var(--accent-success)' : 'var(--border-color)'}`,
-                  backgroundColor: item.completed ? 'var(--accent-success)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
-              >
-                {item.completed && <Check size={14} color="white" />}
-              </button>
-              
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '1.1rem', textDecoration: item.completed ? 'line-through' : 'none', color: item.completed ? 'var(--text-muted)' : 'var(--text-main)' }}>
-                  {item.text}
-                </span>
-                {item.addedBy && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>von {item.addedBy.split('@')[0]}</span>
-                )}
-              </div>
-
-              <button onClick={() => deleteItem(item.id)} style={{ padding: '0.5rem', color: 'var(--text-muted)', background: 'transparent', cursor: 'pointer' }}>
-                <Trash2 size={18} />
-              </button>
-            </div>
-          ))
+          <List sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {items.map(item => (
+              <Card key={item.id} sx={{ opacity: item.completed ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+                <ListItem>
+                  <Checkbox
+                    checked={item.completed}
+                    onChange={() => toggleItem(item.id, item.completed)}
+                    color="success"
+                  />
+                  <ListItemText 
+                    primary={item.text} 
+                    secondary={item.addedBy ? `von ${item.addedBy.split('@')[0]}` : null}
+                    primaryTypographyProps={{ 
+                      sx: { 
+                        textDecoration: item.completed ? 'line-through' : 'none',
+                        color: item.completed ? 'text.secondary' : 'text.primary',
+                        fontSize: '1.1rem'
+                      } 
+                    }}
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton edge="end" color="error" onClick={() => deleteItem(item.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              </Card>
+            ))}
+          </List>
         )}
-      </div>
+      </Box>
 
-    </div>
+    </Box>
   );
 };
 

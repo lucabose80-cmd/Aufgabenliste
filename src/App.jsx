@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Menu } from 'lucide-react';
-import { TaskProvider } from './context/TaskContext';
+import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { createAppTheme } from './Theme';
+import { TaskProvider, useTaskContext } from './context/TaskContext';
 import Sidebar from './components/Sidebar';
 import TaskGrid from './components/TaskGrid';
 import YearTracker from './components/YearTracker';
@@ -15,13 +18,13 @@ import NotificationManager from './components/NotificationManager';
 import Settings from './components/Settings';
 import ShoppingList from './components/ShoppingList';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { User } from 'lucide-react';
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { theme, accentColor } = useTaskContext();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -69,7 +72,7 @@ function MainApp() {
   };
 
   return (
-    <div className="app-container">
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <NotificationManager />
       <Sidebar 
         currentView={currentView} 
@@ -77,35 +80,64 @@ function MainApp() {
         isOpen={isSidebarOpen}
         toggleSidebar={toggleSidebar}
       />
-      <main className="main-content">
-        <header className="header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button className="btn-icon mobile-menu-btn" onClick={toggleSidebar}>
-              <Menu size={24} />
-            </button>
-            <h1 className="header-title">{getViewTitle()}</h1>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {user ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
-                  <User size={20} />
-                  <span style={{ fontSize: '0.9rem', display: 'none', '@media (min-width: 600px)': { display: 'inline' } }}>
-                    {user.email}
-                  </span>
-                </div>
-                <button className="btn btn-secondary" onClick={logout} style={{ padding: '0.5rem 1rem' }}>Logout</button>
-              </>
-            ) : (
-              <button className="btn btn-primary" onClick={() => setIsAuthModalOpen(true)} style={{ padding: '0.5rem 1rem' }}>Einloggen</button>
-            )}
-          </div>
-        </header>
-        {renderContent()}
-      </main>
+      
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'background.default' }}>
+        <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Toolbar>
+            <IconButton
+              edge="start"
+              color="inherit"
+              aria-label="menu"
+              onClick={toggleSidebar}
+              sx={{ mr: 2, display: { md: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
+              {getViewTitle()}
+            </Typography>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {user ? (
+                <>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                    <AccountCircleIcon />
+                    <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                      {user.email}
+                    </Typography>
+                  </Box>
+                  <Button variant="outlined" color="inherit" onClick={logout} size="small" sx={{ borderRadius: 8 }}>
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <Button variant="contained" color="primary" onClick={() => setIsAuthModalOpen(true)} size="small" sx={{ borderRadius: 8 }}>
+                  Einloggen
+                </Button>
+              )}
+            </Box>
+          </Toolbar>
+        </AppBar>
+        
+        <Box component="main" sx={{ flexGrow: 1, overflow: 'auto', p: { xs: 2, sm: 3 } }}>
+          {renderContent()}
+        </Box>
+      </Box>
       
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-    </div>
+    </Box>
+  );
+}
+
+function ThemeWrapper() {
+  const { theme, accentColor } = useTaskContext();
+  const muiTheme = React.useMemo(() => createAppTheme(theme, accentColor), [theme, accentColor]);
+  
+  return (
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      <MainApp />
+    </ThemeProvider>
   );
 }
 
@@ -113,7 +145,7 @@ function App() {
   return (
     <AuthProvider>
       <TaskProvider>
-        <MainApp />
+        <ThemeWrapper />
       </TaskProvider>
     </AuthProvider>
   );
