@@ -292,7 +292,7 @@ const Review = () => {
           </Typography>
           <Grid container spacing={3} alignItems="stretch">
             <Grid item xs={12} sm={4}>
-              <Box sx={{ height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ width: '100%', height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
                 {bestDay ? (
                   <>
@@ -307,7 +307,7 @@ const Review = () => {
               </Box>
             </Grid>
             <Grid item xs={12} sm={4}>
-              <Box sx={{ height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ width: '100%', height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
                 <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -317,7 +317,7 @@ const Review = () => {
             </Grid>
             
             <Grid item xs={12} sm={4}>
-              <Box sx={{ height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ width: '100%', height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
                 {topStreaks.length > 0 ? (
                   <Stack spacing={2} sx={{ mt: 2 }}>
