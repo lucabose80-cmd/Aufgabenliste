@@ -290,53 +290,48 @@ const Review = () => {
           <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
             <EmojiEventsIcon color="warning" /> Highlights & Rekorde
           </Typography>
-          <Grid container spacing={3} alignItems="stretch">
-            <Grid item xs={12} sm={4}>
-              <Box sx={{ width: '100%', height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
-                {bestDay ? (
-                  <>
-                    <Typography variant="h4" fontWeight="bold" color="primary.main">{maxTasksInOneDay} Aufgaben</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Dein Rekord wurde am {format(parseISO(bestDay), 'dd. MMMM yyyy', { locale: de })} aufgestellt.
-                    </Typography>
-                  </>
-                ) : (
-                  <Typography color="text.secondary">Noch keine Aufgaben erledigt.</Typography>
-                )}
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Box sx={{ width: '100%', height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
-                <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Insgesamt gelesen in {formatTime(globalReadingSeconds)}. Weiter so!
-                </Typography>
-              </Box>
-            </Grid>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="stretch">
+            <Box sx={{ flex: 1, p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
+              {bestDay ? (
+                <>
+                  <Typography variant="h4" fontWeight="bold" color="primary.main">{maxTasksInOneDay} Aufgaben</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    Dein Rekord wurde am {format(parseISO(bestDay), 'dd. MMMM yyyy', { locale: de })} aufgestellt.
+                  </Typography>
+                </>
+              ) : (
+                <Typography color="text.secondary">Noch keine Aufgaben erledigt.</Typography>
+              )}
+            </Box>
+
+            <Box sx={{ flex: 1, p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
+              <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Insgesamt gelesen in {formatTime(globalReadingSeconds)}. Weiter so!
+              </Typography>
+            </Box>
             
-            <Grid item xs={12} sm={4}>
-              <Box sx={{ width: '100%', height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
-                {topStreaks.length > 0 ? (
-                  <Stack spacing={2} sx={{ mt: 2 }}>
-                    {topStreaks.map((s, index) => (
-                      <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography variant="h5">{index === 0 ? '🔥' : index === 1 ? '✨' : '⭐'}</Typography>
-                        <Box>
-                          <Typography variant="body1" fontWeight="bold">{s.title}</Typography>
-                          <Typography variant="body2" color="text.secondary">{s.streak} Tage in Folge</Typography>
-                        </Box>
+            <Box sx={{ flex: 1, p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
+              {topStreaks.length > 0 ? (
+                <Stack spacing={2} sx={{ mt: 2 }}>
+                  {topStreaks.map((s, index) => (
+                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography variant="h5">{index === 0 ? '🔥' : index === 1 ? '✨' : '⭐'}</Typography>
+                      <Box>
+                        <Typography variant="body1" fontWeight="bold">{s.title}</Typography>
+                        <Typography variant="body2" color="text.secondary">{s.streak} Tage in Folge</Typography>
                       </Box>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Typography color="text.secondary" sx={{ mt: 2 }}>Noch keine Streaks vorhanden.</Typography>
-                )}
-              </Box>
-            </Grid>
-          </Grid>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography color="text.secondary" sx={{ mt: 2 }}>Noch keine aktiven Streaks.</Typography>
+              )}
+            </Box>
+          </Stack>
         </Card>
       );
       case 'chart': return (
