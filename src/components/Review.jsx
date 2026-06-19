@@ -197,8 +197,30 @@ const Review = () => {
       
       trackableTasks.forEach(task => {
         let shouldDo = false;
+        
         if (task.type === 'daily') shouldDo = true;
         if (task.type === 'specific-days' && task.specificDays.includes(dayOfWeek)) shouldDo = true;
+        
+        if (task.type === 'x-times' || task.type === 'weekly') {
+          const isDoneToday = task.completedDates.includes(dateStr);
+          if (isDoneToday) {
+            shouldDo = true;
+          } else {
+            const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
+            const isGracePeriodOver = today >= weekEnd;
+            if (isGracePeriodOver) {
+              const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+              let count = 0;
+              task.completedDates.forEach(d => {
+                const dDate = parseISO(d);
+                if (dDate >= weekStart && dDate <= weekEnd) count++;
+              });
+              if (count < task.targetCount) {
+                shouldDo = true;
+              }
+            }
+          }
+        }
         
         if (shouldDo) {
           tasksShouldBeDone++;
@@ -222,7 +244,22 @@ const Review = () => {
         return { color: 'error.main', border: 'error.dark', opacity: 0.8 };
       }
 
-      // Fallback for weekly/x-times logic in heatmap (simplified)
+      if (task.type === 'x-times' || task.type === 'weekly') {
+        if (isCompleted) return { color: 'success.main', border: 'success.dark', opacity: 1 };
+        const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
+        const isGracePeriodOver = today >= weekEnd;
+        if (isGracePeriodOver) {
+          const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+          let count = 0;
+          task.completedDates.forEach(d => {
+            const dDate = parseISO(d);
+            if (dDate >= weekStart && dDate <= weekEnd) count++;
+          });
+          if (count < task.targetCount) return { color: 'error.main', border: 'error.dark', opacity: 0.8 };
+        }
+        return { color: 'background.default', border: 'divider', opacity: 0.3 };
+      }
+
       if (isCompleted) return { color: 'success.main', border: 'success.dark', opacity: 1 };
       return { color: 'background.default', border: 'divider', opacity: 0.3 };
     }

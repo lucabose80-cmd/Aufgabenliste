@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Grid, ToggleButtonGroup, ToggleButton, Stack, Paper } from '@mui/material';
-import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, isWithinInterval, parseISO, startOfWeek, format, eachDayOfInterval, isAfter } from 'date-fns';
+import { Box, Card, Typography, Grid, ToggleButtonGroup, ToggleButton, Stack, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, isWithinInterval, parseISO, startOfWeek, endOfWeek, format, eachDayOfInterval, isAfter, addMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -45,21 +45,59 @@ const PastReview = () => {
   const { tasks, readingSessions, calorieLogs, pastReviewOrder, saveSettings, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder } = useTaskContext();
   const [timeframe, setTimeframe] = useState('month');
 
+  const today = new Date();
+
+  const minDateStr = useMemo(() => {
+    let min = today.toISOString().split('T')[0];
+    tasks.forEach(t => {
+      if (t.createdAt && t.createdAt.substring(0,10) < min) min = t.createdAt.substring(0,10);
+      (t.completedDates || []).forEach(d => { if (d < min) min = d; });
+    });
+    readingSessions.forEach(s => { if (s.date < min) min = s.date; });
+    calorieLogs.forEach(l => { if (l.date < min) min = l.date; });
+    return min;
+  }, [tasks, readingSessions, calorieLogs, today]);
+
+  const availableMonths = useMemo(() => {
+    const minD = parseISO(minDateStr);
+    const m = [];
+    let curr = startOfMonth(minD);
+    const e = startOfMonth(today);
+    while (curr <= e) {
+      m.push(curr);
+      curr = addMonths(curr, 1);
+    }
+    return m.reverse();
+  }, [minDateStr, today]);
+
+  const availableYears = useMemo(() => {
+    const minY = parseISO(minDateStr).getFullYear();
+    const eY = today.getFullYear();
+    const y = [];
+    for (let i = eY; i >= minY; i--) y.push(i);
+    return y;
+  }, [minDateStr, today]);
+
+  const [selMonth1, setSelMonth1] = useState(format(startOfMonth(today), 'yyyy-MM-dd'));
+  const [selMonth2, setSelMonth2] = useState(format(startOfMonth(subMonths(today, 1)), 'yyyy-MM-dd'));
+  const [selYear1, setSelYear1] = useState(today.getFullYear());
+  const [selYear2, setSelYear2] = useState(today.getFullYear() - 1);
+
   const stats = useMemo(() => {
-    const today = new Date();
-    
     let currentStart, currentEnd, pastStart, pastEnd;
 
     if (timeframe === 'month') {
-      currentStart = startOfMonth(today);
-      currentEnd = endOfMonth(today);
-      pastStart = startOfMonth(subMonths(today, 1));
-      pastEnd = endOfMonth(subMonths(today, 1));
+      const d1 = parseISO(selMonth1);
+      const d2 = parseISO(selMonth2);
+      currentStart = startOfMonth(d1);
+      currentEnd = endOfMonth(d1);
+      pastStart = startOfMonth(d2);
+      pastEnd = endOfMonth(d2);
     } else {
-      currentStart = startOfYear(today);
-      currentEnd = endOfYear(today);
-      pastStart = startOfYear(subYears(today, 1));
-      pastEnd = endOfYear(subYears(today, 1));
+      currentStart = startOfYear(new Date(selYear1, 0, 1));
+      currentEnd = endOfYear(new Date(selYear1, 0, 1));
+      pastStart = startOfYear(new Date(selYear2, 0, 1));
+      pastEnd = endOfYear(new Date(selYear2, 0, 1));
     }
 
     const isCurrent = (dateStr) => {
@@ -119,8 +157,30 @@ const PastReview = () => {
         
         trackableTasks.forEach(task => {
           let shouldDo = false;
+          
           if (task.type === 'daily') shouldDo = true;
           if (task.type === 'specific-days' && task.specificDays.includes(dayOfWeek)) shouldDo = true;
+          
+          if (task.type === 'x-times' || task.type === 'weekly') {
+            const isDoneToday = task.completedDates.includes(dateStr);
+            if (isDoneToday) {
+              shouldDo = true;
+            } else {
+              const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
+              const isGracePeriodOver = today >= weekEnd;
+              if (isGracePeriodOver) {
+                const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+                let count = 0;
+                task.completedDates.forEach(d => {
+                  const dDate = parseISO(d);
+                  if (dDate >= weekStart && dDate <= weekEnd) count++;
+                });
+                if (count < task.targetCount) {
+                  shouldDo = true;
+                }
+              }
+            }
+          }
           
           if (shouldDo) {
             tasksShouldBeDone++;
@@ -165,7 +225,7 @@ const PastReview = () => {
       speed: { current: currentSpeed, past: pastSpeed },
       perfectDays: { current: currentPerfectDays, past: pastPerfectDays }
     };
-  }, [tasks, readingSessions, calorieLogs, timeframe]);
+  }, [tasks, readingSessions, calorieLogs, timeframe, selMonth1, selMonth2, selYear1, selYear2]);
 
   const renderTrend = (current, past, unit = '') => {
     let diff = current - past;
@@ -308,6 +368,50 @@ const PastReview = () => {
           <ToggleButton value="month" sx={{ px: { xs: 2, sm: 4 }, py: 1, borderRadius: 2, border: 'none', '&.Mui-selected': { bgcolor: 'primary.light', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.main' } } }}>Monatsvergleich</ToggleButton>
           <ToggleButton value="year" sx={{ px: { xs: 2, sm: 4 }, py: 1, borderRadius: 2, border: 'none', '&.Mui-selected': { bgcolor: 'primary.light', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.main' } } }}>Jahresvergleich</ToggleButton>
         </ToggleButtonGroup>
+      </Box>
+
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mb: 1, flexWrap: 'wrap' }}>
+        {timeframe === 'month' ? (
+          <>
+            <FormControl size="small" sx={{ minWidth: 150, bgcolor: 'background.paper', borderRadius: 2 }}>
+              <InputLabel>Zeitraum 1</InputLabel>
+              <Select value={selMonth1} label="Zeitraum 1" onChange={e => setSelMonth1(e.target.value)} sx={{ borderRadius: 2 }}>
+                {availableMonths.map(m => (
+                  <MenuItem key={format(m, 'yyyy-MM-dd')} value={format(m, 'yyyy-MM-dd')}>{format(m, 'MMMM yyyy', { locale: de })}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="body1" color="text.secondary" fontWeight="bold">vs.</Typography>
+            <FormControl size="small" sx={{ minWidth: 150, bgcolor: 'background.paper', borderRadius: 2 }}>
+              <InputLabel>Zeitraum 2</InputLabel>
+              <Select value={selMonth2} label="Zeitraum 2" onChange={e => setSelMonth2(e.target.value)} sx={{ borderRadius: 2 }}>
+                {availableMonths.map(m => (
+                  <MenuItem key={format(m, 'yyyy-MM-dd')} value={format(m, 'yyyy-MM-dd')}>{format(m, 'MMMM yyyy', { locale: de })}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </>
+        ) : (
+          <>
+            <FormControl size="small" sx={{ minWidth: 150, bgcolor: 'background.paper', borderRadius: 2 }}>
+              <InputLabel>Jahr 1</InputLabel>
+              <Select value={selYear1} label="Jahr 1" onChange={e => setSelYear1(e.target.value)} sx={{ borderRadius: 2 }}>
+                {availableYears.map(y => (
+                  <MenuItem key={y} value={y}>{y}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="body1" color="text.secondary" fontWeight="bold">vs.</Typography>
+            <FormControl size="small" sx={{ minWidth: 150, bgcolor: 'background.paper', borderRadius: 2 }}>
+              <InputLabel>Jahr 2</InputLabel>
+              <Select value={selYear2} label="Jahr 2" onChange={e => setSelYear2(e.target.value)} sx={{ borderRadius: 2 }}>
+                {availableYears.map(y => (
+                  <MenuItem key={y} value={y}>{y}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </>
+        )}
       </Box>
 
       <Typography variant="h5" fontWeight="bold" textAlign="center" color="text.secondary" gutterBottom>
