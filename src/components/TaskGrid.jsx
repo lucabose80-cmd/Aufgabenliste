@@ -124,7 +124,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
         <Box 
           {...attributes} 
           {...listeners} 
-          sx={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'text.secondary', mt: 0.5 }}
+          sx={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'text.secondary', mt: 0.5, touchAction: 'none' }}
         >
           <DragIndicatorIcon fontSize="small" />
         </Box>

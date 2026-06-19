@@ -46,9 +46,13 @@ const SortableDashboardItem = ({ id, children }) => {
 
   return (
     <Box ref={setNodeRef} style={style} sx={{ mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: -2, position: 'relative', zIndex: 2 }}>
-        <Box {...attributes} {...listeners} sx={{ cursor: 'grab', color: 'text.secondary', p: 1, bgcolor: 'background.paper', borderRadius: '50%', boxShadow: 1, mr: 2 }}>
-          <DragIndicatorIcon fontSize="small" />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0 }}>
+        <Box 
+          {...attributes} 
+          {...listeners} 
+          sx={{ cursor: 'grab', color: 'text.secondary', p: 1, touchAction: 'none' }}
+        >
+          <DragIndicatorIcon />
         </Box>
       </Box>
       {children}
