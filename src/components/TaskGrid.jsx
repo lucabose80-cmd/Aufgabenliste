@@ -323,6 +323,7 @@ const TaskGrid = () => {
               </Box>
 
               <DndContext 
+                id={group.id}
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}

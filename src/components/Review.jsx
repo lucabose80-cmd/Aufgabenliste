@@ -25,6 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import CloseIcon from '@mui/icons-material/Close';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
