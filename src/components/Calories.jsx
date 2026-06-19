@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
 import { Box, Card, Typography, TextField, Button, IconButton, Divider } from '@mui/material';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import AddIcon from '@mui/icons-material/Add';
 import SaveIcon from '@mui/icons-material/Save';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import TimelineIcon from '@mui/icons-material/Timeline';
 
 const Calories = () => {
   const { calorieGoal, updateCalorieGoal, calorieLogs, saveCalorieLog, deleteCalorieLog, getTodayDateString } = useTaskContext();
   const [goalInput, setGoalInput] = useState(calorieGoal || '');
   const [differenceInput, setDifferenceInput] = useState('');
   const todayStr = getTodayDateString();
+  const todayDate = new Date();
 
   const handleSaveGoal = () => {
     updateCalorieGoal(goalInput);
@@ -42,8 +44,32 @@ const Calories = () => {
 
   const todayLog = calorieLogs.find(l => l.date === todayStr);
 
+  const weeklyBalance = calorieLogs.reduce((acc, log) => {
+    try {
+      const logDate = parseISO(log.date);
+      const weekStart = startOfWeek(todayDate, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(todayDate, { weekStartsOn: 1 });
+      if (isWithinInterval(logDate, { start: weekStart, end: weekEnd })) {
+        return acc + log.difference;
+      }
+    } catch { }
+    return acc;
+  }, 0);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
+      <Card sx={{ p: { xs: 2, sm: 4 }, bgcolor: weeklyBalance > 0 ? 'error.light' : (weeklyBalance < 0 ? 'success.light' : 'background.paper'), color: weeklyBalance !== 0 ? '#fff' : 'inherit' }}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <TimelineIcon /> Wochenbilanz
+        </Typography>
+        <Typography variant="h3" sx={{ mt: 2, fontWeight: 'bold', textAlign: 'center' }}>
+          {weeklyBalance > 0 ? '+' : ''}{weeklyBalance} kcal
+        </Typography>
+        <Typography variant="body2" sx={{ textAlign: 'center', mt: 1, opacity: 0.9 }}>
+          {weeklyBalance > 0 ? 'Du bist diese Woche insgesamt über deinem Ziel.' : (weeklyBalance < 0 ? 'Du bist diese Woche insgesamt unter deinem Ziel.' : 'Du bist diese Woche genau auf dem Ziel.')}
+        </Typography>
+      </Card>
+
       <Card sx={{ p: { xs: 2, sm: 4 } }}>
         <Typography variant="h5" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
           <LocalFireDepartmentIcon color="error" fontSize="large" /> Kalorienziel
