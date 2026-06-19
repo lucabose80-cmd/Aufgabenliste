@@ -291,8 +291,8 @@ const Review = () => {
             <EmojiEventsIcon color="warning" /> Highlights & Rekorde
           </Typography>
           <Grid container spacing={3} alignItems="stretch">
-            <Grid item xs={12} sm={4} display="flex">
-              <Box sx={{ width: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Grid item xs={12} sm={4}>
+              <Box sx={{ height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
                 {bestDay ? (
                   <>
@@ -306,8 +306,8 @@ const Review = () => {
                 )}
               </Box>
             </Grid>
-            <Grid item xs={12} sm={4} display="flex">
-              <Box sx={{ width: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Grid item xs={12} sm={4}>
+              <Box sx={{ height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
                 <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -316,8 +316,8 @@ const Review = () => {
               </Box>
             </Grid>
             
-            <Grid item xs={12} sm={4} display="flex">
-              <Box sx={{ width: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Grid item xs={12} sm={4}>
+              <Box sx={{ height: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
                 {topStreaks.length > 0 ? (
                   <Stack spacing={2} sx={{ mt: 2 }}>
@@ -365,7 +365,7 @@ const Review = () => {
         <Card sx={{ p: { xs: 2, sm: 4 } }}>
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 4 }}>
             <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-              <CalendarMonthIcon color="success" /> Jahrestracker
+              <CalendarMonthIcon color="success" /> Fortschritts-Tracker
             </Typography>
             
             <Select
@@ -388,9 +388,10 @@ const Review = () => {
           )}
 
           <Box sx={{ overflowX: 'auto', pb: 2 }}>
-            <Box sx={{ display: 'flex', gap: 2, minWidth: 800 }}>
+            <Box sx={{ display: 'flex', gap: 2, minWidth: viewMode === 'month' ? '100%' : 800 }}>
               {months.map((monthDays, mIndex) => {
                 if (monthDays.length === 0) return null;
+                if (viewMode === 'month' && mIndex !== todayDate.getMonth()) return null;
                 const monthName = format(monthDays[0], 'MMM', { locale: de });
                 
                 let hasSuccess = false;
