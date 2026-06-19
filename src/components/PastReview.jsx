@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { Box, Card, Typography, Grid, ToggleButtonGroup, ToggleButton, Stack, Paper } from '@mui/material';
-import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, isWithinInterval, parseISO, startOfWeek, format } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, isWithinInterval, parseISO, startOfWeek, format, eachDayOfInterval, isAfter } from 'date-fns';
 import { de } from 'date-fns/locale';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -53,10 +53,56 @@ const PastReview = () => {
 
     let currentReading = 0;
     let pastReading = 0;
+    let currentReadingSeconds = 0;
+    let pastReadingSeconds = 0;
     readingSessions.forEach(session => {
-      if (isCurrent(session.date)) currentReading += session.amount;
-      if (isPast(session.date)) pastReading += session.amount;
+      if (isCurrent(session.date)) {
+        currentReading += session.amount;
+        currentReadingSeconds += session.timeSpent;
+      }
+      if (isPast(session.date)) {
+        pastReading += session.amount;
+        pastReadingSeconds += session.timeSpent;
+      }
     });
+
+    const currentSpeed = currentReadingSeconds > 0 ? Math.round(currentReading / (currentReadingSeconds / 3600)) : 0;
+    const pastSpeed = pastReadingSeconds > 0 ? Math.round(pastReading / (pastReadingSeconds / 3600)) : 0;
+
+    const trackableTasks = tasks.filter(t => t.type !== 'general');
+    
+    const countPerfectDays = (start, end) => {
+      let perfectDaysCount = 0;
+      const days = eachDayOfInterval({ start, end });
+      days.forEach(day => {
+        if (isAfter(day, today)) return;
+        
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const dayOfWeek = day.getDay();
+        
+        let tasksShouldBeDone = 0;
+        let tasksActuallyDone = 0;
+        
+        trackableTasks.forEach(task => {
+          let shouldDo = false;
+          if (task.type === 'daily') shouldDo = true;
+          if (task.type === 'specific-days' && task.specificDays.includes(dayOfWeek)) shouldDo = true;
+          
+          if (shouldDo) {
+            tasksShouldBeDone++;
+            if (task.completedDates.includes(dateStr)) tasksActuallyDone++;
+          }
+        });
+        
+        if (tasksShouldBeDone > 0 && tasksActuallyDone === tasksShouldBeDone) {
+          perfectDaysCount++;
+        }
+      });
+      return perfectDaysCount;
+    };
+
+    const currentPerfectDays = countPerfectDays(currentStart, currentEnd);
+    const pastPerfectDays = countPerfectDays(pastStart, pastEnd);
 
     const calcSuccessfulWeeks = (start, end, logs) => {
       const weeklySums = {};
@@ -81,7 +127,9 @@ const PastReview = () => {
       pastPeriodName: timeframe === 'month' ? format(pastStart, 'MMMM', { locale: de }) : format(pastStart, 'yyyy'),
       tasks: { current: currentTasks, past: pastTasks },
       reading: { current: currentReading, past: pastReading },
-      calories: { current: currentCalories, past: pastCalories }
+      calories: { current: currentCalories, past: pastCalories },
+      speed: { current: currentSpeed, past: pastSpeed },
+      perfectDays: { current: currentPerfectDays, past: pastPerfectDays }
     };
   }, [tasks, readingSessions, calorieLogs, timeframe]);
 
@@ -148,6 +196,19 @@ const PastReview = () => {
 
         <Grid item xs={12} md={4}>
           <Card sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', borderRadius: 4 }}>
+            <Typography variant="subtitle1" color="text.secondary" gutterBottom>Perfekte Tage</Typography>
+            <Typography variant="h2" fontWeight="bold" color="success.main" sx={{ mb: 1 }}>
+              {stats.perfectDays.current}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Letzter {timeframe === 'month' ? 'Monat' : 'Jahr'}: {stats.perfectDays.past}
+            </Typography>
+            {renderTrend(stats.perfectDays.current, stats.perfectDays.past, 'Tage')}
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', borderRadius: 4 }}>
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>Seiten gelesen</Typography>
             <Typography variant="h2" fontWeight="bold" color="secondary.main" sx={{ mb: 1 }}>
               {stats.reading.current}
@@ -159,7 +220,20 @@ const PastReview = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', borderRadius: 4 }}>
+            <Typography variant="subtitle1" color="text.secondary" gutterBottom>Lesegeschwindigkeit (Ø)</Typography>
+            <Typography variant="h2" fontWeight="bold" color="info.main" sx={{ mb: 1 }}>
+              {stats.speed.current} <Typography component="span" variant="h5" color="text.secondary">S./h</Typography>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Letzter {timeframe === 'month' ? 'Monat' : 'Jahr'}: {stats.speed.past} S./h
+            </Typography>
+            {renderTrend(stats.speed.current, stats.speed.past, 'S./h')}
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
           <Card sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', borderRadius: 4 }}>
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>Kalorienziel Wochen</Typography>
             <Typography variant="h2" fontWeight="bold" color="error.main" sx={{ mb: 1 }}>
