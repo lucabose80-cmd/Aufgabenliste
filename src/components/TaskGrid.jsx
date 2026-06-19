@@ -16,13 +16,16 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip } from '@mui/material';
+import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 const SortableTaskItem = ({ task, isWrongDay }) => {
+  const [expanded, setExpanded] = useState(false);
   const { toggleTaskCompletion, toggleSubTask, getTodayDateString } = useTaskContext();
   
   const {
@@ -105,14 +108,17 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
       elevation={isDragging ? 8 : 1}
       sx={{ 
         display: 'flex',
+        flexDirection: 'column',
         overflow: 'hidden',
         borderRadius: 3,
         mb: 0,
+        bgcolor: task.categoryColor ? `${task.categoryColor}1A` : 'background.paper', // 1A is ~10% opacity
+        border: task.categoryColor ? `1px solid ${task.categoryColor}40` : '1px solid',
+        borderColor: task.categoryColor ? `${task.categoryColor}40` : 'divider'
       }}
     >
-      <Box sx={{ width: 12, bgcolor: task.categoryColor || 'primary.main', flexShrink: 0 }} />
       <Box sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <Box 
           {...attributes} 
           {...listeners} 
@@ -167,30 +173,38 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
             </Box>
           )}
         </Box>
+        
+        {task.subTasks.length > 0 && (
+          <IconButton onClick={() => setExpanded(!expanded)} size="small" sx={{ mt: 0.5 }}>
+            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </IconButton>
+        )}
       </Box>
 
       {task.subTasks.length > 0 && (
-        <Box sx={{ ml: 6, mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {task.subTasks.map(st => (
-            <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Checkbox
-                checked={st.completed}
-                onChange={() => toggleSubTask(task.id, st.id)}
-                size="small"
-                sx={{ p: 0.5 }}
-              />
-              <Typography 
-                variant="body2"
-                sx={{ 
-                  textDecoration: st.completed ? 'line-through' : 'none',
-                  color: st.completed ? 'text.secondary' : 'text.primary',
-                }}
-              >
-                {st.title}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+        <Collapse in={expanded}>
+          <Box sx={{ ml: 6, mt: 1, mb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {task.subTasks.map(st => (
+              <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Checkbox
+                  checked={st.completed}
+                  onChange={() => toggleSubTask(task.id, st.id)}
+                  size="small"
+                  sx={{ p: 0.5 }}
+                />
+                <Typography 
+                  variant="body2"
+                  sx={{ 
+                    textDecoration: st.completed ? 'line-through' : 'none',
+                    color: st.completed ? 'text.secondary' : 'text.primary',
+                  }}
+                >
+                  {st.title}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Collapse>
       )}
       </Box>
     </Card>

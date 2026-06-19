@@ -5,9 +5,10 @@ import {
   eachDayOfInterval, startOfYear, endOfYear, getMonth, isAfter, startOfToday, isSameDay 
 } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Box, Card, Typography, Button, Stack, useTheme, Grid, Select, MenuItem, Tooltip as MuiTooltip } from '@mui/material';
+import { Box, Card, Typography, Button, Stack, useTheme, Grid, Select, MenuItem, Tooltip as MuiTooltip, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
+import CloseIcon from '@mui/icons-material/Close';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
@@ -17,9 +18,10 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 
 const Review = () => {
-  const { tasks, readingSessions, calorieLogs } = useTaskContext();
+  const { tasks, readingSessions, calorieLogs, toggleTaskCompletion } = useTaskContext();
   const [viewMode, setViewMode] = useState('month'); 
   const [selectedTrackerTask, setSelectedTrackerTask] = useState('all');
+  const [expandedMonthIndex, setExpandedMonthIndex] = useState(null);
   const theme = useTheme();
 
   const todayDate = new Date();
@@ -247,8 +249,8 @@ const Review = () => {
         <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
           <EmojiEventsIcon color="warning" /> Highlights & Rekorde
         </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+        <Grid container spacing={3} alignItems="stretch">
+          <Grid item xs={12} md={4}>
             <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
               {bestDay ? (
@@ -263,7 +265,7 @@ const Review = () => {
               )}
             </Box>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={4}>
             <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
               <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
@@ -273,10 +275,10 @@ const Review = () => {
             </Box>
           </Grid>
           
-          {topStreaks.length > 0 && (
-            <Grid item xs={12}>
-              <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider' }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
+              {topStreaks.length > 0 ? (
                 <Stack spacing={2} sx={{ mt: 2 }}>
                   {topStreaks.map((s, index) => (
                     <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -288,9 +290,11 @@ const Review = () => {
                     </Box>
                   ))}
                 </Stack>
-              </Box>
-            </Grid>
-          )}
+              ) : (
+                <Typography color="text.secondary" sx={{ mt: 2 }}>Noch keine Streaks vorhanden.</Typography>
+              )}
+            </Box>
+          </Grid>
         </Grid>
       </Card>
 
@@ -346,21 +350,36 @@ const Review = () => {
               if (monthDays.length === 0) return null;
               const monthName = format(monthDays[0], 'MMM', { locale: de });
               
+              const isMonthPerfect = monthDays.every(day => {
+                const { color } = evaluateDay(day);
+                // A day is "perfect" if it's success green, OR if it's future (background.default)
+                return color === 'success.main' || color === 'background.default';
+              });
+
               return (
-                <Box key={mIndex} sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', textAlign: 'center', fontWeight: 'bold' }}>
-                    {monthName}
+                <Box key={mIndex} sx={{ flex: 1, minWidth: 100 }}>
+                  <Typography 
+                    variant="caption" 
+                    color={isMonthPerfect ? 'success.main' : 'text.secondary'} 
+                    sx={{ mb: 1, display: 'block', textAlign: 'center', fontWeight: 'bold', cursor: 'pointer' }}
+                    onClick={() => setExpandedMonthIndex(mIndex)}
+                  >
+                    {monthName} {isMonthPerfect && '⭐'}
                   </Typography>
-                  <Box sx={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(7, 1fr)', 
-                    gap: 0.5,
-                    bgcolor: 'background.default',
-                    p: 1,
-                    borderRadius: 2,
-                    border: 1,
-                    borderColor: 'divider'
-                  }}>
+                  <Box 
+                    onClick={() => setExpandedMonthIndex(mIndex)}
+                    sx={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(7, 1fr)', 
+                      gap: 0.5,
+                      bgcolor: isMonthPerfect ? 'success.light' : 'background.default',
+                      p: 1,
+                      borderRadius: 2,
+                      border: 1,
+                      borderColor: isMonthPerfect ? 'success.main' : 'divider',
+                      cursor: 'pointer',
+                      '&:hover': { borderColor: 'primary.main' }
+                    }}>
                     {monthDays.map((day, dIndex) => {
                       const { color, opacity, border } = evaluateDay(day);
                       return (
@@ -373,9 +392,6 @@ const Review = () => {
                               borderRadius: '4px',
                               border: 1,
                               borderColor: border,
-                              cursor: 'pointer',
-                              '&:hover': { opacity: 1, transform: 'scale(1.1)' },
-                              transition: 'all 0.2s'
                             }}
                           />
                         </MuiTooltip>
@@ -388,6 +404,87 @@ const Review = () => {
           </Box>
         </Box>
       </Card>
+
+      {/* EXPANDED MONTH DIALOG */}
+      <Dialog 
+        open={expandedMonthIndex !== null} 
+        onClose={() => setExpandedMonthIndex(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        {expandedMonthIndex !== null && (
+          <>
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight="bold">
+                {format(months[expandedMonthIndex][0], 'MMMM yyyy', { locale: de })}
+              </Typography>
+              <IconButton onClick={() => setExpandedMonthIndex(null)}>
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent>
+              {selectedTrackerTask === 'all' && (
+                <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
+                  Bitte wähle eine spezifische Aufgabe aus, um sie hier nachtragen zu können.
+                </Typography>
+              )}
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(7, 1fr)', 
+                gap: 1,
+                mt: 2
+              }}>
+                {/* Wochentage Header */}
+                {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(d => (
+                  <Typography key={d} variant="caption" align="center" color="text.secondary" fontWeight="bold">
+                    {d}
+                  </Typography>
+                ))}
+                
+                {/* Leerfelder für den Start des Monats */}
+                {Array.from({ length: (months[expandedMonthIndex][0].getDay() + 6) % 7 }).map((_, i) => (
+                  <Box key={`empty-${i}`} />
+                ))}
+
+                {/* Tage */}
+                {months[expandedMonthIndex].map((day, dIndex) => {
+                  const { color, opacity, border } = evaluateDay(day);
+                  const isFuture = isAfter(day, today);
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  
+                  return (
+                    <Box 
+                      key={dIndex}
+                      onClick={() => {
+                        if (!isFuture && selectedTrackerTask !== 'all') {
+                          toggleTaskCompletion(selectedTrackerTask, dateStr);
+                        }
+                      }}
+                      sx={{ 
+                        aspectRatio: '1/1',
+                        bgcolor: color,
+                        opacity,
+                        borderRadius: 1,
+                        border: 1,
+                        borderColor: border,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: (!isFuture && selectedTrackerTask !== 'all') ? 'pointer' : 'default',
+                        '&:hover': (!isFuture && selectedTrackerTask !== 'all') ? { opacity: 1, transform: 'scale(1.05)' } : {}
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: color === 'success.main' || color === 'error.main' || color === 'warning.main' ? 'white' : 'text.primary', fontWeight: 'bold' }}>
+                        {format(day, 'd')}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </DialogContent>
+          </>
+        )}
+      </Dialog>
 
     </Box>
   );

@@ -72,22 +72,25 @@ const getDesignTokens = (mode, accentColor) => ({
     MuiBottomNavigationAction: {
       styleOverrides: {
         root: {
-          padding: '12px 0 8px 0',
+          padding: '8px 0 8px 0',
           minWidth: 'auto',
           color: mode === 'dark' ? '#CAC4D0' : '#49454F',
           '&.Mui-selected': {
             color: mode === 'dark' ? '#E6E0E9' : '#1D1B20',
           },
+          '& .MuiBottomNavigationAction-label': {
+            marginTop: 4,
+          },
           '& .MuiSvgIcon-root': {
             fontSize: '1.5rem',
-            marginBottom: 4,
-            padding: '4px 16px',
+            padding: '4px 20px', // Creates the pill shape horizontally
             borderRadius: 16,
-            transition: 'background-color 0.2s',
+            transition: 'all 0.2s',
           },
           '&.Mui-selected .MuiSvgIcon-root': {
             backgroundColor: mode === 'dark' ? '#4A4458' : '#E8DEF8', // M3 Secondary Container
             color: mode === 'dark' ? '#E8DEF8' : '#1D192B', // M3 On Secondary Container
+            transform: 'scale(1.1)', // Highlight active icon visually
           },
         },
         label: {

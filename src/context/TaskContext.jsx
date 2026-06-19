@@ -23,6 +23,7 @@ export const TaskProvider = ({ children }) => {
   const [theme, setTheme] = useState('dark');
   const [accentColor, setAccentColor] = useState('#6366f1');
   const [shoppingListId, setShoppingListId] = useState('');
+  const [pinnedNavItems, setPinnedNavItems] = useState(['home', 'reading-speed', 'review', 'shopping']);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -72,6 +73,9 @@ export const TaskProvider = ({ children }) => {
       const savedList = localStorage.getItem('shoppingListId');
       if (savedList) setShoppingListId(savedList);
 
+      const savedPinned = localStorage.getItem('pinnedNavItems');
+      if (savedPinned) setPinnedNavItems(JSON.parse(savedPinned));
+
       setIsLoading(false);
     }
   }, [user]);
@@ -119,20 +123,15 @@ export const TaskProvider = ({ children }) => {
       setCalorieLogs(snapshot.docs.map(doc => doc.data()));
     });
 
-    const settingsRef = collection(db, 'users', user.uid, 'settings');
-    const unsubscribeSettings = onSnapshot(settingsRef, (snapshot) => {
-      const mainDoc = snapshot.docs.find(d => d.id === 'main');
-      if (mainDoc && mainDoc.data().calorieGoal !== undefined) {
-        setCalorieGoal(mainDoc.data().calorieGoal);
-      }
-      if (mainDoc && mainDoc.data().theme !== undefined) {
-        setTheme(mainDoc.data().theme);
-      }
-      if (mainDoc && mainDoc.data().accentColor !== undefined) {
-        setAccentColor(mainDoc.data().accentColor);
-      }
-      if (mainDoc && mainDoc.data().shoppingListId !== undefined) {
-        setShoppingListId(mainDoc.data().shoppingListId);
+    const settingsRef = doc(db, 'users', user.uid, 'settings', 'general');
+    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.calorieGoal !== undefined) setCalorieGoal(data.calorieGoal);
+        if (data.theme) setTheme(data.theme);
+        if (data.accentColor) setAccentColor(data.accentColor);
+        if (data.shoppingListId) setShoppingListId(data.shoppingListId);
+        if (data.pinnedNavItems) setPinnedNavItems(data.pinnedNavItems);
       }
       setIsLoading(false);
     });
@@ -496,27 +495,38 @@ export const TaskProvider = ({ children }) => {
   const updateCalorieGoal = async (goal) => {
     setCalorieGoal(goal);
     if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'settings', 'main'), { calorieGoal: goal }, { merge: true });
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { calorieGoal: goal }, { merge: true });
     }
   };
 
-  const updateThemeSettings = async (newTheme, newColor) => {
-    setTheme(newTheme);
-    setAccentColor(newColor);
-    if (!user) {
-      localStorage.setItem('theme', newTheme);
-      localStorage.setItem('accentColor', newColor);
-    } else {
-      await setDoc(doc(db, 'users', user.uid, 'settings', 'main'), { theme: newTheme, accentColor: newColor }, { merge: true });
-    }
-  };
+  const saveSettings = async (newTheme, newColor, newShoppingListId, newPinned) => {
+    const t = newTheme !== undefined ? newTheme : theme;
+    const c = newColor !== undefined ? newColor : accentColor;
+    const s = newShoppingListId !== undefined ? newShoppingListId : shoppingListId;
+    const p = newPinned !== undefined ? newPinned : pinnedNavItems;
+    
+    setTheme(t);
+    setAccentColor(c);
+    setShoppingListId(s);
+    setPinnedNavItems(p);
 
-  const updateShoppingListId = async (id) => {
-    setShoppingListId(id);
     if (!user) {
-      localStorage.setItem('shoppingListId', id);
-    } else {
-      await setDoc(doc(db, 'users', user.uid, 'settings', 'main'), { shoppingListId: id }, { merge: true });
+      localStorage.setItem('theme', t);
+      localStorage.setItem('accentColor', c);
+      if (s) localStorage.setItem('shoppingListId', s);
+      localStorage.setItem('pinnedNavItems', JSON.stringify(p));
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), {
+        theme: t,
+        accentColor: c,
+        shoppingListId: s,
+        pinnedNavItems: p
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error saving settings to Firestore", err);
     }
   };
 
@@ -589,9 +599,9 @@ export const TaskProvider = ({ children }) => {
       updateCalorieGoal,
       theme,
       accentColor,
-      updateThemeSettings,
+      pinnedNavItems,
+      saveSettings,
       shoppingListId,
-      updateShoppingListId,
       forceSync,
       isLoading
     }}>

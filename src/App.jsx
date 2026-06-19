@@ -7,6 +7,9 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddBoxIcon from '@mui/icons-material/AddBox';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import CategoryIcon from '@mui/icons-material/Category';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { createAppTheme } from './Theme';
 import { TaskProvider, useTaskContext } from './context/TaskContext';
 import Sidebar from './components/Sidebar';
@@ -27,7 +30,18 @@ function MainApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { theme, accentColor } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems } = useTaskContext();
+
+  const NAV_CONFIG = {
+    'home': { label: 'Startseite', icon: <HomeIcon /> },
+    'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
+    'review': { label: 'Rückblick', icon: <EmojiEventsIcon /> },
+    'shopping': { label: 'Shopping', icon: <ShoppingCartIcon /> },
+    'calories': { label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
+    'categories': { label: 'Kategorien', icon: <CategoryIcon /> },
+    'create': { label: 'Erstellen', icon: <AddBoxIcon /> },
+    'settings': { label: 'Settings', icon: <SettingsIcon /> },
+  };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -79,7 +93,7 @@ function MainApp() {
       />
       
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'background.default' }}>
-        <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <AppBar position="static" color="primary" elevation={2} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
           <Toolbar>
             {/* Removed Hamburger Menu for Mobile */}
             <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
@@ -95,12 +109,12 @@ function MainApp() {
                       {user.email}
                     </Typography>
                   </Box>
-                  <Button variant="outlined" color="inherit" onClick={logout} size="small" sx={{ borderRadius: 8 }}>
+                  <Button variant="outlined" color="inherit" onClick={logout} size="small" sx={{ borderRadius: 8, borderColor: 'primary.contrastText', color: 'primary.contrastText' }}>
                     Logout
                   </Button>
                 </>
               ) : (
-                <Button variant="contained" color="primary" onClick={() => setIsAuthModalOpen(true)} size="small" sx={{ borderRadius: 8 }}>
+                <Button variant="contained" color="secondary" onClick={() => setIsAuthModalOpen(true)} size="small" sx={{ borderRadius: 8, bgcolor: 'background.paper', color: 'primary.main', '&:hover': { bgcolor: 'background.default' } }}>
                   Einloggen
                 </Button>
               )}
@@ -123,10 +137,12 @@ function MainApp() {
               }
             }}
           >
-            <BottomNavigationAction label="Start" value="home" icon={<HomeIcon />} />
-            <BottomNavigationAction label="Lesen" value="reading-speed" icon={<MenuBookIcon />} />
-            <BottomNavigationAction label="Rückblick" value="review" icon={<EmojiEventsIcon />} />
-            <BottomNavigationAction label="Shopping" value="shopping" icon={<ShoppingCartIcon />} />
+            {(pinnedNavItems || []).slice(0, 5).map(itemId => {
+              const nav = NAV_CONFIG[itemId];
+              if (!nav) return null;
+              return <BottomNavigationAction key={itemId} label={nav.label} value={itemId} icon={nav.icon} />;
+            })}
+            
             <BottomNavigationAction 
               label="Mehr" 
               value="more" 

@@ -18,7 +18,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import SyncIcon from '@mui/icons-material/Sync';
 
 const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
-  const { forceSync } = useTaskContext();
+  const { forceSync, pinnedNavItems } = useTaskContext();
   const { user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -34,6 +34,10 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
     { id: 'settings', label: 'Einstellungen', icon: <SettingsIcon /> },
   ];
 
+  const visibleMenuItems = isMobile && pinnedNavItems 
+    ? menuItems.filter(item => !pinnedNavItems.includes(item.id))
+    : menuItems;
+
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, borderBottom: 1, borderColor: 'divider' }}>
@@ -41,7 +45,7 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
         <Typography variant="h6" fontWeight="bold">TaskMaster</Typography>
       </Box>
       <List sx={{ flexGrow: 1, overflowY: 'auto', px: 1 }}>
-        {menuItems.map((item) => (
+        {visibleMenuItems.map((item) => (
           <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton 
               selected={currentView === item.id}

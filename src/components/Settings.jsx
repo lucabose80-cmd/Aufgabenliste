@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Grid, Button, IconButton } from '@mui/material';
+import { Box, Card, Typography, Grid, Button, IconButton, Checkbox, FormControlLabel } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -16,15 +16,39 @@ const COLORS = [
   { name: 'Pink', hex: '#ec4899' }
 ];
 
+const NAV_ITEMS = [
+  { id: 'home', label: 'Startseite' },
+  { id: 'reading-speed', label: 'Lesegeschwindigkeit' },
+  { id: 'review', label: 'Rückblick' },
+  { id: 'shopping', label: 'Einkaufsliste' },
+  { id: 'calories', label: 'Kalorienziel' },
+  { id: 'categories', label: 'Kategorien verwalten' },
+  { id: 'create', label: 'Aufgabe erstellen' },
+];
+
 const Settings = () => {
-  const { theme, accentColor, updateThemeSettings } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, saveSettings } = useTaskContext();
 
   const handleThemeChange = (newTheme) => {
-    updateThemeSettings(newTheme, accentColor);
+    saveSettings(newTheme, accentColor, undefined, pinnedNavItems);
   };
 
   const handleColorChange = (newColor) => {
-    updateThemeSettings(theme, newColor);
+    saveSettings(theme, newColor, undefined, pinnedNavItems);
+  };
+
+  const handleNavToggle = (itemId) => {
+    let newPinned = [...(pinnedNavItems || [])];
+    if (newPinned.includes(itemId)) {
+      newPinned = newPinned.filter(id => id !== itemId);
+    } else {
+      if (newPinned.length >= 5) {
+        alert('Du kannst maximal 5 Menüpunkte anpinnen.');
+        return;
+      }
+      newPinned.push(itemId);
+    }
+    saveSettings(theme, accentColor, undefined, newPinned);
   };
 
   return (
@@ -135,6 +159,45 @@ const Settings = () => {
                 </Box>
               </Grid>
             ))}
+          </Grid>
+        </Box>
+
+        {/* Navigation Personalization */}
+        <Box sx={{ mt: 5 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>Menüleiste anpassen (Handy)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Wähle bis zu 5 Punkte, die unten in der Navigation angezeigt werden sollen. Der Rest landet im "Mehr" Menü.
+          </Typography>
+          <Grid container spacing={2}>
+            {NAV_ITEMS.map((item) => {
+              const isPinned = (pinnedNavItems || []).includes(item.id);
+              return (
+                <Grid item xs={12} sm={6} md={4} key={item.id}>
+                  <Box 
+                    onClick={() => handleNavToggle(item.id)}
+                    sx={{
+                      p: 1.5,
+                      border: 1,
+                      borderColor: isPinned ? 'primary.main' : 'divider',
+                      bgcolor: isPinned ? 'primary.light' : 'background.paper',
+                      color: isPinned ? 'primary.contrastText' : 'text.primary',
+                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      '&:hover': { borderColor: 'primary.main' }
+                    }}
+                  >
+                    <Checkbox 
+                      checked={isPinned} 
+                      sx={{ p: 0.5, mr: 1, color: isPinned ? 'primary.contrastText' : 'inherit', '&.Mui-checked': { color: 'primary.contrastText' } }} 
+                    />
+                    <Typography variant="body2" fontWeight={isPinned ? 'bold' : 'normal'}>{item.label}</Typography>
+                  </Box>
+                </Grid>
+              );
+            })}
           </Grid>
         </Box>
 
