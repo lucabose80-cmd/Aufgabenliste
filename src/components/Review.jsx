@@ -46,7 +46,7 @@ const SortableDashboardItem = ({ id, children }) => {
 
   return (
     <Box ref={setNodeRef} style={style} sx={{ mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 0 }}>
         <Box 
           {...attributes} 
           {...listeners} 
