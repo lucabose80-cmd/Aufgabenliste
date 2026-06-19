@@ -85,6 +85,7 @@ const getDesignTokens = (mode, accentColor) => ({
             fontSize: '1.5rem',
             padding: '4px 20px', // Creates the pill shape horizontally
             borderRadius: 16,
+            boxSizing: 'content-box', // CRITICAL: prevents padding from squishing the SVG
             transition: 'all 0.2s',
           },
           '&.Mui-selected .MuiSvgIcon-root': {

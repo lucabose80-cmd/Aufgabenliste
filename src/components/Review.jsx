@@ -250,8 +250,8 @@ const Review = () => {
           <EmojiEventsIcon color="warning" /> Highlights & Rekorde
         </Typography>
         <Grid container spacing={3} alignItems="stretch">
-          <Grid item xs={12} md={4}>
-            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
+          <Grid item xs={12} sm={4} display="flex">
+            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
               {bestDay ? (
                 <>
@@ -265,8 +265,8 @@ const Review = () => {
               )}
             </Box>
           </Grid>
-          <Grid item xs={12} md={4}>
-            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
+          <Grid item xs={12} sm={4} display="flex">
+            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
               <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -275,8 +275,8 @@ const Review = () => {
             </Box>
           </Grid>
           
-          <Grid item xs={12} md={4}>
-            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
+          <Grid item xs={12} sm={4} display="flex">
+            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
               {topStreaks.length > 0 ? (
                 <Stack spacing={2} sx={{ mt: 2 }}>
@@ -350,11 +350,13 @@ const Review = () => {
               if (monthDays.length === 0) return null;
               const monthName = format(monthDays[0], 'MMM', { locale: de });
               
-              const isMonthPerfect = monthDays.every(day => {
+              let hasSuccess = false;
+              const allValid = monthDays.every(day => {
                 const { color } = evaluateDay(day);
-                // A day is "perfect" if it's success green, OR if it's future (background.default)
+                if (color === 'success.main') hasSuccess = true;
                 return color === 'success.main' || color === 'background.default';
               });
+              const isMonthPerfect = allValid && hasSuccess;
 
               return (
                 <Box key={mIndex} sx={{ flex: 1, minWidth: 100 }}>
