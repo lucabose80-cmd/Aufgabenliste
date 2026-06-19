@@ -12,14 +12,17 @@ import { CSS } from '@dnd-kit/utilities';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 const SortableCard = ({ id, children, md }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     height: '100%',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 999 : 1,
+    position: 'relative'
   };
 
   return (
@@ -28,7 +31,7 @@ const SortableCard = ({ id, children, md }) => {
         <Box 
           {...attributes} 
           {...listeners} 
-          sx={{ position: 'absolute', top: 8, right: 8, cursor: 'grab', zIndex: 1, color: 'text.disabled', '&:hover': { color: 'text.primary' } }}
+          sx={{ position: 'absolute', top: 12, left: 12, cursor: 'grab', zIndex: 10, color: 'text.disabled', p: 0.5, touchAction: 'none', display: 'flex', alignItems: 'center', '&:hover': { color: 'text.primary' } }}
         >
           <DragIndicatorIcon />
         </Box>
