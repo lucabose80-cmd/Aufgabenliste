@@ -18,8 +18,9 @@ const COLORS = [
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Aufgaben' },
+  { id: 'review', label: 'Statistik' },
+  { id: 'past-review', label: 'Rückblick' },
   { id: 'reading-speed', label: 'Lesegeschwindigkeit' },
-  { id: 'review', label: 'Rückblick' },
   { id: 'shopping', label: 'Einkaufsliste' },
   { id: 'calories', label: 'Kalorienziel' },
   { id: 'categories', label: 'Kategorien verwalten' },

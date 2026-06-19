@@ -8,6 +8,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'; // Award
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ShowChartIcon from '@mui/icons-material/ShowChart'; // Activity
+import HistoryIcon from '@mui/icons-material/History';
 import MenuBookIcon from '@mui/icons-material/MenuBook'; // BookOpen
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'; // Flame
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -25,7 +26,8 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   
   const menuItems = [
     { id: 'home', label: 'Aufgaben', icon: <AssignmentIcon /> },
-    { id: 'review', label: 'Rückblick', icon: <EmojiEventsIcon /> },
+    { id: 'review', label: 'Statistik', icon: <BarChartIcon /> },
+    { id: 'past-review', label: 'Rückblick', icon: <HistoryIcon /> },
     { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <MenuBookIcon /> },
     { id: 'calories', label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
     { id: 'shopping', label: 'Einkaufsliste', icon: <ShoppingCartIcon /> },

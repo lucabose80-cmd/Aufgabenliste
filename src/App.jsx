@@ -10,6 +10,8 @@ import AddBoxIcon from '@mui/icons-material/AddBox';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CategoryIcon from '@mui/icons-material/Category';
 import SettingsIcon from '@mui/icons-material/Settings';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import HistoryIcon from '@mui/icons-material/History';
 import { createAppTheme } from './Theme';
 import { TaskProvider, useTaskContext } from './context/TaskContext';
 import Sidebar from './components/Sidebar';
@@ -17,6 +19,7 @@ import TaskGrid from './components/TaskGrid';
 import TaskCreator from './components/TaskCreator';
 import CategoriesManager from './components/CategoriesManager';
 import Review from './components/Review';
+import PastReview from './components/PastReview';
 import ReadingSpeed from './components/ReadingSpeed';
 import Calories from './components/Calories';
 import AuthModal from './components/AuthModal';
@@ -35,7 +38,8 @@ function MainApp() {
   const NAV_CONFIG = {
     'home': { label: 'Aufgaben', icon: <AssignmentIcon /> },
     'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
-    'review': { label: 'Rückblick', icon: <EmojiEventsIcon /> },
+    'review': { label: 'Statistik', icon: <BarChartIcon /> },
+    'past-review': { label: 'Rückblick', icon: <HistoryIcon /> },
     'shopping': { label: 'Shopping', icon: <ShoppingCartIcon /> },
     'calories': { label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
     'categories': { label: 'Kategorien', icon: <CategoryIcon /> },
@@ -51,6 +55,8 @@ function MainApp() {
         return <TaskGrid view="all" />;
       case 'review':
         return <Review />;
+      case 'past-review':
+        return <PastReview />;
       case 'create':
         return <TaskCreator />;
       case 'reading-speed':
@@ -71,7 +77,8 @@ function MainApp() {
   const getViewTitle = () => {
     switch (currentView) {
       case 'home': return 'Aufgaben';
-      case 'review': return 'Statistiken & Rückblick';
+      case 'review': return 'Statistik';
+      case 'past-review': return 'Rückblick';
       case 'create': return 'Neue Aufgabe erstellen';
       case 'reading-speed': return 'Lesegeschwindigkeit';
       case 'calories': return 'Kalorienziel';
