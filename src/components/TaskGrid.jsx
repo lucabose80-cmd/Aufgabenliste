@@ -23,6 +23,8 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
 const SortableTaskItem = ({ task, isWrongDay }) => {
   const [expanded, setExpanded] = useState(false);
@@ -212,7 +214,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
 };
 
 const TaskGrid = () => {
-  const { tasks, categories, getTodayDateString, reorderTasks } = useTaskContext();
+  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories } = useTaskContext();
   const [showCompleted, setShowCompleted] = useState(false);
 
   const displayGroups = categories.map(cat => ({
@@ -268,26 +270,63 @@ const TaskGrid = () => {
         </Button>
       </Box>
 
-      <DndContext 
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {displayGroups.map(group => {
-            const catTasks = filteredTasks.filter(t => {
-              if (group.id === 'uncategorized') {
-                return !categories.find(c => c.id === t.categoryId);
-              }
-              return t.categoryId === group.id;
-            });
-            if (catTasks.length === 0) return null;
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {displayGroups.sort((a, b) => {
+          if (a.id === 'uncategorized') return 1;
+          if (b.id === 'uncategorized') return -1;
+          const catA = categories.find(c => c.id === a.id);
+          const catB = categories.find(c => c.id === b.id);
+          return (catA?.order || 0) - (catB?.order || 0);
+        }).map((group, groupIndex, arr) => {
+          const catTasks = filteredTasks.filter(t => {
+            if (group.id === 'uncategorized') {
+              return !categories.find(c => c.id === t.categoryId);
+            }
+            return t.categoryId === group.id;
+          });
+          if (catTasks.length === 0) return null;
 
-            return (
-              <Box key={group.id}>
-                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: group.color !== 'text.secondary' ? group.color : 'text.primary', fontWeight: 'bold' }}>
+          const isFirstCat = groupIndex === 0;
+          const isLastCat = groupIndex === arr.length - 1 || (groupIndex === arr.length - 2 && arr[arr.length - 1].id === 'uncategorized');
+
+          return (
+            <Box key={group.id}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: group.color !== 'text.secondary' ? group.color : 'text.primary', fontWeight: 'bold' }}>
                   {group.label}
                 </Typography>
+                
+                {group.id !== 'uncategorized' && (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <IconButton 
+                      size="small" 
+                      disabled={isFirstCat}
+                      onClick={() => {
+                        const prevCat = arr[groupIndex - 1];
+                        if (prevCat) reorderCategories(group.id, prevCat.id);
+                      }}
+                    >
+                      <ArrowUpwardIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      disabled={isLastCat}
+                      onClick={() => {
+                        const nextCat = arr[groupIndex + 1];
+                        if (nextCat && nextCat.id !== 'uncategorized') reorderCategories(group.id, nextCat.id);
+                      }}
+                    >
+                      <ArrowDownwardIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+              </Box>
+
+              <DndContext 
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
                 <SortableContext 
                   items={catTasks.map(t => t.id)}
                   strategy={rectSortingStrategy}
@@ -305,11 +344,11 @@ const TaskGrid = () => {
                     ))}
                   </Box>
                 </SortableContext>
-              </Box>
-            );
-          })}
-        </Box>
-      </DndContext>
+              </DndContext>
+            </Box>
+          );
+        })}
+      </Box>
       
       {filteredTasks.length === 0 && tasks.length > 0 && (
         <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>

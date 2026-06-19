@@ -17,13 +17,14 @@ export const TaskProvider = ({ children }) => {
   const [categories, setCategories] = useState([]);
   const [readingSessions, setReadingSessions] = useState([]);
   const [calorieLogs, setCalorieLogs] = useState([]);
-  const [calorieGoal, setCalorieGoal] = useState('');
+  const [calorieGoal, setCalorieGoal] = useState(2000);
   
   // Settings
   const [theme, setTheme] = useState('dark');
   const [accentColor, setAccentColor] = useState('#6366f1');
-  const [shoppingListId, setShoppingListId] = useState('');
+  const [shoppingListId, setShoppingListId] = useState(null);
   const [pinnedNavItems, setPinnedNavItems] = useState(['home', 'reading-speed', 'review', 'shopping']);
+  const [dashboardOrder, setDashboardOrder] = useState(['highlights', 'tracker', 'chart', 'stats']);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -62,7 +63,7 @@ export const TaskProvider = ({ children }) => {
       setCalorieLogs(savedCalories ? JSON.parse(savedCalories) : []);
 
       const savedGoal = localStorage.getItem('calorieGoal');
-      setCalorieGoal(savedGoal || '');
+      setCalorieGoal(savedGoal || 2000);
 
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme) setTheme(savedTheme);
@@ -76,6 +77,9 @@ export const TaskProvider = ({ children }) => {
       const savedPinned = localStorage.getItem('pinnedNavItems');
       if (savedPinned) setPinnedNavItems(JSON.parse(savedPinned));
 
+      const savedDash = localStorage.getItem('dashboardOrder');
+      if (savedDash) setDashboardOrder(JSON.parse(savedDash));
+
       setIsLoading(false);
     }
   }, [user]);
@@ -87,8 +91,13 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('readingSessions', JSON.stringify(readingSessions));
       localStorage.setItem('calorieLogs', JSON.stringify(calorieLogs));
       localStorage.setItem('calorieGoal', calorieGoal);
+      localStorage.setItem('theme', theme);
+      localStorage.setItem('accentColor', accentColor);
+      localStorage.setItem('shoppingListId', shoppingListId || '');
+      localStorage.setItem('pinnedNavItems', JSON.stringify(pinnedNavItems));
+      localStorage.setItem('dashboardOrder', JSON.stringify(dashboardOrder));
     }
-  }, [tasks, categories, readingSessions, calorieLogs, calorieGoal, user, isLoading]);
+  }, [tasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, user, isLoading]);
 
   // Firestore Realtime Listeners
   useEffect(() => {
@@ -100,11 +109,6 @@ export const TaskProvider = ({ children }) => {
     const unsubscribeTasks = onSnapshot(tasksRef, (snapshot) => {
       const fbTasks = snapshot.docs.map(doc => doc.data());
       setTasks(fbTasks);
-    }, (error) => {
-      console.error("Firestore Tasks Sync Error:", error);
-      if (error.code === 'permission-denied') {
-        alert("Datenbank-Fehler: Keine Berechtigung! Bitte prüfe deine Firestore Security Rules.");
-      }
     });
 
     const categoriesRef = collection(db, 'users', user.uid, 'categories');
@@ -130,23 +134,20 @@ export const TaskProvider = ({ children }) => {
         if (data.calorieGoal !== undefined) setCalorieGoal(data.calorieGoal);
         if (data.theme) setTheme(data.theme);
         if (data.accentColor) setAccentColor(data.accentColor);
-        if (data.shoppingListId) setShoppingListId(data.shoppingListId);
+        if (data.shoppingListId !== undefined) setShoppingListId(data.shoppingListId);
         if (data.pinnedNavItems) setPinnedNavItems(data.pinnedNavItems);
+        if (data.dashboardOrder) setDashboardOrder(data.dashboardOrder);
       }
       setIsLoading(false);
     });
 
-    // Check if we need to migrate local tasks to Firestore
     const migrateLocalData = async () => {
       const hasMigrated = localStorage.getItem('migrated_' + user.uid);
       if (hasMigrated) return;
 
       try {
-        // Check if cloud already has data (meaning another device already migrated)
         const snap = await getDocs(categoriesRef);
-        
         if (!snap.empty) {
-          // Cloud already has data! Do not migrate local data to avoid overwriting.
           localStorage.setItem('migrated_' + user.uid, 'true');
           return;
         }
@@ -154,28 +155,15 @@ export const TaskProvider = ({ children }) => {
         const localTasksStr = localStorage.getItem('tasks');
         const localTasks = localTasksStr ? JSON.parse(localTasksStr) : [];
         const localCatsStr = localStorage.getItem('categories');
-        let localCats = localCatsStr ? JSON.parse(localCatsStr) : [];
-
-        // If local is completely empty too, just set some defaults
-        if (localCats.length === 0) {
-          localCats = [
+        let localCats = localCatsStr ? JSON.parse(localCatsStr) : [
             { id: '1', name: 'Allgemein', color: '#6366f1' },
             { id: '2', name: 'Gesundheit', color: '#10b981' },
             { id: '3', name: 'Lernen', color: '#ec4899' }
-          ];
-        }
+        ];
 
         const batch = writeBatch(db);
-        localTasks.forEach(t => {
-          const tRef = doc(db, 'users', user.uid, 'tasks', t.id);
-          batch.set(tRef, t);
-        });
-        
-        localCats.forEach(c => {
-          const cRef = doc(db, 'users', user.uid, 'categories', c.id);
-          batch.set(cRef, c);
-        });
-
+        localTasks.forEach(t => batch.set(doc(db, 'users', user.uid, 'tasks', t.id), t));
+        localCats.forEach(c => batch.set(doc(db, 'users', user.uid, 'categories', c.id), c));
         await batch.commit();
         localStorage.setItem('migrated_' + user.uid, 'true');
       } catch (err) {
@@ -238,17 +226,12 @@ export const TaskProvider = ({ children }) => {
     }
   }, [tasks, isLoading, user]);
 
-  // Firestore Sync Helper
   const saveTaskToFirestore = async (taskData) => {
-    if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'tasks', taskData.id), taskData);
-    }
+    if (user) await setDoc(doc(db, 'users', user.uid, 'tasks', taskData.id), taskData);
   };
 
   const deleteTaskFromFirestore = async (taskId) => {
-    if (user) {
-      await deleteDoc(doc(db, 'users', user.uid, 'tasks', taskId));
-    }
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'tasks', taskId));
   };
 
   const addTask = async (taskData) => {
@@ -276,53 +259,26 @@ export const TaskProvider = ({ children }) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const updatedTask = { ...task, ...updates };
-    
     if (!user) setTasks(tasks.map(t => t.id === id ? updatedTask : t));
     await saveTaskToFirestore(updatedTask);
   };
 
   const reorderTasks = async (activeId, overId) => {
-    const oldIndex = tasks.findIndex(t => t.id === activeId);
-    const newIndex = tasks.findIndex(t => t.id === overId);
-    
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    // Wir erstellen ein sortiertes Array aller Tasks
-    // Zuerst sortieren wir sie logisch nach order
     const sortedTasks = [...tasks].sort((a, b) => (a.order || 0) - (b.order || 0));
-    
-    const activeTask = tasks.find(t => t.id === activeId);
-    const overTask = tasks.find(t => t.id === overId);
-
-    const activeSortedIndex = sortedTasks.findIndex(t => t.id === activeId);
-    const overSortedIndex = sortedTasks.findIndex(t => t.id === overId);
-
-    // Array reordering
+    const activeIndex = sortedTasks.findIndex(t => t.id === activeId);
+    const targetIndex = sortedTasks.findIndex(t => t.id === overId);
+    if (activeIndex === -1 || targetIndex === -1) return;
     const newSorted = [...sortedTasks];
-    const [moved] = newSorted.splice(activeSortedIndex, 1);
-    newSorted.splice(overSortedIndex, 0, moved);
-
-    // Update order values sequentially to preserve order
-    const updatedTasks = newSorted.map((t, index) => ({
-      ...t,
-      order: index * 1000 // Multiplizieren um Lücken zu lassen (optional, aber gut)
+    const [moved] = newSorted.splice(activeIndex, 1);
+    newSorted.splice(targetIndex, 0, moved);
+    const updatedTasks = newSorted.map((t, idx) => ({ ...t, order: idx * 1000 }));
+    setTasks(current => current.map(t => {
+      const update = updatedTasks.find(ut => ut.id === t.id);
+      return update ? { ...t, order: update.order } : t;
     }));
-
-    // Update local state immediately for smooth UI
-    setTasks(currentTasks => {
-      return currentTasks.map(t => {
-        const update = updatedTasks.find(ut => ut.id === t.id);
-        return update ? { ...t, order: update.order } : t;
-      });
-    });
-
-    // Sync to Firestore using writeBatch for performance
     if (user) {
       const batch = writeBatch(db);
-      updatedTasks.forEach(t => {
-        const ref = doc(db, 'users', user.uid, 'tasks', t.id);
-        batch.update(ref, { order: t.order });
-      });
+      updatedTasks.forEach(t => batch.update(doc(db, 'users', user.uid, 'tasks', t.id), { order: t.order }));
       await batch.commit();
     }
   };
@@ -335,241 +291,148 @@ export const TaskProvider = ({ children }) => {
   const toggleSubTask = async (taskId, subTaskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    
-    const updatedSubTasks = task.subTasks.map(st => 
-      st.id === subTaskId ? { ...st, completed: !st.completed } : st
-    );
-
+    const updatedSubTasks = task.subTasks.map(st => st.id === subTaskId ? { ...st, completed: !st.completed } : st);
     const allCompleted = updatedSubTasks.every(st => st.completed);
     const today = getTodayDateString();
     let updatedCompletedDates = [...task.completedDates];
-
     if (task.type === 'general') {
-      if (allCompleted) {
-        if (!user) setTasks(tasks.filter(t => t.id !== taskId));
-        await deleteTaskFromFirestore(taskId);
-        return;
-      }
+      if (allCompleted) { await deleteTask(taskId); return; }
     } else {
       const isMainCompletedToday = task.completedDates.includes(today);
-      if (allCompleted && !isMainCompletedToday) {
-        updatedCompletedDates.push(today);
-      } else if (!allCompleted && isMainCompletedToday) {
-        updatedCompletedDates = updatedCompletedDates.filter(d => d !== today);
-      }
+      if (allCompleted && !isMainCompletedToday) updatedCompletedDates.push(today);
+      else if (!allCompleted && isMainCompletedToday) updatedCompletedDates = updatedCompletedDates.filter(d => d !== today);
     }
-
     const updatedTask = { ...task, subTasks: updatedSubTasks, completedDates: updatedCompletedDates };
-
-    if (!user) {
-      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
-    }
+    if (!user) setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
     await saveTaskToFirestore(updatedTask);
   };
 
   const toggleTaskCompletion = async (taskId, date = getTodayDateString()) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-
-    const allSubTasksCompleted = task.subTasks.every(st => st.completed);
-    if (!allSubTasksCompleted && task.subTasks.length > 0) return;
-
-    if (task.type === 'general') {
-      if (!user) setTasks(tasks.filter(t => t.id !== taskId));
-      await deleteTaskFromFirestore(taskId);
-      return;
-    }
-
+    if (task.type === 'general') { await deleteTask(taskId); return; }
     const isCompletedOnDate = task.completedDates.includes(date);
-    let newCompletedDates;
-    let updatedTask;
-
-    if (isCompletedOnDate) {
-      newCompletedDates = task.completedDates.filter(d => d !== date);
-      updatedTask = { ...task, completedDates: newCompletedDates };
-    } else {
-      newCompletedDates = [...task.completedDates, date];
-      updatedTask = { ...task, completedDates: newCompletedDates };
-    }
-
-    if (!user) {
-      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
-    }
+    const newCompletedDates = isCompletedOnDate ? task.completedDates.filter(d => d !== date) : [...task.completedDates, date];
+    const updatedTask = { ...task, completedDates: newCompletedDates };
+    if (!user) setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
     await saveTaskToFirestore(updatedTask);
   };
 
   const addCategory = async (name, color) => {
-    const newCat = { id: uuidv4(), name, color };
+    const newCat = { id: uuidv4(), name, color, order: categories.length * 1000 };
     if (!user) setCategories([...categories, newCat]);
-    
+    if (user) await setDoc(doc(db, 'users', user.uid, 'categories', newCat.id), newCat);
+  };
+
+  const updateCategory = async (id, name, color) => {
+    const cat = categories.find(c => c.id === id);
+    if (!cat) return;
+    const updated = { ...cat, name, color };
+    if (!user) setCategories(categories.map(c => c.id === id ? updated : c));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'categories', id), updated);
+  };
+
+  const reorderCategories = async (activeId, overId) => {
+    const sortedCats = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const activeIndex = sortedCats.findIndex(c => c.id === activeId);
+    const targetIndex = sortedCats.findIndex(c => c.id === overId);
+    if (activeIndex === -1 || targetIndex === -1) return;
+    const newSorted = [...sortedCats];
+    const [moved] = newSorted.splice(activeIndex, 1);
+    newSorted.splice(targetIndex, 0, moved);
+    const updatedCats = newSorted.map((c, idx) => ({ ...c, order: idx * 1000 }));
+    setCategories(current => current.map(c => {
+      const update = updatedCats.find(uc => uc.id === c.id);
+      return update ? { ...c, order: update.order } : c;
+    }));
     if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'categories', newCat.id), newCat);
+      const batch = writeBatch(db);
+      updatedCats.forEach(c => batch.set(doc(db, 'users', user.uid, 'categories', c.id), c, { merge: true }));
+      await batch.commit();
     }
   };
 
   const deleteCategory = async (id) => {
-    // Reassign tasks to the first available category before deleting
     const fallbackCategory = categories.find(c => c.id !== id);
     if (!fallbackCategory) return;
-    const fallbackId = fallbackCategory.id;
-
     const tasksToUpdate = tasks.filter(t => t.categoryId === id);
-    for (const t of tasksToUpdate) {
-      await updateTask(t.id, { categoryId: fallbackId });
-    }
-
+    for (const t of tasksToUpdate) await updateTask(t.id, { categoryId: fallbackCategory.id });
     if (!user) setCategories(categories.filter(c => c.id !== id));
-    
-    if (user) {
-      await deleteDoc(doc(db, 'users', user.uid, 'categories', id));
-    }
-  };
-
-  const updateCategory = async (id, name, color) => {
-    const updatedCat = { id, name, color };
-    if (!user) {
-      setCategories(categories.map(c => c.id === id ? updatedCat : c));
-    }
-    
-    if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'categories', id), updatedCat);
-    }
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'categories', id));
   };
 
   const saveReadingSession = async (timeSpent, amount, date = getTodayDateString()) => {
     const newSession = { id: uuidv4(), date, timeSpent, amount: parseFloat(amount) || 0 };
     if (!user) setReadingSessions([...readingSessions, newSession]);
-    if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'readingSessions', newSession.id), newSession);
-    }
+    if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', newSession.id), newSession);
   };
 
   const deleteReadingSession = async (id) => {
-    if (!user) {
-      setReadingSessions(readingSessions.filter(s => s.id !== id));
-    }
-    if (user) {
-      await deleteDoc(doc(db, 'users', user.uid, 'readingSessions', id));
-    }
+    if (!user) setReadingSessions(readingSessions.filter(s => s.id !== id));
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'readingSessions', id));
   };
 
   const updateReadingSession = async (id, timeSpent, amount) => {
     const session = readingSessions.find(s => s.id === id);
     if (!session) return;
     const updatedSession = { ...session, timeSpent, amount: parseFloat(amount) || 0 };
-
-    if (!user) {
-      setReadingSessions(readingSessions.map(s => s.id === id ? updatedSession : s));
-    }
-    if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'readingSessions', id), updatedSession);
-    }
+    if (!user) setReadingSessions(readingSessions.map(s => s.id === id ? updatedSession : s));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', id), updatedSession);
   };
 
   const saveCalorieLog = async (difference, date = getTodayDateString()) => {
-    const newLog = { id: uuidv4(), date, difference: parseInt(difference, 10) || 0 };
+    const newLog = { id: date, date, difference: parseInt(difference, 10) || 0 };
     if (!user) {
-      // Overwrite if same date exists, else append
       const exists = calorieLogs.find(l => l.date === date);
-      if (exists) {
-        setCalorieLogs(calorieLogs.map(l => l.date === date ? { ...l, difference: newLog.difference } : l));
-      } else {
-        setCalorieLogs([...calorieLogs, newLog]);
-      }
+      if (exists) setCalorieLogs(calorieLogs.map(l => l.date === date ? { ...l, difference: newLog.difference } : l));
+      else setCalorieLogs([...calorieLogs, newLog]);
     }
-    if (user) {
-      // Use date as doc ID so it overwrites existing for the same day
-      await setDoc(doc(db, 'users', user.uid, 'calorieLogs', date), { ...newLog, id: date });
-    }
+    if (user) await setDoc(doc(db, 'users', user.uid, 'calorieLogs', date), newLog);
   };
 
   const deleteCalorieLog = async (date) => {
-    if (!user) {
-      setCalorieLogs(calorieLogs.filter(l => l.date !== date));
-    }
-    if (user) {
-      await deleteDoc(doc(db, 'users', user.uid, 'calorieLogs', date));
-    }
+    if (!user) setCalorieLogs(calorieLogs.filter(l => l.date !== date));
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'calorieLogs', date));
   };
 
   const updateCalorieGoal = async (goal) => {
     setCalorieGoal(goal);
-    if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { calorieGoal: goal }, { merge: true });
-    }
+    if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { calorieGoal: goal }, { merge: true });
   };
 
-  const saveSettings = async (newTheme, newColor, newShoppingListId, newPinned) => {
-    const t = newTheme !== undefined ? newTheme : theme;
-    const c = newColor !== undefined ? newColor : accentColor;
-    const s = newShoppingListId !== undefined ? newShoppingListId : shoppingListId;
-    const p = newPinned !== undefined ? newPinned : pinnedNavItems;
-    
-    setTheme(t);
-    setAccentColor(c);
-    setShoppingListId(s);
-    setPinnedNavItems(p);
+  const saveSettings = async (newTheme, newAccentColor, newShoppingListId, newPinned, newDashboardOrder) => {
+    if (newTheme) setTheme(newTheme);
+    if (newAccentColor) setAccentColor(newAccentColor);
+    if (newShoppingListId !== undefined) setShoppingListId(newShoppingListId);
+    if (newPinned) setPinnedNavItems(newPinned);
+    if (newDashboardOrder) setDashboardOrder(newDashboardOrder);
 
-    if (!user) {
-      localStorage.setItem('theme', t);
-      localStorage.setItem('accentColor', c);
-      if (s) localStorage.setItem('shoppingListId', s);
-      localStorage.setItem('pinnedNavItems', JSON.stringify(p));
-      return;
-    }
+    const payload = {
+      theme: newTheme || theme,
+      accentColor: newAccentColor || accentColor,
+      shoppingListId: newShoppingListId !== undefined ? newShoppingListId : shoppingListId,
+      pinnedNavItems: newPinned || pinnedNavItems,
+      dashboardOrder: newDashboardOrder || dashboardOrder,
+      calorieGoal
+    };
 
-    try {
-      await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), {
-        theme: t,
-        accentColor: c,
-        shoppingListId: s,
-        pinnedNavItems: p
-      }, { merge: true });
-    } catch (err) {
-      console.error("Error saving settings to Firestore", err);
-    }
+    if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), payload, { merge: true });
   };
 
-  // Apply Theme to DOM
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.style.setProperty('--accent-primary', accentColor);
   }, [theme, accentColor]);
 
   const forceSync = async () => {
-    if (!user) {
-      alert("Bitte erst einloggen!");
-      return;
-    }
+    if (!user) return;
     try {
-      const localTasksStr = localStorage.getItem('tasks');
-      const localTasks = localTasksStr ? JSON.parse(localTasksStr) : [];
-      const localCatsStr = localStorage.getItem('categories');
-      const localCats = localCatsStr ? JSON.parse(localCatsStr) : [];
-
-      if (localTasks.length === 0 && localCats.length === 0) {
-        alert("Keine lokalen Daten zum Synchronisieren gefunden.");
-        return;
-      }
-
       const batch = writeBatch(db);
-      localTasks.forEach(t => {
-        const tRef = doc(db, 'users', user.uid, 'tasks', t.id);
-        batch.set(tRef, t);
-      });
-      localCats.forEach(c => {
-        const cRef = doc(db, 'users', user.uid, 'categories', c.id);
-        batch.set(cRef, c);
-      });
-
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Zeitüberschreitung: Keine Verbindung zur Datenbank (Internet/Firewall-Problem).")), 10000);
-      });
-
-      await Promise.race([batch.commit(), timeoutPromise]);
-      alert(`Erfolgreich ${localTasks.length} Aufgaben in die Cloud geladen!`);
+      tasks.forEach(t => batch.set(doc(db, 'users', user.uid, 'tasks', t.id), t));
+      categories.forEach(c => batch.set(doc(db, 'users', user.uid, 'categories', c.id), c));
+      await batch.commit();
+      alert("Erfolgreich synchronisiert!");
     } catch (err) {
-      console.error(err);
       alert("Fehler beim Sync: " + err.message);
     }
   };
@@ -589,6 +452,7 @@ export const TaskProvider = ({ children }) => {
       reorderTasks,
       addCategory,
       updateCategory,
+      reorderCategories,
       deleteCategory,
       saveReadingSession,
       deleteReadingSession,
@@ -600,6 +464,7 @@ export const TaskProvider = ({ children }) => {
       theme,
       accentColor,
       pinnedNavItems,
+      dashboardOrder,
       saveSettings,
       shoppingListId,
       forceSync,

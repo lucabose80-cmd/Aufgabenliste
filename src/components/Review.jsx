@@ -7,8 +7,24 @@ import {
 import { de } from 'date-fns/locale';
 import { Box, Card, Typography, Button, Stack, useTheme, Grid, Select, MenuItem, Tooltip as MuiTooltip, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 import CloseIcon from '@mui/icons-material/Close';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
@@ -17,8 +33,30 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 
+const SortableDashboardItem = ({ id, children }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 999 : 1,
+  };
+
+  return (
+    <Box ref={setNodeRef} style={style} sx={{ mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: -2, position: 'relative', zIndex: 2 }}>
+        <Box {...attributes} {...listeners} sx={{ cursor: 'grab', color: 'text.secondary', p: 1, bgcolor: 'background.paper', borderRadius: '50%', boxShadow: 1, mr: 2 }}>
+          <DragIndicatorIcon fontSize="small" />
+        </Box>
+      </Box>
+      {children}
+    </Box>
+  );
+};
+
 const Review = () => {
-  const { tasks, readingSessions, calorieLogs, toggleTaskCompletion } = useTaskContext();
+  const { tasks, readingSessions, calorieLogs, toggleTaskCompletion, dashboardOrder, saveSettings } = useTaskContext();
   const [viewMode, setViewMode] = useState('month'); 
   const [selectedTrackerTask, setSelectedTrackerTask] = useState('all');
   const [expandedMonthIndex, setExpandedMonthIndex] = useState(null);
@@ -185,6 +223,232 @@ const Review = () => {
     }
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = dashboardOrder.indexOf(active.id);
+      const newIndex = dashboardOrder.indexOf(over.id);
+      const newOrder = [...dashboardOrder];
+      const [moved] = newOrder.splice(oldIndex, 1);
+      newOrder.splice(newIndex, 0, moved);
+      saveSettings(undefined, undefined, undefined, undefined, newOrder);
+    }
+  };
+
+  const renderWidget = (id) => {
+    switch (id) {
+      case 'stats': return (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 3 }}>
+          <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
+            <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: '50%', display: 'flex', color: 'primary.contrastText' }}>
+              <CheckBoxIcon fontSize="large" />
+            </Box>
+            <Typography variant="h6" color="text.secondary">Aufgaben erledigt</Typography>
+            <Typography variant="h3" fontWeight="bold">{totalTasksCompleted}</Typography>
+          </Card>
+
+          <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
+            <Box sx={{ p: 2, bgcolor: '#fce4ec', borderRadius: '50%', display: 'flex', color: '#ec4899' }}>
+              <ShowChartIcon fontSize="large" />
+            </Box>
+            <Typography variant="h6" color="text.secondary">Lesegeschwindigkeit (Ø)</Typography>
+            <Typography variant="h3" fontWeight="bold" color="#ec4899">
+              {totalReadingHours > 0 ? Math.round(totalReadingAmount / totalReadingHours) : 0} 
+              <Typography component="span" variant="h6" color="text.primary" sx={{ ml: 1 }}>S./h</Typography>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">basierend auf {totalReadingAmount} Seiten</Typography>
+          </Card>
+
+          <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
+            <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: '50%', display: 'flex', color: 'error.contrastText' }}>
+              <LocalFireDepartmentIcon fontSize="large" />
+            </Box>
+            <Typography variant="h6" color="text.secondary">Kalorienziel</Typography>
+            <Typography 
+              variant="h3" 
+              fontWeight="bold" 
+              color={successfulWeeks === totalWeeks && totalWeeks > 0 ? 'success.main' : 'text.primary'}
+            >
+              {successfulWeeks} / {totalWeeks}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">Wochen erreicht</Typography>
+          </Card>
+        </Box>
+      );
+      case 'highlights': return (
+        <Card sx={{ p: { xs: 2, sm: 4 } }}>
+          <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+            <EmojiEventsIcon color="warning" /> Highlights & Rekorde
+          </Typography>
+          <Grid container spacing={3} alignItems="stretch">
+            <Grid item xs={12} sm={4} display="flex">
+              <Box sx={{ width: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
+                {bestDay ? (
+                  <>
+                    <Typography variant="h4" fontWeight="bold" color="primary.main">{maxTasksInOneDay} Aufgaben</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Dein Rekord wurde am {format(parseISO(bestDay), 'dd. MMMM yyyy', { locale: de })} aufgestellt.
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography color="text.secondary">Noch keine Aufgaben erledigt.</Typography>
+                )}
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={4} display="flex">
+              <Box sx={{ width: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
+                <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Insgesamt gelesen in {formatTime(globalReadingSeconds)}. Weiter so!
+                </Typography>
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} sm={4} display="flex">
+              <Box sx={{ width: '100%', p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
+                {topStreaks.length > 0 ? (
+                  <Stack spacing={2} sx={{ mt: 2 }}>
+                    {topStreaks.map((s, index) => (
+                      <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="h5">{index === 0 ? '🔥' : index === 1 ? '✨' : '⭐'}</Typography>
+                        <Box>
+                          <Typography variant="body1" fontWeight="bold">{s.title}</Typography>
+                          <Typography variant="body2" color="text.secondary">{s.streak} Tage in Folge</Typography>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography color="text.secondary" sx={{ mt: 2 }}>Noch keine Streaks vorhanden.</Typography>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+        </Card>
+      );
+      case 'chart': return (
+        <Card sx={{ p: { xs: 2, sm: 4 } }}>
+          <Typography variant="h5" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+            <BarChartIcon color="primary" /> Aufgaben-Verlauf
+          </Typography>
+          <Box sx={{ height: 300, width: '100%' }}>
+            <ResponsiveContainer>
+              <BarChart data={taskData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} />
+                <RechartsTooltip 
+                  cursor={{ fill: theme.palette.action.hover }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadows[4], backgroundColor: theme.palette.background.paper }}
+                  labelStyle={{ color: theme.palette.text.secondary, marginBottom: '4px' }}
+                />
+                <Bar dataKey="count" fill={theme.palette.primary.main} radius={[6, 6, 0, 0]} maxBarSize={50} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+        </Card>
+      );
+      case 'tracker': return (
+        <Card sx={{ p: { xs: 2, sm: 4 } }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 4 }}>
+            <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+              <CalendarMonthIcon color="success" /> Jahrestracker
+            </Typography>
+            
+            <Select
+              size="small"
+              value={selectedTrackerTask}
+              onChange={(e) => setSelectedTrackerTask(e.target.value)}
+              sx={{ minWidth: 200, bgcolor: 'background.default', borderRadius: 2 }}
+            >
+              <MenuItem value="all"><em>Alle Aufgaben (Ø)</em></MenuItem>
+              {trackableTasks.map(t => (
+                <MenuItem key={t.id} value={t.id}>{t.title}</MenuItem>
+              ))}
+            </Select>
+          </Box>
+
+          {selectedTrackerTask === 'all' && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Ein Tag ist grün, wenn du <strong>alle</strong> für diesen Tag geplanten Aufgaben erledigt hast. Orange bedeutet teilweise erfüllt.
+            </Typography>
+          )}
+
+          <Box sx={{ overflowX: 'auto', pb: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, minWidth: 800 }}>
+              {months.map((monthDays, mIndex) => {
+                if (monthDays.length === 0) return null;
+                const monthName = format(monthDays[0], 'MMM', { locale: de });
+                
+                let hasSuccess = false;
+                const allValid = monthDays.every(day => {
+                  const { color } = evaluateDay(day);
+                  if (color === 'success.main') hasSuccess = true;
+                  return color === 'success.main' || color === 'background.default';
+                });
+                const isMonthPerfect = allValid && hasSuccess;
+
+                return (
+                  <Box key={mIndex} sx={{ flex: 1, minWidth: 100 }}>
+                    <Typography 
+                      variant="caption" 
+                      color={isMonthPerfect ? 'success.main' : 'text.secondary'} 
+                      sx={{ mb: 1, display: 'block', textAlign: 'center', fontWeight: 'bold', cursor: 'pointer' }}
+                      onClick={() => setExpandedMonthIndex(mIndex)}
+                    >
+                      {monthName} {isMonthPerfect && '⭐'}
+                    </Typography>
+                    <Box 
+                      onClick={() => setExpandedMonthIndex(mIndex)}
+                      sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(7, 1fr)', 
+                        gap: 0.5,
+                        bgcolor: isMonthPerfect ? 'success.light' : 'background.default',
+                        p: 1,
+                        borderRadius: 2,
+                        border: 1,
+                        borderColor: isMonthPerfect ? 'success.main' : 'divider',
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main' }
+                      }}>
+                      {monthDays.map((day, dIndex) => {
+                        const { color, opacity, border } = evaluateDay(day);
+                        return (
+                          <MuiTooltip key={dIndex} title={format(day, 'dd.MM.yyyy')} arrow placement="top">
+                            <Box 
+                              sx={{ 
+                                aspectRatio: '1/1',
+                                bgcolor: color,
+                                opacity,
+                                borderRadius: '4px',
+                                border: 1,
+                                borderColor: border,
+                              }}
+                            />
+                          </MuiTooltip>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        </Card>
+      );
+      default: return null;
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 1000, mx: 'auto' }}>
       
@@ -206,206 +470,16 @@ const Review = () => {
         </Button>
       </Box>
 
-      {/* QUICK STATS */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 3 }}>
-        <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
-          <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: '50%', display: 'flex', color: 'primary.contrastText' }}>
-            <CheckBoxIcon fontSize="large" />
-          </Box>
-          <Typography variant="h6" color="text.secondary">Aufgaben erledigt</Typography>
-          <Typography variant="h3" fontWeight="bold">{totalTasksCompleted}</Typography>
-        </Card>
-
-        <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
-          <Box sx={{ p: 2, bgcolor: '#fce4ec', borderRadius: '50%', display: 'flex', color: '#ec4899' }}>
-            <ShowChartIcon fontSize="large" />
-          </Box>
-          <Typography variant="h6" color="text.secondary">Lesegeschwindigkeit (Ø)</Typography>
-          <Typography variant="h3" fontWeight="bold" color="#ec4899">
-            {totalReadingHours > 0 ? Math.round(totalReadingAmount / totalReadingHours) : 0} 
-            <Typography component="span" variant="h6" color="text.primary" sx={{ ml: 1 }}>S./h</Typography>
-          </Typography>
-          <Typography variant="body2" color="text.secondary">basierend auf {totalReadingAmount} Seiten</Typography>
-        </Card>
-
-        <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
-          <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: '50%', display: 'flex', color: 'error.contrastText' }}>
-            <LocalFireDepartmentIcon fontSize="large" />
-          </Box>
-          <Typography variant="h6" color="text.secondary">Kalorienziel</Typography>
-          <Typography 
-            variant="h3" 
-            fontWeight="bold" 
-            color={successfulWeeks === totalWeeks && totalWeeks > 0 ? 'success.main' : 'text.primary'}
-          >
-            {successfulWeeks} / {totalWeeks}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">Wochen erreicht</Typography>
-        </Card>
-      </Box>
-
-      {/* HIGHLIGHTS */}
-      <Card sx={{ p: { xs: 2, sm: 4 } }}>
-        <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-          <EmojiEventsIcon color="warning" /> Highlights & Rekorde
-        </Typography>
-        <Grid container spacing={3} alignItems="stretch">
-          <Grid item xs={12} sm={4} display="flex">
-            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
-              {bestDay ? (
-                <>
-                  <Typography variant="h4" fontWeight="bold" color="primary.main">{maxTasksInOneDay} Aufgaben</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Dein Rekord wurde am {format(parseISO(bestDay), 'dd. MMMM yyyy', { locale: de })} aufgestellt.
-                  </Typography>
-                </>
-              ) : (
-                <Typography color="text.secondary">Noch keine Aufgaben erledigt.</Typography>
-              )}
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={4} display="flex">
-            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
-              <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Insgesamt gelesen in {formatTime(globalReadingSeconds)}. Weiter so!
-              </Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={4} display="flex">
-            <Box sx={{ p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
-              {topStreaks.length > 0 ? (
-                <Stack spacing={2} sx={{ mt: 2 }}>
-                  {topStreaks.map((s, index) => (
-                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="h5">{index === 0 ? '🔥' : index === 1 ? '✨' : '⭐'}</Typography>
-                      <Box>
-                        <Typography variant="body1" fontWeight="bold">{s.title}</Typography>
-                        <Typography variant="body2" color="text.secondary">{s.streak} Tage in Folge</Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Stack>
-              ) : (
-                <Typography color="text.secondary" sx={{ mt: 2 }}>Noch keine Streaks vorhanden.</Typography>
-              )}
-            </Box>
-          </Grid>
-        </Grid>
-      </Card>
-
-      {/* BARCHART */}
-      <Card sx={{ p: { xs: 2, sm: 4 } }}>
-        <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-          <ShowChartIcon color="primary" /> Erledigte Aufgaben im Verlauf
-        </Typography>
-        <Box sx={{ width: '100%', height: 300 }}>
-          <ResponsiveContainer>
-            <BarChart data={taskData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} vertical={false} />
-              <XAxis dataKey="name" stroke={theme.palette.text.secondary} fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke={theme.palette.text.secondary} fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-              <RechartsTooltip 
-                contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, borderRadius: 8 }}
-                itemStyle={{ color: theme.palette.text.primary }}
-              />
-              <Bar dataKey="count" name="Aufgaben" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Box>
-      </Card>
-
-      {/* YEAR TRACKER HEATMAP */}
-      <Card sx={{ p: { xs: 2, sm: 4 } }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 4 }}>
-          <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-            <CalendarMonthIcon color="success" /> Jahres-Tracker {todayDate.getFullYear()}
-          </Typography>
-          <Select 
-            value={selectedTrackerTask} 
-            onChange={(e) => setSelectedTrackerTask(e.target.value)}
-            size="small"
-            sx={{ minWidth: 200, borderRadius: 2 }}
-          >
-            <MenuItem value="all">Alle Aufgaben (Perfekte Tage)</MenuItem>
-            {trackableTasks.map(t => (
-              <MenuItem key={t.id} value={t.id}>{t.title}</MenuItem>
-            ))}
-          </Select>
-        </Box>
-
-        {selectedTrackerTask === 'all' && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Ein Tag ist grün, wenn du <strong>alle</strong> für diesen Tag geplanten Aufgaben erledigt hast. Orange bedeutet teilweise erfüllt.
-          </Typography>
-        )}
-
-        <Box sx={{ overflowX: 'auto', pb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, minWidth: 800 }}>
-            {months.map((monthDays, mIndex) => {
-              if (monthDays.length === 0) return null;
-              const monthName = format(monthDays[0], 'MMM', { locale: de });
-              
-              let hasSuccess = false;
-              const allValid = monthDays.every(day => {
-                const { color } = evaluateDay(day);
-                if (color === 'success.main') hasSuccess = true;
-                return color === 'success.main' || color === 'background.default';
-              });
-              const isMonthPerfect = allValid && hasSuccess;
-
-              return (
-                <Box key={mIndex} sx={{ flex: 1, minWidth: 100 }}>
-                  <Typography 
-                    variant="caption" 
-                    color={isMonthPerfect ? 'success.main' : 'text.secondary'} 
-                    sx={{ mb: 1, display: 'block', textAlign: 'center', fontWeight: 'bold', cursor: 'pointer' }}
-                    onClick={() => setExpandedMonthIndex(mIndex)}
-                  >
-                    {monthName} {isMonthPerfect && '⭐'}
-                  </Typography>
-                  <Box 
-                    onClick={() => setExpandedMonthIndex(mIndex)}
-                    sx={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: 'repeat(7, 1fr)', 
-                      gap: 0.5,
-                      bgcolor: isMonthPerfect ? 'success.light' : 'background.default',
-                      p: 1,
-                      borderRadius: 2,
-                      border: 1,
-                      borderColor: isMonthPerfect ? 'success.main' : 'divider',
-                      cursor: 'pointer',
-                      '&:hover': { borderColor: 'primary.main' }
-                    }}>
-                    {monthDays.map((day, dIndex) => {
-                      const { color, opacity, border } = evaluateDay(day);
-                      return (
-                        <MuiTooltip key={dIndex} title={format(day, 'dd.MM.yyyy')} arrow placement="top">
-                          <Box 
-                            sx={{ 
-                              aspectRatio: '1/1',
-                              bgcolor: color,
-                              opacity,
-                              borderRadius: '4px',
-                              border: 1,
-                              borderColor: border,
-                            }}
-                          />
-                        </MuiTooltip>
-                      );
-                    })}
-                  </Box>
-                </Box>
-              );
-            })}
-          </Box>
-        </Box>
-      </Card>
+      {/* DASHBOARD WIDGETS WITH DND */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={dashboardOrder} strategy={verticalListSortingStrategy}>
+          {dashboardOrder.map(id => (
+            <SortableDashboardItem key={id} id={id}>
+              {renderWidget(id)}
+            </SortableDashboardItem>
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {/* EXPANDED MONTH DIALOG */}
       <Dialog 

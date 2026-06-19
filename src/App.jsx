@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button, BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import HomeIcon from '@mui/icons-material/Home';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -33,7 +33,7 @@ function MainApp() {
   const { theme, accentColor, pinnedNavItems } = useTaskContext();
 
   const NAV_CONFIG = {
-    'home': { label: 'Startseite', icon: <HomeIcon /> },
+    'home': { label: 'Aufgaben', icon: <AssignmentIcon /> },
     'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
     'review': { label: 'Rückblick', icon: <EmojiEventsIcon /> },
     'shopping': { label: 'Shopping', icon: <ShoppingCartIcon /> },
@@ -70,7 +70,7 @@ function MainApp() {
 
   const getViewTitle = () => {
     switch (currentView) {
-      case 'home': return 'Startseite';
+      case 'home': return 'Aufgaben';
       case 'review': return 'Statistiken & Rückblick';
       case 'create': return 'Neue Aufgabe erstellen';
       case 'reading-speed': return 'Lesegeschwindigkeit';

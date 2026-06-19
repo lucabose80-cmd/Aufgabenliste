@@ -17,7 +17,7 @@ const COLORS = [
 ];
 
 const NAV_ITEMS = [
-  { id: 'home', label: 'Startseite' },
+  { id: 'home', label: 'Aufgaben' },
   { id: 'reading-speed', label: 'Lesegeschwindigkeit' },
   { id: 'review', label: 'Rückblick' },
   { id: 'shopping', label: 'Einkaufsliste' },

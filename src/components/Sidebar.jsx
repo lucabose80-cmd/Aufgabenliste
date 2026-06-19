@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Box, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
 
 // MUI Icons
-import HomeIcon from '@mui/icons-material/Home';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'; // Award
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ShowChartIcon from '@mui/icons-material/ShowChart'; // Activity
@@ -24,7 +24,7 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const menuItems = [
-    { id: 'home', label: 'Startseite', icon: <HomeIcon /> },
+    { id: 'home', label: 'Aufgaben', icon: <AssignmentIcon /> },
     { id: 'review', label: 'Rückblick', icon: <EmojiEventsIcon /> },
     { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <MenuBookIcon /> },
     { id: 'calories', label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
