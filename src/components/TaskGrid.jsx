@@ -102,16 +102,16 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     <Card 
       ref={setNodeRef} 
       style={style} 
+      elevation={isDragging ? 8 : 1}
       sx={{ 
-        p: 2, 
-        borderLeft: 4, 
-        borderColor: task.categoryColor || 'primary.main',
-        bgcolor: task.categoryColor ? `${task.categoryColor}10` : 'background.paper',
-        height: '100%',
         display: 'flex',
-        flexDirection: 'column',
+        overflow: 'hidden',
+        borderRadius: 3,
+        mb: 0,
       }}
     >
+      <Box sx={{ width: 12, bgcolor: task.categoryColor || 'primary.main', flexShrink: 0 }} />
+      <Box sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <Box 
           {...attributes} 
@@ -192,6 +192,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
           ))}
         </Box>
       )}
+      </Box>
     </Card>
   );
 };

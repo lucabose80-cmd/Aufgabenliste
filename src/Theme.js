@@ -60,6 +60,46 @@ const getDesignTokens = (mode, accentColor) => ({
         },
       },
     },
+    MuiBottomNavigation: {
+      styleOverrides: {
+        root: {
+          backgroundColor: mode === 'dark' ? '#1D1B20' : '#F3EDF7', // M3 Surface Container
+          height: 80,
+          paddingBottom: 8, // Safe area for modern phones
+        },
+      },
+    },
+    MuiBottomNavigationAction: {
+      styleOverrides: {
+        root: {
+          padding: '12px 0 8px 0',
+          minWidth: 'auto',
+          color: mode === 'dark' ? '#CAC4D0' : '#49454F',
+          '&.Mui-selected': {
+            color: mode === 'dark' ? '#E6E0E9' : '#1D1B20',
+          },
+          '& .MuiSvgIcon-root': {
+            fontSize: '1.5rem',
+            marginBottom: 4,
+            padding: '4px 16px',
+            borderRadius: 16,
+            transition: 'background-color 0.2s',
+          },
+          '&.Mui-selected .MuiSvgIcon-root': {
+            backgroundColor: mode === 'dark' ? '#4A4458' : '#E8DEF8', // M3 Secondary Container
+            color: mode === 'dark' ? '#E8DEF8' : '#1D192B', // M3 On Secondary Container
+          },
+        },
+        label: {
+          fontSize: '0.75rem',
+          fontWeight: 500,
+          '&.Mui-selected': {
+            fontSize: '0.75rem',
+            fontWeight: 700,
+          },
+        },
+      },
+    },
   },
 });
 

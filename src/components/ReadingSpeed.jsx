@@ -122,12 +122,13 @@ const ReadingSpeed = () => {
           <MenuBookIcon color="primary" fontSize="large" /> Lesegeschwindigkeit
         </Typography>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', my: { xs: 8, sm: 4 }, minHeight: { xs: '40vh', sm: 'auto' } }}>
           <Typography 
             variant="h2" 
             sx={{ 
               fontFamily: 'monospace', 
               fontWeight: 'bold', 
+              fontSize: { xs: '4rem', sm: '3.75rem' },
               color: isTimerRunning ? 'primary.main' : 'text.primary',
               transition: 'color 0.3s ease'
             }}

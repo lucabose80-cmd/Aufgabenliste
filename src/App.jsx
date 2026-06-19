@@ -11,10 +11,8 @@ import { createAppTheme } from './Theme';
 import { TaskProvider, useTaskContext } from './context/TaskContext';
 import Sidebar from './components/Sidebar';
 import TaskGrid from './components/TaskGrid';
-import YearTracker from './components/YearTracker';
-import CategoriesManager from './components/CategoriesManager';
 import TaskCreator from './components/TaskCreator';
-import Statistics from './components/Statistics';
+import CategoriesManager from './components/CategoriesManager';
 import Review from './components/Review';
 import ReadingSpeed from './components/ReadingSpeed';
 import Calories from './components/Calories';
@@ -41,10 +39,6 @@ function MainApp() {
         return <Review />;
       case 'create':
         return <TaskCreator />;
-      case 'tracker':
-        return <YearTracker />;
-      case 'statistics':
-        return <Statistics />;
       case 'reading-speed':
         return <ReadingSpeed />;
       case 'calories':
@@ -63,10 +57,8 @@ function MainApp() {
   const getViewTitle = () => {
     switch (currentView) {
       case 'home': return 'Startseite';
-      case 'review': return 'Monats- & Jahresrückblick';
+      case 'review': return 'Statistiken & Rückblick';
       case 'create': return 'Neue Aufgabe erstellen';
-      case 'tracker': return 'Jahres-Tracker';
-      case 'statistics': return 'Statistiken';
       case 'reading-speed': return 'Lesegeschwindigkeit';
       case 'calories': return 'Kalorienziel';
       case 'categories': return 'Kategorien verwalten';

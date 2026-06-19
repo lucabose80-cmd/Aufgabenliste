@@ -16,6 +16,7 @@ const ShoppingList = () => {
   const [activeList, setActiveList] = useState(null);
   const [items, setItems] = useState([]);
   const [newItemText, setNewItemText] = useState('');
+  const [newQuantity, setNewQuantity] = useState('1');
   
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUserToInvite, setSelectedUserToInvite] = useState('');
@@ -119,11 +120,13 @@ const ShoppingList = () => {
     const itemId = uuidv4();
     await setDoc(doc(db, 'shared_lists', activeList.id, 'items', itemId), {
       text: newItemText.trim(),
+      quantity: newQuantity.trim() || '1',
       completed: false,
       createdAt: serverTimestamp(),
       addedBy: user.email
     });
     setNewItemText('');
+    setNewQuantity('1');
   };
 
   const toggleItem = async (id, currentStatus) => {
@@ -223,13 +226,20 @@ const ShoppingList = () => {
 
         <Box component="form" onSubmit={handleAddItem} sx={{ display: 'flex', gap: 1, mt: 4 }}>
           <TextField 
+            placeholder="Menge (z.B. 2x, 500g)" 
+            value={newQuantity}
+            onChange={(e) => setNewQuantity(e.target.value)}
+            sx={{ width: { xs: 100, sm: 150 } }}
+            variant="outlined"
+          />
+          <TextField 
             placeholder="Artikel hinzufügen..." 
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
             fullWidth
             variant="outlined"
           />
-          <Button type="submit" variant="contained" color="primary" sx={{ px: 3 }}>
+          <Button type="submit" variant="contained" color="primary" sx={{ px: { xs: 2, sm: 3 } }}>
             <AddIcon />
           </Button>
         </Box>
@@ -251,15 +261,23 @@ const ShoppingList = () => {
                     color="success"
                   />
                   <ListItemText 
-                    primary={item.text} 
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {item.quantity && item.quantity !== '1' && (
+                          <Typography component="span" fontWeight="bold" color="primary.main">
+                            {item.quantity} 
+                          </Typography>
+                        )}
+                        <Typography component="span" sx={{ 
+                          textDecoration: item.completed ? 'line-through' : 'none',
+                          color: item.completed ? 'text.secondary' : 'text.primary',
+                          fontSize: '1.1rem'
+                        }}>
+                          {item.text}
+                        </Typography>
+                      </Box>
+                    } 
                     secondary={item.addedBy ? `von ${item.addedBy.split('@')[0]}` : null}
-                    primaryTypographyProps={{ 
-                      sx: { 
-                        textDecoration: item.completed ? 'line-through' : 'none',
-                        color: item.completed ? 'text.secondary' : 'text.primary',
-                        fontSize: '1.1rem'
-                      } 
-                    }}
                   />
                   <ListItemSecondaryAction>
                     <IconButton edge="end" color="error" onClick={() => deleteItem(item.id)}>
