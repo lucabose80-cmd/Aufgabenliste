@@ -23,9 +23,9 @@ export const TaskProvider = ({ children }) => {
   const [theme, setTheme] = useState('dark');
   const [accentColor, setAccentColor] = useState('#6366f1');
   const [shoppingListId, setShoppingListId] = useState(null);
-  const [pinnedNavItems, setPinnedNavItems] = useState(['home', 'reading-speed', 'review', 'shopping']);
-  const [dashboardOrder, setDashboardOrder] = useState(['highlights', 'tracker', 'chart', 'stats']);
-  
+  const [pinnedNavItems, setPinnedNavItems] = useState(['home', 'reading-speed', 'shopping']);
+  const [dashboardOrder, setDashboardOrder] = useState(['tracker', 'highlights', 'chart', 'quickStats']);
+  const [pastReviewOrder, setPastReviewOrder] = useState(['tasks', 'perfectDays', 'reading', 'speed', 'calories']);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load from LocalStorage if NOT logged in
@@ -80,6 +80,9 @@ export const TaskProvider = ({ children }) => {
       const savedDash = localStorage.getItem('dashboardOrder');
       if (savedDash) setDashboardOrder(JSON.parse(savedDash));
 
+      const savedPastDash = localStorage.getItem('pastReviewOrder');
+      if (savedPastDash) setPastReviewOrder(JSON.parse(savedPastDash));
+
       setIsLoading(false);
     }
   }, [user]);
@@ -96,8 +99,9 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('shoppingListId', shoppingListId || '');
       localStorage.setItem('pinnedNavItems', JSON.stringify(pinnedNavItems));
       localStorage.setItem('dashboardOrder', JSON.stringify(dashboardOrder));
+      localStorage.setItem('pastReviewOrder', JSON.stringify(pastReviewOrder));
     }
-  }, [tasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, user, isLoading]);
+  }, [tasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, user, isLoading]);
 
   // Firestore Realtime Listeners
   useEffect(() => {
@@ -137,6 +141,7 @@ export const TaskProvider = ({ children }) => {
         if (data.shoppingListId !== undefined) setShoppingListId(data.shoppingListId);
         if (data.pinnedNavItems) setPinnedNavItems(data.pinnedNavItems);
         if (data.dashboardOrder) setDashboardOrder(data.dashboardOrder);
+        if (data.pastReviewOrder) setPastReviewOrder(data.pastReviewOrder);
       }
       setIsLoading(false);
     });
@@ -400,12 +405,13 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { calorieGoal: goal }, { merge: true });
   };
 
-  const saveSettings = async (newTheme, newAccentColor, newShoppingListId, newPinned, newDashboardOrder) => {
+  const saveSettings = async (newTheme, newAccentColor, newShoppingListId, newPinned, newDashboardOrder, newPastReviewOrder) => {
     if (newTheme) setTheme(newTheme);
     if (newAccentColor) setAccentColor(newAccentColor);
     if (newShoppingListId !== undefined) setShoppingListId(newShoppingListId);
     if (newPinned) setPinnedNavItems(newPinned);
     if (newDashboardOrder) setDashboardOrder(newDashboardOrder);
+    if (newPastReviewOrder) setPastReviewOrder(newPastReviewOrder);
 
     const payload = {
       theme: newTheme || theme,
@@ -413,6 +419,7 @@ export const TaskProvider = ({ children }) => {
       shoppingListId: newShoppingListId !== undefined ? newShoppingListId : shoppingListId,
       pinnedNavItems: newPinned || pinnedNavItems,
       dashboardOrder: newDashboardOrder || dashboardOrder,
+      pastReviewOrder: newPastReviewOrder || pastReviewOrder,
       calorieGoal
     };
 
@@ -465,6 +472,7 @@ export const TaskProvider = ({ children }) => {
       accentColor,
       pinnedNavItems,
       dashboardOrder,
+      pastReviewOrder,
       saveSettings,
       shoppingListId,
       forceSync,
