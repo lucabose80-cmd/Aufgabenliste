@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse } from '@mui/material';
+import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse, Select, MenuItem } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
@@ -29,7 +29,8 @@ import GroupIcon from '@mui/icons-material/Group';
 
 const SortableTaskItem = ({ task, isWrongDay }) => {
   const [expanded, setExpanded] = useState(false);
-  const { toggleTaskCompletion, toggleSubTask, getTodayDateString } = useTaskContext();
+  const { toggleTaskCompletion, toggleSubTask, updateTask, categories, getTodayDateString } = useTaskContext();
+  const hasValidCategory = categories.some(c => c.id === task.categoryId);
   
   const {
     attributes,
@@ -178,6 +179,35 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
           <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', mt: 0.5, display: 'block' }}>
             Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
           </Typography>
+
+          {!hasValidCategory && categories.length > 0 && (
+            <Box sx={{ mt: 1 }}>
+              <Select
+                value=""
+                displayEmpty
+                size="small"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    updateTask(task.id, { categoryId: e.target.value });
+                  }
+                }}
+                sx={{ 
+                  minWidth: 150, 
+                  fontSize: '0.75rem', 
+                  height: 28,
+                  bgcolor: 'background.default',
+                  borderRadius: 2,
+                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { border: 'none' }
+                }}
+              >
+                <MenuItem value="" disabled sx={{ fontSize: '0.75rem' }}>Kategorie zuweisen...</MenuItem>
+                {categories.map(c => (
+                  <MenuItem key={c.id} value={c.id} sx={{ fontSize: '0.75rem' }}>{c.name}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+          )}
 
           {totalSubTasksCount > 0 && (
             <Box sx={{ mt: 1.5 }}>
