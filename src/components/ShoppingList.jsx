@@ -10,6 +10,9 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import { startOfWeek, parseISO } from 'date-fns';
 
 const UNITS = ['x', 'kg', 'g', 'L', 'ml', 'Pkg.'];
 
@@ -29,6 +32,7 @@ const ShoppingList = () => {
   const [allUsersDB, setAllUsersDB] = useState([]);
   const [selectedUserToInvite, setSelectedUserToInvite] = useState('');
   const [isListLoading, setIsListLoading] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -95,10 +99,25 @@ const ShoppingList = () => {
         id: doc.id,
         ...doc.data()
       }));
-      setItems(loadedItems);
-    });
 
-    return () => unsubscribeItems();
+      const now = new Date();
+      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+      
+      const itemsToKeep = [];
+      loadedItems.forEach(item => {
+        if (item.completed && item.completedAt) {
+          const completedDate = parseISO(item.completedAt);
+          if (completedDate < weekStart) {
+            deleteDoc(doc(db, 'shared_lists', activeList.id, 'items', item.id));
+            return;
+          }
+        }
+        itemsToKeep.push(item);
+      });
+
+      setItems(itemsToKeep);
+      setIsListLoading(false);
+    }); return () => unsubscribeItems();
   }, [user, activeList]);
 
   const handleCreateList = async () => {
@@ -159,9 +178,21 @@ const ShoppingList = () => {
 
   const toggleItem = async (id, currentStatus) => {
     if (!user || !activeList) return;
-    await updateDoc(doc(db, 'shared_lists', activeList.id, 'items', id), {
-      completed: !currentStatus
-    });
+    
+    let myName = user.displayName || user.email || 'Unbekannt';
+    const me = allUsersDB.find(u => u.uid === user.uid);
+    if (me && me.displayName) myName = me.displayName;
+
+    const updateData = { completed: !currentStatus };
+    if (!currentStatus) {
+      updateData.completedAt = new Date().toISOString();
+      updateData.completedBy = myName;
+    } else {
+      updateData.completedAt = null;
+      updateData.completedBy = null;
+    }
+
+    await updateDoc(doc(db, 'shared_lists', activeList.id, 'items', id), updateData);
   };
 
   const deleteItem = async (id) => {
@@ -317,13 +348,23 @@ const ShoppingList = () => {
 
       {activeList && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {items.length === 0 ? (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Button
+              startIcon={showCompleted ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              onClick={() => setShowCompleted(!showCompleted)}
+              size="small"
+              color="inherit"
+            >
+              {showCompleted ? 'Erledigte ausblenden' : 'Erledigte anzeigen'}
+            </Button>
+          </Box>
+          {items.filter(item => showCompleted || !item.completed).length === 0 ? (
             <Card sx={{ p: 6, textAlign: 'center', border: 1, borderStyle: 'dashed', borderColor: 'divider', bgcolor: 'background.default' }}>
               <Typography color="text.secondary">Die Liste ist leer.</Typography>
             </Card>
           ) : (
             <List sx={{ width: '100%', bgcolor: 'background.paper', borderRadius: 2, overflow: 'hidden' }}>
-              {items.map((item, index) => (
+              {items.filter(item => showCompleted || !item.completed).map((item, index, filteredArray) => (
                 <React.Fragment key={item.id}>
                   <ListItem disablePadding>
                     <Box 
@@ -351,6 +392,11 @@ const ShoppingList = () => {
                             {item.quantity && item.quantity !== '1' && item.unit === 'x' ? `${item.quantity}x ` : ''}
                             {item.quantity && item.unit !== 'x' ? `${item.quantity} ${item.unit} ` : ''}
                             {item.text}
+                            {item.completed && item.completedBy && (
+                              <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                                (von {item.completedBy})
+                              </Typography>
+                            )}
                           </Typography>
                         }
                         secondary={`Hinzugefügt von ${item.addedBy || 'Unbekannt'}`}
@@ -363,7 +409,7 @@ const ShoppingList = () => {
                       </ListItemSecondaryAction>
                     </Box>
                   </ListItem>
-                  {index < items.length - 1 && <Divider />}
+                  {index < filteredArray.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
             </List>

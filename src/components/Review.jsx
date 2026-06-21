@@ -184,6 +184,19 @@ const Review = () => {
   const allDays = eachDayOfInterval({ start: yearStart, end: yearEnd });
   const months = Array.from({ length: 12 }, (_, i) => allDays.filter(d => getMonth(d) === i));
 
+  const earliestTaskDate = React.useMemo(() => {
+    let minDate = new Date().toISOString().substring(0, 10);
+    let hasTrackable = false;
+    trackableTasks.forEach(t => {
+      if (t.createdAt) {
+        const cDate = t.createdAt.substring(0, 10);
+        if (cDate < minDate) minDate = cDate;
+        hasTrackable = true;
+      }
+    });
+    return hasTrackable ? minDate : null;
+  }, [trackableTasks]);
+
   const evaluateDay = (day) => {
     const isFuture = isAfter(day, today);
     if (isFuture) return { color: 'background.default', border: 'divider', opacity: 0.3 };
@@ -192,6 +205,9 @@ const Review = () => {
     const dayOfWeek = day.getDay();
 
     if (selectedTrackerTask === 'all') {
+      if (earliestTaskDate && dateStr < earliestTaskDate) {
+        return { color: 'background.default', border: 'divider', opacity: 0.3 };
+      }
       let tasksShouldBeDone = 0;
       let tasksActuallyDone = 0;
       
@@ -235,6 +251,10 @@ const Review = () => {
     } else {
       const task = tasks.find(t => t.id === selectedTrackerTask);
       if (!task) return { color: 'background.default', border: 'divider', opacity: 0.3 };
+      
+      if (task.createdAt && dateStr < task.createdAt.substring(0, 10)) {
+        return { color: 'background.default', border: 'divider', opacity: 0.3 };
+      }
       
       const isCompleted = (task.completedDates || []).includes(dateStr);
       if (task.type === 'daily' || task.type === 'specific-days') {
