@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTaskContext } from '../context/TaskContext';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 import { 
   Box, Card, Typography, TextField, MenuItem, Button, 
   IconButton, List, ListItem, ListItemText, ListItemSecondaryAction,
-  Stack, Divider 
+  Stack, Divider, Select, FormControl, InputLabel, OutlinedInput, Chip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import ClearIcon from '@mui/icons-material/Clear';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 const TaskCreator = () => {
   const { addTask, updateTask, deleteTask, tasks, categories } = useTaskContext();
+  const { user } = useAuth();
   
   const [editingTaskId, setEditingTaskId] = useState(null);
   
@@ -23,6 +28,30 @@ const TaskCreator = () => {
   const [specificDays, setSpecificDays] = useState([]);
   const [subTasks, setSubTasks] = useState([]);
   const [currentSubTask, setCurrentSubTask] = useState('');
+  
+  const [isShared, setIsShared] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchUsers = async () => {
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const usersList = [];
+        usersSnap.forEach(doc => {
+          const u = doc.data();
+          if (u.uid !== user.uid) {
+            usersList.push(u);
+          }
+        });
+        setAllUsers(usersList);
+      } catch (err) {
+        console.error("Fehler beim Laden der Benutzer:", err);
+      }
+    };
+    fetchUsers();
+  }, [user]);
 
   const daysOfWeek = [
     { id: 1, label: 'Mo' },
@@ -59,7 +88,9 @@ const TaskCreator = () => {
       type,
       targetCount: type === 'x-times' ? parseInt(targetCount, 10) : (type === 'weekly' ? 1 : 0),
       specificDays: type === 'specific-days' ? specificDays : [],
-      subTasks: formattedSubTasks
+      subTasks: formattedSubTasks,
+      isShared: isShared,
+      members: isShared && user ? [user.uid, ...selectedMembers] : []
     };
 
     if (editingTaskId) {
@@ -76,6 +107,8 @@ const TaskCreator = () => {
     setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
+    setIsShared(false);
+    setSelectedMembers([]);
   };
 
   const handleEdit = (task) => {
@@ -86,6 +119,8 @@ const TaskCreator = () => {
     setTargetCount(task.targetCount);
     setSpecificDays(task.specificDays);
     setSubTasks(task.subTasks.map(st => st.title));
+    setIsShared(task.isShared || false);
+    setSelectedMembers(task.members ? task.members.filter(m => m !== user?.uid) : []);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -96,6 +131,8 @@ const TaskCreator = () => {
     setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
+    setIsShared(false);
+    setSelectedMembers([]);
   };
 
   return (
@@ -150,6 +187,55 @@ const TaskCreator = () => {
                 <MenuItem value="general">Allgemeines To-Do</MenuItem>
               </TextField>
             </Box>
+
+            {user && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <PersonAddIcon color="action" />
+                  <Typography variant="subtitle2">Aufgabe teilen</Typography>
+                </Box>
+                <TextField
+                  select
+                  label="Status"
+                  value={isShared ? 'shared' : 'private'}
+                  onChange={e => {
+                    setIsShared(e.target.value === 'shared');
+                    if (e.target.value === 'private') setSelectedMembers([]);
+                  }}
+                  size="small"
+                  sx={{ width: 200 }}
+                >
+                  <MenuItem value="private">Privat</MenuItem>
+                  <MenuItem value="shared">Geteilt</MenuItem>
+                </TextField>
+                
+                {isShared && (
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Nutzer auswählen</InputLabel>
+                    <Select
+                      multiple
+                      value={selectedMembers}
+                      onChange={e => setSelectedMembers(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                      input={<OutlinedInput label="Nutzer auswählen" />}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => {
+                            const usr = allUsers.find(u => u.uid === value);
+                            return <Chip key={value} label={usr ? (usr.displayName || usr.email) : value} size="small" />;
+                          })}
+                        </Box>
+                      )}
+                    >
+                      {allUsers.map((u) => (
+                        <MenuItem key={u.uid} value={u.uid}>
+                          {u.displayName || u.email}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </Box>
+            )}
 
             {type === 'x-times' && (
               <TextField 

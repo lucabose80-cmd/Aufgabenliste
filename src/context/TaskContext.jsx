@@ -13,7 +13,10 @@ export const TaskProvider = ({ children }) => {
   const { user } = useAuth();
   
   // States
-  const [tasks, setTasks] = useState([]);
+  const [personalTasks, setPersonalTasks] = useState([]);
+  const [sharedTasks, setSharedTasks] = useState([]);
+  const tasks = !user ? personalTasks : [...personalTasks, ...sharedTasks];
+
   const [categories, setCategories] = useState([]);
   const [readingSessions, setReadingSessions] = useState([]);
   const [calorieLogs, setCalorieLogs] = useState([]);
@@ -46,7 +49,7 @@ export const TaskProvider = ({ children }) => {
         if (!t.timerLogs) t.timerLogs = [];
         return t;
       });
-      setTasks(loadedTasks);
+      setPersonalTasks(loadedTasks);
 
       const savedCategories = localStorage.getItem('categories');
       const loadedCategories = savedCategories ? JSON.parse(savedCategories) : [
@@ -89,7 +92,7 @@ export const TaskProvider = ({ children }) => {
 
   useEffect(() => {
     if (!user && !isLoading) {
-      localStorage.setItem('tasks', JSON.stringify(tasks));
+      localStorage.setItem('tasks', JSON.stringify(personalTasks));
       localStorage.setItem('categories', JSON.stringify(categories));
       localStorage.setItem('readingSessions', JSON.stringify(readingSessions));
       localStorage.setItem('calorieLogs', JSON.stringify(calorieLogs));
@@ -101,7 +104,7 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('dashboardOrder', JSON.stringify(dashboardOrder));
       localStorage.setItem('pastReviewOrder', JSON.stringify(pastReviewOrder));
     }
-  }, [tasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, user, isLoading]);
+  }, [personalTasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, user, isLoading]);
 
   // Firestore Realtime Listeners
   useEffect(() => {
@@ -112,7 +115,14 @@ export const TaskProvider = ({ children }) => {
     const tasksRef = collection(db, 'users', user.uid, 'tasks');
     const unsubscribeTasks = onSnapshot(tasksRef, (snapshot) => {
       const fbTasks = snapshot.docs.map(doc => doc.data());
-      setTasks(fbTasks);
+      setPersonalTasks(fbTasks);
+    });
+
+    const sharedTasksRef = collection(db, 'shared_tasks');
+    const qShared = query(sharedTasksRef, where('members', 'array-contains', user.uid));
+    const unsubscribeSharedTasks = onSnapshot(qShared, (snapshot) => {
+      const fbSharedTasks = snapshot.docs.map(doc => doc.data());
+      setSharedTasks(fbSharedTasks);
     });
 
     const categoriesRef = collection(db, 'users', user.uid, 'categories');
@@ -180,6 +190,7 @@ export const TaskProvider = ({ children }) => {
 
     return () => {
       unsubscribeTasks();
+      unsubscribeSharedTasks();
       unsubscribeCategories();
       unsubscribeReading();
       unsubscribeCalories();
@@ -216,13 +227,15 @@ export const TaskProvider = ({ children }) => {
 
     if (hasChanges) {
       if (!user) {
-        setTasks(updatedTasks);
+        setPersonalTasks(updatedTasks.filter(t => !t.isShared));
       } else {
         const batch = writeBatch(db);
         updatedTasks.forEach(t => {
           const original = tasks.find(orig => orig.id === t.id);
           if (original && (original.lastResetDate !== t.lastResetDate || JSON.stringify(original.subTasks) !== JSON.stringify(t.subTasks))) {
-            const ref = doc(db, 'users', user.uid, 'tasks', t.id);
+            const ref = t.isShared 
+              ? doc(db, 'shared_tasks', t.id) 
+              : doc(db, 'users', user.uid, 'tasks', t.id);
             batch.update(ref, { subTasks: t.subTasks, lastResetDate: t.lastResetDate });
           }
         });
@@ -232,11 +245,21 @@ export const TaskProvider = ({ children }) => {
   }, [tasks, isLoading, user]);
 
   const saveTaskToFirestore = async (taskData) => {
-    if (user) await setDoc(doc(db, 'users', user.uid, 'tasks', taskData.id), taskData);
+    if (!user) return;
+    if (taskData.isShared) {
+      await setDoc(doc(db, 'shared_tasks', taskData.id), taskData);
+    } else {
+      await setDoc(doc(db, 'users', user.uid, 'tasks', taskData.id), taskData);
+    }
   };
 
-  const deleteTaskFromFirestore = async (taskId) => {
-    if (user) await deleteDoc(doc(db, 'users', user.uid, 'tasks', taskId));
+  const deleteTaskFromFirestore = async (taskId, isShared = false) => {
+    if (!user) return;
+    if (isShared) {
+      await deleteDoc(doc(db, 'shared_tasks', taskId));
+    } else {
+      await deleteDoc(doc(db, 'users', user.uid, 'tasks', taskId));
+    }
   };
 
   const addTask = async (taskData) => {
@@ -254,9 +277,15 @@ export const TaskProvider = ({ children }) => {
       averageSpeed: null,
       createdAt: new Date().toISOString(),
       order: Date.now(),
+      isShared: taskData.isShared || false,
+      members: taskData.members || []
     };
     
-    if (!user) setTasks([...tasks, newTask]);
+    if (!user) {
+      if (!newTask.isShared) {
+        setPersonalTasks([...personalTasks, newTask]);
+      }
+    }
     await saveTaskToFirestore(newTask);
   };
 
@@ -264,7 +293,9 @@ export const TaskProvider = ({ children }) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const updatedTask = { ...task, ...updates };
-    if (!user) setTasks(tasks.map(t => t.id === id ? updatedTask : t));
+    if (!user && !updatedTask.isShared) {
+      setPersonalTasks(personalTasks.map(t => t.id === id ? updatedTask : t));
+    }
     await saveTaskToFirestore(updatedTask);
   };
 
@@ -277,20 +308,34 @@ export const TaskProvider = ({ children }) => {
     const [moved] = newSorted.splice(activeIndex, 1);
     newSorted.splice(targetIndex, 0, moved);
     const updatedTasks = newSorted.map((t, idx) => ({ ...t, order: idx * 1000 }));
-    setTasks(current => current.map(t => {
-      const update = updatedTasks.find(ut => ut.id === t.id);
-      return update ? { ...t, order: update.order } : t;
-    }));
+    
+    if (!user) {
+      setPersonalTasks(current => current.map(t => {
+        const update = updatedTasks.find(ut => ut.id === t.id);
+        return update ? { ...t, order: update.order } : t;
+      }));
+    }
+    
     if (user) {
       const batch = writeBatch(db);
-      updatedTasks.forEach(t => batch.update(doc(db, 'users', user.uid, 'tasks', t.id), { order: t.order }));
+      updatedTasks.forEach(t => {
+        const ref = t.isShared 
+          ? doc(db, 'shared_tasks', t.id) 
+          : doc(db, 'users', user.uid, 'tasks', t.id);
+        batch.update(ref, { order: t.order });
+      });
       await batch.commit();
     }
   };
 
-  const deleteTask = async (id) => {
-    if (!user) setTasks(tasks.filter(t => t.id !== id));
-    await deleteTaskFromFirestore(id);
+  const deleteTask = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    if (!user && !task.isShared) {
+      setPersonalTasks(personalTasks.filter(t => t.id !== taskId));
+    }
+    await deleteTaskFromFirestore(taskId, task.isShared);
   };
 
   const toggleSubTask = async (taskId, subTaskId) => {
@@ -308,19 +353,50 @@ export const TaskProvider = ({ children }) => {
       else if (!allCompleted && isMainCompletedToday) updatedCompletedDates = updatedCompletedDates.filter(d => d !== today);
     }
     const updatedTask = { ...task, subTasks: updatedSubTasks, completedDates: updatedCompletedDates };
-    if (!user) setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+    if (!user && !task.isShared) {
+      setPersonalTasks(personalTasks.map(t => t.id === taskId ? updatedTask : t));
+    }
     await saveTaskToFirestore(updatedTask);
   };
+
+  const [snackbarInfo, setSnackbarInfo] = useState({ open: false, message: '', onUndo: null });
+
+  const showSnackbar = (message, onUndo) => setSnackbarInfo({ open: true, message, onUndo });
+  const closeSnackbar = () => setSnackbarInfo(prev => ({ ...prev, open: false }));
 
   const toggleTaskCompletion = async (taskId, date = getTodayDateString()) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    if (task.type === 'general') { await deleteTask(taskId); return; }
+    
+    if (task.type === 'general') { 
+      await deleteTask(taskId); 
+      showSnackbar('Aufgabe erledigt!', async () => {
+        if (!user && !task.isShared) setPersonalTasks(prev => [...prev, task]);
+        await saveTaskToFirestore(task);
+      });
+      import('canvas-confetti').then(confetti => {
+        confetti.default({ particleCount: 80, spread: 60, origin: { y: 0.8 }, zIndex: 9999 });
+      });
+      return; 
+    }
+    
     const isCompletedOnDate = task.completedDates.includes(date);
     const newCompletedDates = isCompletedOnDate ? task.completedDates.filter(d => d !== date) : [...task.completedDates, date];
     const updatedTask = { ...task, completedDates: newCompletedDates };
-    if (!user) setTasks(tasks.map(t => t.id === taskId ? updatedTask : t));
+    
+    if (!user && !task.isShared) {
+      setPersonalTasks(personalTasks.map(t => t.id === taskId ? updatedTask : t));
+    }
     await saveTaskToFirestore(updatedTask);
+
+    if (!isCompletedOnDate) {
+      showSnackbar('Aufgabe erledigt!', () => {
+        toggleTaskCompletion(taskId, date); // Undo
+      });
+      import('canvas-confetti').then(confetti => {
+        confetti.default({ particleCount: 80, spread: 60, origin: { y: 0.8 }, zIndex: 9999 });
+      });
+    }
   };
 
   const addCategory = async (name, color) => {
@@ -476,7 +552,9 @@ export const TaskProvider = ({ children }) => {
       saveSettings,
       shoppingListId,
       forceSync,
-      isLoading
+      isLoading,
+      snackbarInfo,
+      closeSnackbar
     }}>
       {children}
     </TaskContext.Provider>

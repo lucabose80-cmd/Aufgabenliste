@@ -3,28 +3,40 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, updateDoc, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
-import { Box, Card, Typography, TextField, Button, IconButton, Select, MenuItem, CircularProgress, List, ListItem, ListItemText, ListItemSecondaryAction, Divider, Checkbox } from '@mui/material';
+import { Box, Card, Typography, TextField, Button, IconButton, Select, MenuItem, CircularProgress, List, ListItem, ListItemText, ListItemSecondaryAction, Divider, Checkbox, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+
+const UNITS = ['x', 'kg', 'g', 'L', 'ml', 'Pkg.'];
 
 const ShoppingList = () => {
   const { user } = useAuth();
   
-  const [activeList, setActiveList] = useState(null);
+  const [allLists, setAllLists] = useState([]);
+  const [activeListId, setActiveListId] = useState('');
+  
+  const activeList = allLists.find(l => l.id === activeListId);
+  
   const [items, setItems] = useState([]);
   const [newItemText, setNewItemText] = useState('');
   const [newQuantity, setNewQuantity] = useState('1');
+  const [newUnit, setNewUnit] = useState('x');
   
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUserToInvite, setSelectedUserToInvite] = useState('');
   const [isListLoading, setIsListLoading] = useState(true);
+  
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newListName, setNewListName] = useState('');
 
   useEffect(() => {
     if (!user) {
-      setActiveList(null);
+      setAllLists([]);
+      setActiveListId('');
       setIsListLoading(false);
       return;
     }
@@ -33,11 +45,14 @@ const ShoppingList = () => {
     const q = query(listsRef, where('members', 'array-contains', user.uid));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const listDoc = snapshot.docs[0];
-        setActiveList({ id: listDoc.id, ...listDoc.data() });
+      const lists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllLists(lists);
+      if (lists.length > 0) {
+        if (!activeListId || !lists.find(l => l.id === activeListId)) {
+          setActiveListId(lists[0].id);
+        }
       } else {
-        setActiveList(null);
+        setActiveListId('');
       }
       setIsListLoading(false);
     });
@@ -89,13 +104,17 @@ const ShoppingList = () => {
   }, [user, activeList]);
 
   const handleCreateList = async () => {
-    if (!user) return;
+    if (!user || !newListName.trim()) return;
     const newListId = uuidv4();
     await setDoc(doc(db, 'shared_lists', newListId), {
+      name: newListName.trim(),
       createdBy: user.uid,
       createdAt: serverTimestamp(),
       members: [user.uid]
     });
+    setActiveListId(newListId);
+    setIsCreateModalOpen(false);
+    setNewListName('');
   };
 
   const handleInviteUser = async () => {
@@ -108,22 +127,33 @@ const ShoppingList = () => {
 
   const handleLeaveList = async () => {
     if (!user || !activeList) return;
-    await updateDoc(doc(db, 'shared_lists', activeList.id), {
-      members: arrayRemove(user.uid)
-    });
+    if (confirm('Möchtest du diese Liste wirklich verlassen?')) {
+      await updateDoc(doc(db, 'shared_lists', activeList.id), {
+        members: arrayRemove(user.uid)
+      });
+    }
   };
 
   const handleAddItem = async (e) => {
     e.preventDefault();
     if (!newItemText.trim() || !user || !activeList) return;
 
+    let myName = user.email;
+    try {
+      const myDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
+      if (!myDoc.empty && myDoc.docs[0].data().displayName) {
+        myName = myDoc.docs[0].data().displayName;
+      }
+    } catch(err) {}
+
     const itemId = uuidv4();
     await setDoc(doc(db, 'shared_lists', activeList.id, 'items', itemId), {
       text: newItemText.trim(),
       quantity: newQuantity.trim() || '1',
+      unit: newUnit,
       completed: false,
       createdAt: serverTimestamp(),
-      addedBy: user.email
+      addedBy: myName
     });
     setNewItemText('');
     setNewQuantity('1');
@@ -159,138 +189,187 @@ const ShoppingList = () => {
     );
   }
 
-  if (!activeList) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
-        <Card sx={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', textAlign: 'center', p: { xs: 3, sm: 6 } }}>
-          <ShoppingCartIcon color="primary" sx={{ fontSize: 60 }} />
-          <Typography variant="h4" fontWeight="bold">Gemeinsame Einkaufsliste</Typography>
-          <Typography color="text.secondary" sx={{ maxWidth: 400 }}>
-            Du hast aktuell keine Einkaufsliste. Aktiviere deine Liste, um andere Nutzer einzuladen und gemeinsam einzukaufen!
-          </Typography>
-
-          <Button variant="contained" size="large" onClick={handleCreateList} startIcon={<AddIcon />}>
-            Liste aktivieren
-          </Button>
-        </Card>
-      </Box>
-    );
-  }
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pb: 10, maxWidth: 800, mx: 'auto' }}>
       
       <Card sx={{ p: { xs: 2, sm: 3 } }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-              <ShoppingCartIcon color="primary" /> Einkaufsliste
-            </Typography>
-            
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-              <PersonAddIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="text.secondary">Teilnehmer hinzufügen:</Typography>
-              
-              {allUsers.length > 0 ? (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Select 
-                    value={selectedUserToInvite} 
-                    onChange={(e) => setSelectedUserToInvite(e.target.value)}
-                    size="small"
-                    sx={{ minWidth: 150 }}
-                  >
-                    {allUsers.map(u => (
-                      <MenuItem key={u.uid} value={u.uid}>{u.email}</MenuItem>
-                    ))}
-                  </Select>
-                  <Button variant="contained" onClick={handleInviteUser} size="small">
-                    Einladen
-                  </Button>
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary" fontStyle="italic">Alle registrierten Nutzer sind bereits eingeladen.</Typography>
-              )}
-            </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <ListAltIcon color="primary" />
+            <Select 
+              value={activeListId} 
+              onChange={(e) => setActiveListId(e.target.value)}
+              size="small"
+              displayEmpty
+              sx={{ minWidth: 200, fontWeight: 'bold' }}
+            >
+              {allLists.length === 0 && <MenuItem value="" disabled>Keine Listen</MenuItem>}
+              {allLists.map(list => (
+                <MenuItem key={list.id} value={list.id}>{list.name || 'Einkaufsliste'}</MenuItem>
+              ))}
+            </Select>
           </Box>
-
-          <Button 
-            variant="outlined" 
-            color="error"
-            onClick={handleLeaveList} 
-            startIcon={<LogoutIcon />}
-            size="small"
-          >
-            Verlassen
-          </Button>
-        </Box>
-
-        <Box component="form" onSubmit={handleAddItem} sx={{ display: 'flex', gap: 1, mt: 4 }}>
-          <TextField 
-            placeholder="Menge (z.B. 2x, 500g)" 
-            value={newQuantity}
-            onChange={(e) => setNewQuantity(e.target.value)}
-            sx={{ width: { xs: 100, sm: 150 } }}
-            variant="outlined"
-          />
-          <TextField 
-            placeholder="Artikel hinzufügen..." 
-            value={newItemText}
-            onChange={(e) => setNewItemText(e.target.value)}
-            fullWidth
-            variant="outlined"
-          />
-          <Button type="submit" variant="contained" color="primary" sx={{ px: { xs: 2, sm: 3 } }}>
-            <AddIcon />
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setIsCreateModalOpen(true)} size="small">
+            Neue Liste
           </Button>
         </Box>
       </Card>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {items.length === 0 ? (
-          <Card sx={{ p: 6, textAlign: 'center', border: 1, borderStyle: 'dashed', borderColor: 'divider', bgcolor: 'background.default' }}>
-            <Typography color="text.secondary">Noch keine Artikel auf der Liste.</Typography>
-          </Card>
-        ) : (
-          <List sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {items.map(item => (
-              <Card key={item.id} sx={{ opacity: item.completed ? 0.6 : 1, transition: 'opacity 0.2s' }}>
-                <ListItem>
-                  <Checkbox
-                    checked={item.completed}
-                    onChange={() => toggleItem(item.id, item.completed)}
-                    color="success"
-                  />
-                  <ListItemText 
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {item.quantity && item.quantity !== '1' && (
-                          <Typography component="span" fontWeight="bold" color="primary.main">
-                            {item.quantity} 
-                          </Typography>
-                        )}
-                        <Typography component="span" sx={{ 
-                          textDecoration: item.completed ? 'line-through' : 'none',
-                          color: item.completed ? 'text.secondary' : 'text.primary',
-                          fontSize: '1.1rem'
-                        }}>
-                          {item.text}
-                        </Typography>
-                      </Box>
-                    } 
-                    secondary={item.addedBy ? `von ${item.addedBy.split('@')[0]}` : null}
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton edge="end" color="error" onClick={() => deleteItem(item.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              </Card>
-            ))}
-          </List>
-        )}
-      </Box>
+      {!activeList ? (
+        <Card sx={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', textAlign: 'center', p: { xs: 3, sm: 6 } }}>
+          <ShoppingCartIcon color="primary" sx={{ fontSize: 60 }} />
+          <Typography variant="h5">Keine aktive Liste</Typography>
+          <Typography color="text.secondary">Wähle eine Liste aus oder erstelle eine neue.</Typography>
+        </Card>
+      ) : (
+        <Card sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                {activeList.name || 'Einkaufsliste'}
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                <PersonAddIcon fontSize="small" color="action" />
+                <Typography variant="body2" color="text.secondary">Teilen mit:</Typography>
+                
+                {allUsers.length > 0 ? (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Select 
+                      value={selectedUserToInvite} 
+                      onChange={(e) => setSelectedUserToInvite(e.target.value)}
+                      size="small"
+                      sx={{ minWidth: 150 }}
+                    >
+                      {allUsers.map(u => (
+                        <MenuItem key={u.uid} value={u.uid}>{u.displayName || u.email}</MenuItem>
+                      ))}
+                    </Select>
+                    <Button variant="contained" onClick={handleInviteUser} size="small">
+                      Einladen
+                    </Button>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" fontStyle="italic">Niemand zum Einladen verfügbar.</Typography>
+                )}
+              </Box>
+            </Box>
 
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={handleLeaveList} 
+              startIcon={<LogoutIcon />}
+              size="small"
+            >
+              Verlassen
+            </Button>
+          </Box>
+
+          <Box component="form" onSubmit={handleAddItem} sx={{ display: 'flex', gap: 1, mt: 4, flexWrap: 'wrap' }}>
+            <TextField 
+              placeholder="Menge" 
+              value={newQuantity}
+              onChange={(e) => setNewQuantity(e.target.value)}
+              sx={{ width: 80 }}
+              size="small"
+            />
+            <Select
+              value={newUnit}
+              onChange={(e) => setNewUnit(e.target.value)}
+              size="small"
+              sx={{ width: 90 }}
+            >
+              {UNITS.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+            </Select>
+            <TextField 
+              placeholder="Artikel hinzufügen..." 
+              value={newItemText}
+              onChange={(e) => setNewItemText(e.target.value)}
+              sx={{ flexGrow: 1, minWidth: 150 }}
+              size="small"
+            />
+            <Button type="submit" variant="contained" color="primary">
+              <AddIcon />
+            </Button>
+          </Box>
+        </Card>
+      )}
+
+      {activeList && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {items.length === 0 ? (
+            <Card sx={{ p: 6, textAlign: 'center', border: 1, borderStyle: 'dashed', borderColor: 'divider', bgcolor: 'background.default' }}>
+              <Typography color="text.secondary">Die Liste ist leer.</Typography>
+            </Card>
+          ) : (
+            <List sx={{ width: '100%', bgcolor: 'background.paper', borderRadius: 2, overflow: 'hidden' }}>
+              {items.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  <ListItem disablePadding>
+                    <Card 
+                      elevation={0}
+                      sx={{ 
+                        width: '100%', 
+                        borderRadius: 0,
+                        bgcolor: item.completed ? 'action.hover' : 'background.paper',
+                        display: 'flex',
+                        alignItems: 'center',
+                        p: 1
+                      }}
+                    >
+                      <Checkbox
+                        edge="start"
+                        checked={item.completed}
+                        onChange={() => toggleItem(item.id, item.completed)}
+                        color="success"
+                      />
+                      <ListItemText 
+                        primary={
+                          <Typography sx={{ 
+                            textDecoration: item.completed ? 'line-through' : 'none',
+                            color: item.completed ? 'text.secondary' : 'text.primary',
+                            fontWeight: item.completed ? 'normal' : 'bold'
+                          }}>
+                            {item.quantity && item.quantity !== '1' && item.unit === 'x' ? `${item.quantity}x ` : ''}
+                            {item.quantity && item.unit !== 'x' ? `${item.quantity} ${item.unit} ` : ''}
+                            {item.text}
+                          </Typography>
+                        }
+                        secondary={`Hinzugefügt von ${item.addedBy || 'Unbekannt'}`}
+                        sx={{ m: 0 }}
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton edge="end" color="error" onClick={() => deleteItem(item.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </Card>
+                  </ListItem>
+                  {index < items.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          )}
+        </Box>
+      )}
+
+      <Dialog open={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
+        <DialogTitle>Neue Einkaufsliste erstellen</DialogTitle>
+        <DialogContent sx={{ mt: 1 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Name der Liste"
+            value={newListName}
+            onChange={(e) => setNewListName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsCreateModalOpen(false)}>Abbrechen</Button>
+          <Button onClick={handleCreateList} variant="contained">Erstellen</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

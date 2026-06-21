@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button, BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button, BottomNavigation, BottomNavigationAction, Paper, Snackbar } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -26,14 +26,33 @@ import AuthModal from './components/AuthModal';
 import NotificationManager from './components/NotificationManager';
 import Settings from './components/Settings';
 import ShoppingList from './components/ShoppingList';
+import ProfileModal from './components/ProfileModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { db } from './firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [userDisplayName, setUserDisplayName] = useState('');
+  
   const { user, logout } = useAuth();
-  const { theme, accentColor, pinnedNavItems } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar } = useTaskContext();
+
+  useEffect(() => {
+    if (!user) {
+      setUserDisplayName('');
+      return;
+    }
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+      if (doc.exists() && doc.data().displayName) {
+        setUserDisplayName(doc.data().displayName);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const NAV_CONFIG = {
     'home': { label: 'Aufgaben', icon: <AssignmentIcon /> },
@@ -110,10 +129,13 @@ function MainApp() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               {user ? (
                 <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                  <Box 
+                    onClick={() => setIsProfileModalOpen(true)}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+                  >
                     <AccountCircleIcon />
                     <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
-                      {user.email}
+                      {userDisplayName || user.email}
                     </Typography>
                   </Box>
                   <Button variant="outlined" color="inherit" onClick={logout} size="small" sx={{ borderRadius: 8, borderColor: 'primary.contrastText', color: 'primary.contrastText' }}>
@@ -161,9 +183,29 @@ function MainApp() {
             />
           </BottomNavigation>
         </Paper>
+
+        <AuthModal open={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        <ProfileModal open={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
+        
+        {snackbarInfo && (
+          <Snackbar
+            open={snackbarInfo.open}
+            autoHideDuration={4000}
+            onClose={closeSnackbar}
+            message={snackbarInfo.message}
+            action={
+              snackbarInfo.onUndo ? (
+                <Button color="secondary" size="small" onClick={() => {
+                  snackbarInfo.onUndo();
+                  closeSnackbar();
+                }}>
+                  RÜCKGÄNGIG
+                </Button>
+              ) : null
+            }
+          />
+        )}
       </Box>
-      
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </Box>
   );
 }

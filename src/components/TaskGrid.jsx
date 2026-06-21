@@ -25,6 +25,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import GroupIcon from '@mui/icons-material/Group';
 
 const SortableTaskItem = ({ task, isWrongDay }) => {
   const [expanded, setExpanded] = useState(false);
@@ -148,10 +149,16 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
               color: isCompleted ? 'text.secondary' : 'text.primary',
               display: 'flex',
               alignItems: 'center',
-              gap: 1
+              gap: 1,
+              flexWrap: 'wrap'
             }}
           >
             {task.title}
+            {task.isShared && (
+              <MuiTooltip title="Geteilte Aufgabe">
+                <GroupIcon fontSize="small" sx={{ color: 'primary.main', opacity: 0.8 }} />
+              </MuiTooltip>
+            )}
             {streak > 0 && (
               <MuiTooltip title={`${streak} Tage in Folge!`}>
                 <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.8rem', color: 'error.main', bgcolor: 'background.default', px: 1, py: 0.25, borderRadius: 4, border: 1, borderColor: 'divider' }}>
