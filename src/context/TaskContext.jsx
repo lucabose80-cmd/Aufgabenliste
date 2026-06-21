@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, query, where } from 'firebase/firestore';
 
 const TaskContext = createContext();
 
