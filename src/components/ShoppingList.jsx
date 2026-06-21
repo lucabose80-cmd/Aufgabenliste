@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, updateDoc, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
-import { Box, Card, Typography, TextField, Button, IconButton, Select, MenuItem, CircularProgress, List, ListItem, ListItemText, ListItemSecondaryAction, Divider, Checkbox, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Card, Typography, TextField, Button, IconButton, Select, MenuItem, CircularProgress, List, ListItem, ListItemText, ListItemSecondaryAction, Divider, Checkbox, Dialog, DialogTitle, DialogContent, DialogActions, Chip } from '@mui/material';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AddIcon from '@mui/icons-material/Add';
@@ -26,7 +26,7 @@ const ShoppingList = () => {
   const [newQuantity, setNewQuantity] = useState('1');
   const [newUnit, setNewUnit] = useState('x');
   
-  const [allUsers, setAllUsers] = useState([]);
+  const [allUsersDB, setAllUsersDB] = useState([]);
   const [selectedUserToInvite, setSelectedUserToInvite] = useState('');
   const [isListLoading, setIsListLoading] = useState(true);
   
@@ -68,13 +68,11 @@ const ShoppingList = () => {
         const usersSnap = await getDocs(collection(db, 'users'));
         const usersList = [];
         usersSnap.forEach(doc => {
-          const u = doc.data();
-          if (u.uid !== user.uid && !activeList.members?.includes(u.uid)) {
-            usersList.push(u);
-          }
+          usersList.push(doc.data());
         });
-        setAllUsers(usersList);
-        if (usersList.length > 0) setSelectedUserToInvite(usersList[0].uid);
+        setAllUsersDB(usersList);
+        const invitable = usersList.filter(u => u.uid !== user.uid && !activeList.members?.includes(u.uid));
+        if (invitable.length > 0) setSelectedUserToInvite(invitable[0].uid);
       } catch (err) {
         console.error("Fehler beim Laden der Benutzer:", err);
       }
@@ -229,29 +227,50 @@ const ShoppingList = () => {
                 {activeList.name || 'Einkaufsliste'}
               </Typography>
               
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
+                <Typography variant="body2" color="text.secondary">Mitglieder:</Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {activeList.members?.map(memberId => {
+                    const memberUser = allUsersDB.find(u => u.uid === memberId);
+                    const isMe = memberId === user.uid;
+                    return (
+                      <Chip 
+                        key={memberId} 
+                        label={isMe ? 'Du' : (memberUser?.displayName || memberUser?.email || 'Unbekannt')} 
+                        size="small" 
+                        color={isMe ? 'primary' : 'default'}
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
                 <PersonAddIcon fontSize="small" color="action" />
-                <Typography variant="body2" color="text.secondary">Teilen mit:</Typography>
                 
-                {allUsers.length > 0 ? (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Select 
-                      value={selectedUserToInvite} 
-                      onChange={(e) => setSelectedUserToInvite(e.target.value)}
-                      size="small"
-                      sx={{ minWidth: 150 }}
-                    >
-                      {allUsers.map(u => (
-                        <MenuItem key={u.uid} value={u.uid}>{u.displayName || u.email}</MenuItem>
-                      ))}
-                    </Select>
-                    <Button variant="contained" onClick={handleInviteUser} size="small">
-                      Einladen
-                    </Button>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary" fontStyle="italic">Niemand zum Einladen verfügbar.</Typography>
-                )}
+                {(() => {
+                  const invitableUsers = allUsersDB.filter(u => u.uid !== user.uid && !activeList.members?.includes(u.uid));
+                  if (invitableUsers.length > 0) {
+                    return (
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Select 
+                          value={selectedUserToInvite} 
+                          onChange={(e) => setSelectedUserToInvite(e.target.value)}
+                          size="small"
+                          sx={{ minWidth: 150 }}
+                        >
+                          {invitableUsers.map(u => (
+                            <MenuItem key={u.uid} value={u.uid}>{u.displayName || u.email}</MenuItem>
+                          ))}
+                        </Select>
+                        <Button variant="contained" onClick={handleInviteUser} size="small">
+                          Einladen
+                        </Button>
+                      </Box>
+                    );
+                  }
+                  return null;
+                })()}
               </Box>
             </Box>
 
@@ -307,12 +326,10 @@ const ShoppingList = () => {
               {items.map((item, index) => (
                 <React.Fragment key={item.id}>
                   <ListItem disablePadding>
-                    <Card 
-                      elevation={0}
+                    <Box 
                       sx={{ 
                         width: '100%', 
-                        borderRadius: 0,
-                        bgcolor: item.completed ? 'action.hover' : 'background.paper',
+                        bgcolor: item.completed ? 'action.hover' : 'transparent',
                         display: 'flex',
                         alignItems: 'center',
                         p: 1
@@ -344,7 +361,7 @@ const ShoppingList = () => {
                           <DeleteIcon />
                         </IconButton>
                       </ListItemSecondaryAction>
-                    </Card>
+                    </Box>
                   </ListItem>
                   {index < items.length - 1 && <Divider />}
                 </React.Fragment>

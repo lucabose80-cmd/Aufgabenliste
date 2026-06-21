@@ -311,6 +311,11 @@ export const TaskProvider = ({ children }) => {
     if (!user && !updatedTask.isShared) {
       setPersonalTasks(personalTasks.map(t => t.id === id ? updatedTask : t));
     }
+    
+    if (task.isShared !== updatedTask.isShared) {
+      await deleteTaskFromFirestore(task.id, task.isShared);
+    }
+    
     await saveTaskToFirestore(updatedTask);
   };
 
