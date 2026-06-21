@@ -202,7 +202,7 @@ const Review = () => {
         if (task.type === 'specific-days' && task.specificDays.includes(dayOfWeek)) shouldDo = true;
         
         if (task.type === 'x-times' || task.type === 'weekly') {
-          const isDoneToday = task.completedDates.includes(dateStr);
+          const isDoneToday = (task.completedDates || []).includes(dateStr);
           if (isDoneToday) {
             shouldDo = true;
           } else {
@@ -211,7 +211,7 @@ const Review = () => {
             if (isGracePeriodOver) {
               const weekStart = startOfWeek(day, { weekStartsOn: 1 });
               let count = 0;
-              task.completedDates.forEach(d => {
+              (task.completedDates || []).forEach(d => {
                 const dDate = parseISO(d);
                 if (dDate >= weekStart && dDate <= weekEnd) count++;
               });
@@ -224,7 +224,7 @@ const Review = () => {
         
         if (shouldDo) {
           tasksShouldBeDone++;
-          if (task.completedDates.includes(dateStr)) tasksActuallyDone++;
+          if ((task.completedDates || []).includes(dateStr)) tasksActuallyDone++;
         }
       });
 
@@ -236,7 +236,7 @@ const Review = () => {
       const task = tasks.find(t => t.id === selectedTrackerTask);
       if (!task) return { color: 'background.default', border: 'divider', opacity: 0.3 };
       
-      const isCompleted = task.completedDates.includes(dateStr);
+      const isCompleted = (task.completedDates || []).includes(dateStr);
       if (task.type === 'daily' || task.type === 'specific-days') {
         let shouldDo = task.type === 'daily' || task.specificDays.includes(dayOfWeek);
         if (!shouldDo && !isCompleted) return { color: 'background.default', border: 'divider', opacity: 0.3 };
@@ -251,7 +251,7 @@ const Review = () => {
         if (isGracePeriodOver) {
           const weekStart = startOfWeek(day, { weekStartsOn: 1 });
           let count = 0;
-          task.completedDates.forEach(d => {
+          (task.completedDates || []).forEach(d => {
             const dDate = parseISO(d);
             if (dDate >= weekStart && dDate <= weekEnd) count++;
           });

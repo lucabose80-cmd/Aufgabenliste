@@ -222,7 +222,7 @@ export const TaskProvider = ({ children }) => {
     let hasChanges = false;
     const updatedTasks = tasks.map(task => {
       if (task.type !== 'general' && task.subTasks && task.subTasks.length > 0) {
-        if (!task.completedDates.includes(today) && task.lastResetDate !== today) {
+        if (!(task.completedDates || []).includes(today) && task.lastResetDate !== today) {
           const needsReset = task.subTasks.some(st => st.completed);
           if (needsReset) {
             hasChanges = true;
@@ -369,13 +369,13 @@ export const TaskProvider = ({ children }) => {
     );
     const allCompleted = updatedSubTasks.every(st => st.completed);
     const today = getTodayDateString();
-    let updatedCompletedDates = [...task.completedDates];
+    let updatedCompletedDates = [...(task.completedDates || [])];
     let newCompletedByMap = { ...(task.completedByMap || {}) };
     
     if (task.type === 'general') {
       if (allCompleted) { await deleteTask(taskId); return; }
     } else {
-      const isMainCompletedToday = task.completedDates.includes(today);
+      const isMainCompletedToday = (task.completedDates || []).includes(today);
       if (allCompleted && !isMainCompletedToday) {
         updatedCompletedDates.push(today);
         newCompletedByMap[today] = myName;
@@ -414,8 +414,8 @@ export const TaskProvider = ({ children }) => {
     }
     
     const myName = userDisplayName || user?.email || 'Unbekannt';
-    const isCompletedOnDate = task.completedDates.includes(date);
-    const newCompletedDates = isCompletedOnDate ? task.completedDates.filter(d => d !== date) : [...task.completedDates, date];
+    const isCompletedOnDate = (task.completedDates || []).includes(date);
+    const newCompletedDates = isCompletedOnDate ? (task.completedDates || []).filter(d => d !== date) : [...(task.completedDates || []), date];
     
     const newCompletedByMap = { ...(task.completedByMap || {}) };
     if (!isCompletedOnDate) {

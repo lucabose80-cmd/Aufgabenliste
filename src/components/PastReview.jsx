@@ -162,7 +162,7 @@ const PastReview = () => {
           if (task.type === 'specific-days' && task.specificDays.includes(dayOfWeek)) shouldDo = true;
           
           if (task.type === 'x-times' || task.type === 'weekly') {
-            const isDoneToday = task.completedDates.includes(dateStr);
+            const isDoneToday = (task.completedDates || []).includes(dateStr);
             if (isDoneToday) {
               shouldDo = true;
             } else {
@@ -171,7 +171,7 @@ const PastReview = () => {
               if (isGracePeriodOver) {
                 const weekStart = startOfWeek(day, { weekStartsOn: 1 });
                 let count = 0;
-                task.completedDates.forEach(d => {
+                (task.completedDates || []).forEach(d => {
                   const dDate = parseISO(d);
                   if (dDate >= weekStart && dDate <= weekEnd) count++;
                 });
@@ -184,7 +184,7 @@ const PastReview = () => {
           
           if (shouldDo) {
             tasksShouldBeDone++;
-            if (task.completedDates.includes(dateStr)) tasksActuallyDone++;
+            if ((task.completedDates || []).includes(dateStr)) tasksActuallyDone++;
           }
         });
         

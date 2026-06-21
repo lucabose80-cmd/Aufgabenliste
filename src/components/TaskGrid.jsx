@@ -49,7 +49,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
   };
 
   const today = getTodayDateString();
-  const isCompleted = task.type === 'general' ? task.completedDates.length > 0 : task.completedDates.includes(today);
+  const isCompleted = task.type === 'general' ? (task.completedDates || []).length > 0 : (task.completedDates || []).includes(today);
   
   const totalSubTasksCount = task.subTasks.length;
   const completedSubTasksCount = task.subTasks.filter(st => st.completed).length;
@@ -253,7 +253,7 @@ const TaskGrid = () => {
     return { ...t, categoryColor: cat ? cat.color : undefined, isWrongDay };
   }).filter(t => {
     if (t.isWrongDay && !showCompleted) return false; 
-    const isCompletedToday = t.completedDates.includes(today);
+    const isCompletedToday = (t.completedDates || []).includes(today);
     if (isCompletedToday && !showCompleted && t.type !== 'general') return false;
     return true;
   }).sort((a, b) => (a.order || 0) - (b.order || 0));
