@@ -277,6 +277,22 @@ const TaskGrid = () => {
   const today = getTodayDateString();
   const dayOfWeek = new Date().getDay();
 
+  const [collapsedCategories, setCollapsedCategories] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('collapsedCategories')) || {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleCategory = (groupId) => {
+    setCollapsedCategories(prev => {
+      const next = { ...prev, [groupId]: !prev[groupId] };
+      localStorage.setItem('collapsedCategories', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const filteredTasks = tasks.map(t => {
     const cat = categories.find(c => c.id === t.categoryId);
     const isWrongDay = t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek);
@@ -342,6 +358,9 @@ const TaskGrid = () => {
             <Box key={group.id}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: group.color !== 'text.secondary' ? group.color : 'text.primary', fontWeight: 'bold' }}>
+                  <IconButton size="small" onClick={() => toggleCategory(group.id)} sx={{ p: 0, mr: 0.5, color: 'inherit' }}>
+                    {collapsedCategories[group.id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+                  </IconButton>
                   {group.label}
                 </Typography>
                 
@@ -371,30 +390,32 @@ const TaskGrid = () => {
                 )}
               </Box>
 
-              <DndContext 
-                id={group.id}
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext 
-                  items={catTasks.map(t => t.id)}
-                  strategy={rectSortingStrategy}
+              <Collapse in={!collapsedCategories[group.id]}>
+                <DndContext 
+                  id={group.id}
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
                 >
-                  <Box sx={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                    gap: 2,
-                    borderLeft: group.color !== 'text.secondary' ? 4 : 0,
-                    borderColor: group.color,
-                    pl: group.color !== 'text.secondary' ? 2 : 0,
-                  }}>
-                    {catTasks.map(task => (
-                      <SortableTaskItem key={task.id} task={task} isWrongDay={task.isWrongDay} />
-                    ))}
-                  </Box>
-                </SortableContext>
-              </DndContext>
+                  <SortableContext 
+                    items={catTasks.map(t => t.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <Box sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                      gap: 2,
+                      borderLeft: group.color !== 'text.secondary' ? 4 : 0,
+                      borderColor: group.color,
+                      pl: group.color !== 'text.secondary' ? 2 : 0,
+                    }}>
+                      {catTasks.map(task => (
+                        <SortableTaskItem key={task.id} task={task} isWrongDay={task.isWrongDay} />
+                      ))}
+                    </Box>
+                  </SortableContext>
+                </DndContext>
+              </Collapse>
             </Box>
           );
         })}
