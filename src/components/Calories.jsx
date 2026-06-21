@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
+import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval, subHours } from 'date-fns';
 import { Box, Card, Typography, TextField, Button, IconButton, Divider } from '@mui/material';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import AddIcon from '@mui/icons-material/Add';
@@ -14,7 +14,7 @@ const Calories = () => {
   const [goalInput, setGoalInput] = useState(calorieGoal || '');
   const [differenceInput, setDifferenceInput] = useState('');
   const todayStr = getTodayDateString();
-  const todayDate = new Date();
+  const todayDate = subHours(new Date(), 3);
 
   const handleSaveGoal = () => {
     updateCalorieGoal(goalInput);

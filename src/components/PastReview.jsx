@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { Box, Card, Typography, Grid, ToggleButtonGroup, ToggleButton, Stack, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
-import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, isWithinInterval, parseISO, startOfWeek, endOfWeek, format, eachDayOfInterval, isAfter, addMonths } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, isWithinInterval, parseISO, startOfWeek, endOfWeek, format, eachDayOfInterval, isAfter, addMonths, subHours, startOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -45,7 +45,8 @@ const PastReview = () => {
   const { tasks, readingSessions, calorieLogs, pastReviewOrder, saveSettings, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder } = useTaskContext();
   const [timeframe, setTimeframe] = useState('month');
 
-  const today = new Date();
+  const todayDate = subHours(new Date(), 3);
+  const today = startOfDay(todayDate);
 
   const minDateStr = useMemo(() => {
     let min = today.toISOString().split('T')[0];

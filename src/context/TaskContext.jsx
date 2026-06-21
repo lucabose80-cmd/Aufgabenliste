@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { format } from 'date-fns';
+import { format, subHours } from 'date-fns';
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, query, where } from 'firebase/firestore';
@@ -30,6 +30,22 @@ export const TaskProvider = ({ children }) => {
   const [dashboardOrder, setDashboardOrder] = useState(['tracker', 'highlights', 'chart', 'quickStats']);
   const [pastReviewOrder, setPastReviewOrder] = useState(['tasks', 'perfectDays', 'reading', 'speed', 'calories']);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Global Reading Timer
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (timerRunning) {
+      interval = setInterval(() => {
+        setTimerSeconds(s => s + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning]);
 
   // Load from LocalStorage if NOT logged in
   useEffect(() => {
@@ -213,7 +229,7 @@ export const TaskProvider = ({ children }) => {
     };
   }, [user]);
 
-  const getTodayDateString = () => format(new Date(), 'yyyy-MM-dd');
+  const getTodayDateString = () => format(subHours(new Date(), 3), 'yyyy-MM-dd');
 
   // Auto-reset subtasks for a new day
   useEffect(() => {
@@ -591,12 +607,17 @@ export const TaskProvider = ({ children }) => {
       pinnedNavItems,
       dashboardOrder,
       pastReviewOrder,
+      setPastReviewOrder,
       saveSettings,
       shoppingListId,
       forceSync,
       isLoading,
       snackbarInfo,
-      closeSnackbar
+      closeSnackbar,
+      timerRunning,
+      setTimerRunning,
+      timerSeconds,
+      setTimerSeconds
     }}>
       {children}
     </TaskContext.Provider>

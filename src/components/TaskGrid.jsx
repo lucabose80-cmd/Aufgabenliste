@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { format, subDays } from 'date-fns';
+import { format, subDays, subHours } from 'date-fns';
 import {
   DndContext,
   closestCenter,
@@ -81,7 +81,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     if (completedDates.length === 0) return 0;
 
     let streak = 0;
-    let checkDate = new Date(); 
+    let checkDate = subHours(new Date(), 3); 
     const todayStr = format(checkDate, 'yyyy-MM-dd');
     const yesterdayStr = format(subDays(checkDate, 1), 'yyyy-MM-dd');
 
@@ -275,7 +275,7 @@ const TaskGrid = () => {
   displayGroups.push({ id: 'uncategorized', label: 'Ohne Kategorie', color: 'text.secondary' });
 
   const today = getTodayDateString();
-  const dayOfWeek = new Date().getDay();
+  const dayOfWeek = subHours(new Date(), 3).getDay();
 
   const [collapsedCategories, setCollapsedCategories] = useState(() => {
     try {

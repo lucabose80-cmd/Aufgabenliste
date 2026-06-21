@@ -16,11 +16,10 @@ import CheckIcon from '@mui/icons-material/Check';
 import ClearIcon from '@mui/icons-material/Clear';
 
 const ReadingSpeed = () => {
-  const { readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession } = useTaskContext();
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0); 
-  const [startTime, setStartTime] = useState(null);
-  const [accumulatedTime, setAccumulatedTime] = useState(0);
+  const { 
+    readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession,
+    timerRunning, setTimerRunning, timerSeconds, setTimerSeconds
+  } = useTaskContext();
   
   const [amount, setAmount] = useState('');
   const [startPage, setStartPage] = useState('');
@@ -31,43 +30,16 @@ const ReadingSpeed = () => {
   const [editMinutes, setEditMinutes] = useState(0);
   const [editAmount, setEditAmount] = useState('');
 
-  useEffect(() => {
-    let animationFrameId;
-
-    const updateTimer = () => {
-      if (isTimerRunning && startTime) {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTime) / 1000);
-        setTimerSeconds(accumulatedTime + elapsed);
-        animationFrameId = requestAnimationFrame(updateTimer);
-      }
-    };
-
-    if (isTimerRunning) {
-      animationFrameId = requestAnimationFrame(updateTimer);
-    }
-
-    return () => {
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    };
-  }, [isTimerRunning, startTime, accumulatedTime]);
-
   const handleStartTimer = () => {
-    setStartTime(Date.now());
-    setIsTimerRunning(true);
+    setTimerRunning(true);
   };
 
   const handlePauseTimer = () => {
-    setIsTimerRunning(false);
-    if (startTime) {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setAccumulatedTime(prev => prev + elapsed);
-    }
-    setStartTime(null);
+    setTimerRunning(false);
   };
 
   const handleStopTimer = () => {
-    if (isTimerRunning) {
+    if (timerRunning) {
       handlePauseTimer();
     }
     setShowAmountField(true);
@@ -85,7 +57,6 @@ const ReadingSpeed = () => {
 
     saveReadingSession(timerSeconds, finalAmount);
     setTimerSeconds(0);
-    setAccumulatedTime(0);
     setShowAmountField(false);
     setAmount('');
     setStartPage('');
@@ -129,7 +100,7 @@ const ReadingSpeed = () => {
               fontFamily: 'monospace', 
               fontWeight: 'bold', 
               fontSize: { xs: '4rem', sm: '3.75rem' },
-              color: isTimerRunning ? 'primary.main' : 'text.primary',
+              color: timerRunning ? 'primary.main' : 'text.primary',
               transition: 'color 0.3s ease'
             }}
           >
@@ -139,7 +110,7 @@ const ReadingSpeed = () => {
           <Box sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
             {!showAmountField && (
               <>
-                {isTimerRunning ? (
+                {timerRunning ? (
                   <>
                     <Button 
                       variant="contained" 

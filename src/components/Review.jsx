@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { 
   format, isSameMonth, isSameYear, parseISO, subDays, startOfWeek, endOfWeek, 
-  eachDayOfInterval, startOfYear, endOfYear, getMonth, isAfter, startOfToday, isSameDay 
+  eachDayOfInterval, startOfYear, endOfYear, getMonth, isAfter, startOfDay, isSameDay, subHours 
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Box, Card, Typography, Button, Stack, useTheme, Grid, Select, MenuItem, Tooltip as MuiTooltip, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
@@ -67,8 +67,8 @@ const Review = () => {
   const [expandedMonthIndex, setExpandedMonthIndex] = useState(null);
   const theme = useTheme();
 
-  const todayDate = new Date();
-  const today = startOfToday();
+  const todayDate = subHours(new Date(), 3);
+  const today = startOfDay(todayDate);
 
   // --- REVIEW STATS (Month/Year) ---
   const isDateInView = (dateStr) => {
