@@ -106,11 +106,25 @@ export const TaskProvider = ({ children }) => {
     }
   }, [personalTasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, user, isLoading]);
 
+  const [userDisplayName, setUserDisplayName] = useState('');
+
   // Firestore Realtime Listeners
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setUserDisplayName('');
+      return;
+    }
 
     setIsLoading(true);
+
+    const userProfileRef = doc(db, 'users', user.uid);
+    const unsubscribeUserProfile = onSnapshot(userProfileRef, (docSnap) => {
+      if (docSnap.exists() && docSnap.data().displayName) {
+        setUserDisplayName(docSnap.data().displayName);
+      } else {
+        setUserDisplayName('');
+      }
+    });
 
     const tasksRef = collection(db, 'users', user.uid, 'tasks');
     const unsubscribeTasks = onSnapshot(tasksRef, (snapshot) => {
@@ -189,6 +203,7 @@ export const TaskProvider = ({ children }) => {
     migrateLocalData();
 
     return () => {
+      unsubscribeUserProfile();
       unsubscribeTasks();
       unsubscribeSharedTasks();
       unsubscribeCategories();
@@ -341,18 +356,31 @@ export const TaskProvider = ({ children }) => {
   const toggleSubTask = async (taskId, subTaskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    const updatedSubTasks = task.subTasks.map(st => st.id === subTaskId ? { ...st, completed: !st.completed } : st);
+    const myName = userDisplayName || user?.email || 'Unbekannt';
+    const updatedSubTasks = task.subTasks.map(st => 
+      st.id === subTaskId 
+        ? { ...st, completed: !st.completed, completedBy: !st.completed ? myName : null } 
+        : st
+    );
     const allCompleted = updatedSubTasks.every(st => st.completed);
     const today = getTodayDateString();
     let updatedCompletedDates = [...task.completedDates];
+    let newCompletedByMap = { ...(task.completedByMap || {}) };
+    
     if (task.type === 'general') {
       if (allCompleted) { await deleteTask(taskId); return; }
     } else {
       const isMainCompletedToday = task.completedDates.includes(today);
-      if (allCompleted && !isMainCompletedToday) updatedCompletedDates.push(today);
-      else if (!allCompleted && isMainCompletedToday) updatedCompletedDates = updatedCompletedDates.filter(d => d !== today);
+      if (allCompleted && !isMainCompletedToday) {
+        updatedCompletedDates.push(today);
+        newCompletedByMap[today] = myName;
+      }
+      else if (!allCompleted && isMainCompletedToday) {
+        updatedCompletedDates = updatedCompletedDates.filter(d => d !== today);
+        delete newCompletedByMap[today];
+      }
     }
-    const updatedTask = { ...task, subTasks: updatedSubTasks, completedDates: updatedCompletedDates };
+    const updatedTask = { ...task, subTasks: updatedSubTasks, completedDates: updatedCompletedDates, completedByMap: newCompletedByMap };
     if (!user && !task.isShared) {
       setPersonalTasks(personalTasks.map(t => t.id === taskId ? updatedTask : t));
     }
@@ -380,9 +408,18 @@ export const TaskProvider = ({ children }) => {
       return; 
     }
     
+    const myName = userDisplayName || user?.email || 'Unbekannt';
     const isCompletedOnDate = task.completedDates.includes(date);
     const newCompletedDates = isCompletedOnDate ? task.completedDates.filter(d => d !== date) : [...task.completedDates, date];
-    const updatedTask = { ...task, completedDates: newCompletedDates };
+    
+    const newCompletedByMap = { ...(task.completedByMap || {}) };
+    if (!isCompletedOnDate) {
+      newCompletedByMap[date] = myName;
+    } else {
+      delete newCompletedByMap[date];
+    }
+    
+    const updatedTask = { ...task, completedDates: newCompletedDates, completedByMap: newCompletedByMap };
     
     if (!user && !task.isShared) {
       setPersonalTasks(personalTasks.map(t => t.id === taskId ? updatedTask : t));

@@ -61,6 +61,8 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     ? task.specificDays.map(d => daysMap[d]).join(', ') 
     : '';
 
+  const completedByToday = task.isShared && task.completedByMap && task.completedByMap[today];
+
   const getTypeLabel = () => {
     switch (task.type) {
       case 'daily': return 'Täglich';
@@ -166,6 +168,11 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
                 </Box>
               </MuiTooltip>
             )}
+            {completedByToday && isCompleted && (
+              <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>
+                (erledigt von {completedByToday})
+              </Typography>
+            )}
           </Typography>
           
           <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', mt: 0.5, display: 'block' }}>
@@ -209,6 +216,11 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
                   }}
                 >
                   {st.title}
+                  {st.completed && task.isShared && st.completedBy && (
+                    <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic' }}>
+                      (von {st.completedBy})
+                    </Typography>
+                  )}
                 </Typography>
               </Box>
             ))}
