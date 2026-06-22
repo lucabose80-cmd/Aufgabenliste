@@ -489,8 +489,9 @@ const Review = () => {
                         return (
                           <MuiTooltip key={dIndex} title={format(day, 'dd.MM.yyyy')} arrow placement="top">
                             <Box 
-                              onClick={() => {
+                              onClick={(e) => {
                                 if (selectedTrackerTask === 'all' && (evalDay.color === 'error.main' || evalDay.color === 'warning.main') && evalDay.missedTasks && evalDay.missedTasks.length > 0) {
+                                  e.stopPropagation();
                                   setSelectedDayDetails({
                                     date: format(day, 'dd.MM.yyyy'),
                                     missed: evalDay.missedTasks
