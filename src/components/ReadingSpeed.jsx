@@ -22,13 +22,13 @@ const ReadingSpeed = () => {
   } = useTaskContext();
   
   const [amount, setAmount] = useState('');
-  const [startPage, setStartPage] = useState('');
-  const [endPage, setEndPage] = useState('');
+  const [endedOnPage, setEndedOnPage] = useState('');
   const [showAmountField, setShowAmountField] = useState(false);
 
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editMinutes, setEditMinutes] = useState(0);
   const [editAmount, setEditAmount] = useState('');
+  const [editEndedOnPage, setEditEndedOnPage] = useState('');
 
   const handleStartTimer = () => {
     setTimerRunning(true);
@@ -46,21 +46,11 @@ const ReadingSpeed = () => {
   };
 
   const handleSaveInfo = () => {
-    let finalAmount = amount;
-    if (startPage !== '' && endPage !== '') {
-      const s = parseInt(startPage, 10);
-      const e = parseInt(endPage, 10);
-      if (!isNaN(s) && !isNaN(e) && e >= s) {
-        finalAmount = (e - s).toString(); 
-      }
-    }
-
-    saveReadingSession(timerSeconds, finalAmount);
+    saveReadingSession(timerSeconds, amount, endedOnPage);
     setTimerSeconds(0);
     setShowAmountField(false);
     setAmount('');
-    setStartPage('');
-    setEndPage('');
+    setEndedOnPage('');
   };
 
   const formatTime = (totalSeconds) => {
@@ -75,10 +65,11 @@ const ReadingSpeed = () => {
     setEditingSessionId(session.id);
     setEditMinutes(Math.round(session.timeSpent / 60));
     setEditAmount(session.amount);
+    setEditEndedOnPage(session.endedOnPage || '');
   };
 
   const handleSaveEdit = (id) => {
-    updateReadingSession(id, parseInt(editMinutes, 10) * 60, parseFloat(editAmount));
+    updateReadingSession(id, parseInt(editMinutes, 10) * 60, parseFloat(editAmount), editEndedOnPage);
     setEditingSessionId(null);
   };
 
@@ -175,51 +166,41 @@ const ReadingSpeed = () => {
             
             <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80 }}>Von Seite:</Typography>
-                <TextField 
-                  type="number" 
-                  value={startPage} 
-                  onChange={(e) => { setStartPage(e.target.value); setAmount(''); }} 
-                  placeholder="z.B. 10" 
-                  size="small"
-                  sx={{ flex: 1, minWidth: 100 }}
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80, textAlign: 'right' }}>Bis Seite:</Typography>
-                <TextField 
-                  type="number" 
-                  value={endPage} 
-                  onChange={(e) => { setEndPage(e.target.value); setAmount(''); }} 
-                  placeholder="z.B. 25" 
-                  size="small"
-                  sx={{ flex: 1, minWidth: 100 }}
-                />
-              </Box>
-
-              <Divider><Typography variant="caption" color="text.secondary">ODER</Typography></Divider>
-
-              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Gelesene Seiten:</Typography>
                 <TextField 
                   type="number" 
                   value={amount} 
-                  onChange={(e) => { setAmount(e.target.value); setStartPage(''); setEndPage(''); }} 
-                  placeholder="Gelesene Seiten gesamt" 
-                  fullWidth
+                  onChange={(e) => setAmount(e.target.value)} 
+                  placeholder="z.B. 15" 
+                  size="small"
+                  sx={{ flex: 1, minWidth: 100 }}
                 />
-                <Button variant="contained" color="primary" onClick={handleSaveInfo} startIcon={<SaveIcon />}>
-                  Speichern
-                </Button>
               </Box>
+
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Beendet auf Seite (optional):</Typography>
+                <TextField 
+                  type="number" 
+                  value={endedOnPage} 
+                  onChange={(e) => setEndedOnPage(e.target.value)} 
+                  placeholder="z.B. 120" 
+                  size="small"
+                  sx={{ flex: 1, minWidth: 100 }}
+                />
+              </Box>
+
+              <Button variant="contained" color="primary" onClick={handleSaveInfo} startIcon={<SaveIcon />} sx={{ mt: 2 }}>
+                Speichern
+              </Button>
             </Box>
             <Button 
               variant="outlined" 
               color="error"
               onClick={() => {
                 setTimerSeconds(0);
-                setAccumulatedTime(0);
                 setShowAmountField(false);
                 setAmount('');
-                setStartPage('');
-                setEndPage('');
+                setEndedOnPage('');
               }}
               sx={{ alignSelf: 'flex-start' }}
             >
@@ -257,6 +238,16 @@ const ReadingSpeed = () => {
                       />
                       <Typography variant="body2">Seiten</Typography>
                     </Box>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <TextField 
+                        type="number" 
+                        value={editEndedOnPage} 
+                        onChange={(e) => setEditEndedOnPage(e.target.value)}
+                        size="small"
+                        placeholder="Beendet auf"
+                        sx={{ width: 100 }}
+                      />
+                    </Box>
                     <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
                       <IconButton color="success" onClick={() => handleSaveEdit(session.id)}>
                         <CheckIcon />
@@ -270,7 +261,7 @@ const ReadingSpeed = () => {
                   <>
                     <ListItemText 
                       primary={`${formatTime(session.timeSpent)} gelesen`} 
-                      secondary={`${session.amount} Seiten | ${format(new Date(session.date), 'dd.MM.yyyy HH:mm')}`}
+                      secondary={`${session.amount} Seiten${session.endedOnPage ? ` | Beendet auf S. ${session.endedOnPage}` : ''} | ${format(new Date(session.date), 'dd.MM.yyyy HH:mm')}`}
                     />
                     <ListItemSecondaryAction>
                       <IconButton color="primary" onClick={() => handleEditClick(session)} sx={{ mr: 1 }}>

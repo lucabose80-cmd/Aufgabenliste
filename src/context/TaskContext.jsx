@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { format, subHours } from 'date-fns';
 import { useAuth } from './AuthContext';
@@ -40,12 +40,17 @@ export const TaskProvider = ({ children }) => {
   // Global Reading Timer
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const timerStartRef = useRef(null);
+  const timerInitialSecondsRef = useRef(0);
 
   useEffect(() => {
     let interval;
     if (timerRunning) {
+      timerStartRef.current = Date.now();
+      timerInitialSecondsRef.current = timerSeconds;
       interval = setInterval(() => {
-        setTimerSeconds(s => s + 1);
+        const elapsed = Math.floor((Date.now() - timerStartRef.current) / 1000);
+        setTimerSeconds(timerInitialSecondsRef.current + elapsed);
       }, 1000);
     } else {
       clearInterval(interval);
@@ -547,8 +552,14 @@ export const TaskProvider = ({ children }) => {
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'categories', id));
   };
 
-  const saveReadingSession = async (timeSpent, amount, date = getTodayDateString()) => {
-    const newSession = { id: uuidv4(), date, timeSpent, amount: parseFloat(amount) || 0 };
+  const saveReadingSession = async (timeSpent, amount, endedOnPage = null, date = getTodayDateString()) => {
+    const newSession = { 
+      id: uuidv4(), 
+      date, 
+      timeSpent, 
+      amount: parseFloat(amount) || 0,
+      endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null 
+    };
     if (!user) setReadingSessions([...readingSessions, newSession]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', newSession.id), newSession);
   };
@@ -558,10 +569,15 @@ export const TaskProvider = ({ children }) => {
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'readingSessions', id));
   };
 
-  const updateReadingSession = async (id, timeSpent, amount) => {
+  const updateReadingSession = async (id, timeSpent, amount, endedOnPage = null) => {
     const session = readingSessions.find(s => s.id === id);
     if (!session) return;
-    const updatedSession = { ...session, timeSpent, amount: parseFloat(amount) || 0 };
+    const updatedSession = { 
+      ...session, 
+      timeSpent, 
+      amount: parseFloat(amount) || 0,
+      endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null
+    };
     if (!user) setReadingSessions(readingSessions.map(s => s.id === id ? updatedSession : s));
     if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', id), updatedSession);
   };
