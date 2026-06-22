@@ -61,13 +61,14 @@ const SortableDashboardItem = ({ id, children }) => {
 };
 
 const Review = () => {
-  const { tasks, readingSessions, calorieLogs, toggleTaskCompletion, dashboardOrder, saveSettings } = useTaskContext();
+  const { tasks, readingSessions, calorieLogs, toggleTaskCompletion, dashboardOrder, saveSettings, resetHour } = useTaskContext();
   const [viewMode, setViewMode] = useState('month'); 
   const [selectedTrackerTask, setSelectedTrackerTask] = useState('all');
   const [expandedMonthIndex, setExpandedMonthIndex] = useState(null);
+  const [selectedDayDetails, setSelectedDayDetails] = useState(null); // { date: string, missed: string[] }
   const theme = useTheme();
 
-  const todayDate = subHours(new Date(), 3);
+  const todayDate = subHours(new Date(), resetHour || 3);
   const today = startOfDay(todayDate);
 
   // --- REVIEW STATS (Month/Year) ---
@@ -206,10 +207,11 @@ const Review = () => {
 
     if (selectedTrackerTask === 'all') {
       if (earliestTaskDate && dateStr < earliestTaskDate) {
-        return { color: 'background.default', border: 'divider', opacity: 0.3 };
+        return { color: 'background.default', border: 'divider', opacity: 0.3, missedTasks: [] };
       }
       let tasksShouldBeDone = 0;
       let tasksActuallyDone = 0;
+      let missedTasks = [];
       
       trackableTasks.forEach(task => {
         let shouldDo = false;
@@ -240,14 +242,18 @@ const Review = () => {
         
         if (shouldDo) {
           tasksShouldBeDone++;
-          if ((task.completedDates || []).includes(dateStr)) tasksActuallyDone++;
+          if ((task.completedDates || []).includes(dateStr)) {
+            tasksActuallyDone++;
+          } else {
+            missedTasks.push(task.title);
+          }
         }
       });
 
-      if (tasksShouldBeDone === 0) return { color: 'background.default', border: 'divider', opacity: 0.3 };
-      if (tasksActuallyDone === tasksShouldBeDone) return { color: 'success.main', border: 'success.dark', opacity: 1 };
-      if (tasksActuallyDone > 0) return { color: 'warning.main', border: 'warning.dark', opacity: 0.8 };
-      return { color: 'error.main', border: 'error.dark', opacity: 0.8 };
+      if (tasksShouldBeDone === 0) return { color: 'background.default', border: 'divider', opacity: 0.3, missedTasks: [] };
+      if (tasksActuallyDone === tasksShouldBeDone) return { color: 'success.main', border: 'success.dark', opacity: 1, missedTasks: [] };
+      if (tasksActuallyDone > 0) return { color: 'warning.main', border: 'warning.dark', opacity: 0.8, missedTasks };
+      return { color: 'error.main', border: 'error.dark', opacity: 0.8, missedTasks };
     } else {
       const task = tasks.find(t => t.id === selectedTrackerTask);
       if (!task) return { color: 'background.default', border: 'divider', opacity: 0.3 };
@@ -479,17 +485,32 @@ const Review = () => {
                         '&:hover': { borderColor: 'primary.main' }
                       }}>
                       {monthDays.map((day, dIndex) => {
-                        const { color, opacity, border } = evaluateDay(day);
+                        const evalDay = evaluateDay(day);
                         return (
                           <MuiTooltip key={dIndex} title={format(day, 'dd.MM.yyyy')} arrow placement="top">
                             <Box 
+                              onClick={() => {
+                                if (selectedTrackerTask === 'all' && (evalDay.color === 'error.main' || evalDay.color === 'warning.main') && evalDay.missedTasks && evalDay.missedTasks.length > 0) {
+                                  setSelectedDayDetails({
+                                    date: format(day, 'dd.MM.yyyy'),
+                                    missed: evalDay.missedTasks
+                                  });
+                                }
+                              }}
                               sx={{ 
-                                aspectRatio: '1/1',
-                                bgcolor: color,
-                                opacity,
-                                borderRadius: '4px',
-                                border: 1,
-                                borderColor: border,
+                                bgcolor: evalDay.color,
+                                border: '1px solid',
+                                borderColor: evalDay.border,
+                                borderRadius: 1,
+                                opacity: evalDay.opacity,
+                                aspectRatio: '1',
+                                cursor: (selectedTrackerTask === 'all' && evalDay.missedTasks?.length > 0) ? 'pointer' : 'default',
+                                '&:hover': {
+                                  opacity: 1,
+                                  transform: 'scale(1.1)',
+                                  transition: 'all 0.2s',
+                                  zIndex: 1
+                                }
                               }}
                             />
                           </MuiTooltip>
@@ -620,6 +641,19 @@ const Review = () => {
         )}
       </Dialog>
 
+      <Dialog open={!!selectedDayDetails} onClose={() => setSelectedDayDetails(null)}>
+        <DialogTitle>Fehlende Aufgaben</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Am {selectedDayDetails?.date} wurden folgende Aufgaben nicht erledigt:
+          </Typography>
+          <ul>
+            {selectedDayDetails?.missed.map((taskTitle, idx) => (
+              <li key={idx}><Typography>{taskTitle}</Typography></li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

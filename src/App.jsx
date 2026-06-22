@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button, BottomNavigation, BottomNavigationAction, Paper, Snackbar } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Button, BottomNavigation, BottomNavigationAction, Paper, Snackbar, Badge, Dialog } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -24,6 +25,7 @@ import ReadingSpeed from './components/ReadingSpeed';
 import Calories from './components/Calories';
 import AuthModal from './components/AuthModal';
 import NotificationManager from './components/NotificationManager';
+import Invitations from './components/Invitations';
 import Settings from './components/Settings';
 import ShoppingList from './components/ShoppingList';
 import ProfileModal from './components/ProfileModal';
@@ -36,10 +38,13 @@ function MainApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
   const [userDisplayName, setUserDisplayName] = useState('');
   
   const { user, logout } = useAuth();
-  const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar, pendingTasks, pendingLists } = useTaskContext();
+  
+  const pendingCount = (pendingTasks?.length || 0) + (pendingLists?.length || 0);
 
   useEffect(() => {
     if (!user) {
@@ -129,6 +134,14 @@ function MainApp() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               {user ? (
                 <>
+                  <IconButton 
+                    color="inherit" 
+                    onClick={() => setIsInvitationsModalOpen(true)}
+                  >
+                    <Badge badgeContent={pendingCount} color="error">
+                      <NotificationsIcon />
+                    </Badge>
+                  </IconButton>
                   <Box 
                     onClick={() => setIsProfileModalOpen(true)}
                     sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
@@ -186,7 +199,16 @@ function MainApp() {
 
         <AuthModal open={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
         <ProfileModal open={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
-        
+      
+      <Dialog 
+        open={isInvitationsModalOpen} 
+        onClose={() => setIsInvitationsModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <Invitations onClose={() => setIsInvitationsModalOpen(false)} />
+      </Dialog>
+    
         {snackbarInfo && (
           <Snackbar
             open={snackbarInfo.open}

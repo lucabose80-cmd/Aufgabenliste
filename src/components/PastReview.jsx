@@ -42,10 +42,10 @@ const SortableCard = ({ id, children, md }) => {
 };
 
 const PastReview = () => {
-  const { tasks, readingSessions, calorieLogs, pastReviewOrder, saveSettings, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder } = useTaskContext();
+  const { tasks, readingSessions, calorieLogs, pastReviewOrder, saveSettings, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, resetHour } = useTaskContext();
   const [timeframe, setTimeframe] = useState('month');
 
-  const todayDate = subHours(new Date(), 3);
+  const todayDate = subHours(new Date(), resetHour || 3);
   const today = startOfDay(todayDate);
 
   const minDateStr = useMemo(() => {

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { format, subHours } from 'date-fns';
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, query, where, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 const TaskContext = createContext();
 
@@ -21,6 +21,11 @@ export const TaskProvider = ({ children }) => {
   const [readingSessions, setReadingSessions] = useState([]);
   const [calorieLogs, setCalorieLogs] = useState([]);
   const [calorieGoal, setCalorieGoal] = useState(2000);
+  const [allUsersDB, setAllUsersDB] = useState([]);
+
+  // Invitations
+  const [pendingTasks, setPendingTasks] = useState([]);
+  const [pendingLists, setPendingLists] = useState([]);
   
   // Settings
   const [theme, setTheme] = useState('dark');
@@ -29,6 +34,7 @@ export const TaskProvider = ({ children }) => {
   const [pinnedNavItems, setPinnedNavItems] = useState(['home', 'reading-speed', 'shopping']);
   const [dashboardOrder, setDashboardOrder] = useState(['tracker', 'highlights', 'chart', 'quickStats']);
   const [pastReviewOrder, setPastReviewOrder] = useState(['tasks', 'perfectDays', 'reading', 'speed', 'calories']);
+  const [resetHour, setResetHour] = useState(3);
   const [isLoading, setIsLoading] = useState(true);
 
   // Global Reading Timer
@@ -102,6 +108,9 @@ export const TaskProvider = ({ children }) => {
       const savedPastDash = localStorage.getItem('pastReviewOrder');
       if (savedPastDash) setPastReviewOrder(JSON.parse(savedPastDash));
 
+      const savedResetHour = localStorage.getItem('resetHour');
+      if (savedResetHour) setResetHour(parseInt(savedResetHour, 10));
+
       setIsLoading(false);
     }
   }, [user]);
@@ -119,8 +128,9 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('pinnedNavItems', JSON.stringify(pinnedNavItems));
       localStorage.setItem('dashboardOrder', JSON.stringify(dashboardOrder));
       localStorage.setItem('pastReviewOrder', JSON.stringify(pastReviewOrder));
+      localStorage.setItem('resetHour', resetHour.toString());
     }
-  }, [personalTasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, user, isLoading]);
+  }, [personalTasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, resetHour, user, isLoading]);
 
   const [userDisplayName, setUserDisplayName] = useState('');
 
@@ -135,11 +145,18 @@ export const TaskProvider = ({ children }) => {
 
     const userProfileRef = doc(db, 'users', user.uid);
     const unsubscribeUserProfile = onSnapshot(userProfileRef, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().displayName) {
-        setUserDisplayName(docSnap.data().displayName);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.displayName) setUserDisplayName(data.displayName);
+        if (data.resetHour !== undefined) setResetHour(data.resetHour);
       } else {
         setUserDisplayName('');
       }
+    });
+
+    const usersRef = collection(db, 'users');
+    const unsubscribeUsers = onSnapshot(usersRef, (snapshot) => {
+      setAllUsersDB(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
     });
 
     const tasksRef = collection(db, 'users', user.uid, 'tasks');
@@ -153,6 +170,17 @@ export const TaskProvider = ({ children }) => {
     const unsubscribeSharedTasks = onSnapshot(qShared, (snapshot) => {
       const fbSharedTasks = snapshot.docs.map(doc => doc.data());
       setSharedTasks(fbSharedTasks);
+    });
+
+    const qPendingTasks = query(sharedTasksRef, where('pendingMembers', 'array-contains', user.uid));
+    const unsubscribePendingTasks = onSnapshot(qPendingTasks, (snapshot) => {
+      setPendingTasks(snapshot.docs.map(doc => doc.data()));
+    });
+
+    const sharedListsRef = collection(db, 'shared_lists');
+    const qPendingLists = query(sharedListsRef, where('pendingMembers', 'array-contains', user.uid));
+    const unsubscribePendingLists = onSnapshot(qPendingLists, (snapshot) => {
+      setPendingLists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     const categoriesRef = collection(db, 'users', user.uid, 'categories');
@@ -220,8 +248,11 @@ export const TaskProvider = ({ children }) => {
 
     return () => {
       unsubscribeUserProfile();
+      unsubscribeUsers();
       unsubscribeTasks();
       unsubscribeSharedTasks();
+      unsubscribePendingTasks();
+      unsubscribePendingLists();
       unsubscribeCategories();
       unsubscribeReading();
       unsubscribeCalories();
@@ -229,14 +260,29 @@ export const TaskProvider = ({ children }) => {
     };
   }, [user]);
 
-  const getTodayDateString = () => format(subHours(new Date(), 3), 'yyyy-MM-dd');
+  const getTodayDateString = (task = null) => {
+    let effectiveResetHour = resetHour;
+    if (task && task.isShared && task.members && allUsersDB.length > 0) {
+      let maxHour = resetHour;
+      task.members.forEach(memberId => {
+        const memberUser = allUsersDB.find(u => u.uid === memberId);
+        if (memberUser && memberUser.resetHour !== undefined) {
+          if (memberUser.resetHour > maxHour) {
+            maxHour = memberUser.resetHour;
+          }
+        }
+      });
+      effectiveResetHour = maxHour;
+    }
+    return format(subHours(new Date(), effectiveResetHour), 'yyyy-MM-dd');
+  };
 
   // Auto-reset subtasks for a new day
   useEffect(() => {
     if (tasks.length === 0 || isLoading) return;
-    const today = getTodayDateString();
     let hasChanges = false;
     const updatedTasks = tasks.map(task => {
+      const today = getTodayDateString(task);
       if (task.type !== 'general' && task.subTasks && task.subTasks.length > 0) {
         if (!(task.completedDates || []).includes(today) && task.lastResetDate !== today) {
           const needsReset = task.subTasks.some(st => st.completed);
@@ -377,6 +423,7 @@ export const TaskProvider = ({ children }) => {
   const toggleSubTask = async (taskId, subTaskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
+    const today = getTodayDateString(task);
     const myName = userDisplayName || user?.email || 'Unbekannt';
     const updatedSubTasks = task.subTasks.map(st => 
       st.id === subTaskId 
@@ -384,7 +431,6 @@ export const TaskProvider = ({ children }) => {
         : st
     );
     const allCompleted = updatedSubTasks.every(st => st.completed);
-    const today = getTodayDateString();
     let updatedCompletedDates = [...(task.completedDates || [])];
     let newCompletedByMap = { ...(task.completedByMap || {}) };
     
@@ -413,9 +459,10 @@ export const TaskProvider = ({ children }) => {
   const showSnackbar = (message, onUndo) => setSnackbarInfo({ open: true, message, onUndo });
   const closeSnackbar = () => setSnackbarInfo(prev => ({ ...prev, open: false }));
 
-  const toggleTaskCompletion = async (taskId, date = getTodayDateString()) => {
+  const toggleTaskCompletion = async (taskId, date = null) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
+    const effectiveDate = date || getTodayDateString(task);
     
     if (task.type === 'general') { 
       await deleteTask(taskId); 
@@ -430,14 +477,14 @@ export const TaskProvider = ({ children }) => {
     }
     
     const myName = userDisplayName || user?.email || 'Unbekannt';
-    const isCompletedOnDate = (task.completedDates || []).includes(date);
-    const newCompletedDates = isCompletedOnDate ? (task.completedDates || []).filter(d => d !== date) : [...(task.completedDates || []), date];
+    const isCompletedOnDate = (task.completedDates || []).includes(effectiveDate);
+    const newCompletedDates = isCompletedOnDate ? (task.completedDates || []).filter(d => d !== effectiveDate) : [...(task.completedDates || []), effectiveDate];
     
     const newCompletedByMap = { ...(task.completedByMap || {}) };
     if (!isCompletedOnDate) {
-      newCompletedByMap[date] = myName;
+      newCompletedByMap[effectiveDate] = myName;
     } else {
-      delete newCompletedByMap[date];
+      delete newCompletedByMap[effectiveDate];
     }
     
     const updatedTask = { ...task, completedDates: newCompletedDates, completedByMap: newCompletedByMap };
@@ -539,13 +586,19 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { calorieGoal: goal }, { merge: true });
   };
 
-  const saveSettings = async (newTheme, newAccentColor, newShoppingListId, newPinned, newDashboardOrder, newPastReviewOrder) => {
+  const saveSettings = async (newTheme, newAccentColor, newShoppingListId, newPinned, newDashboardOrder, newPastReviewOrder, newResetHour) => {
     if (newTheme) setTheme(newTheme);
     if (newAccentColor) setAccentColor(newAccentColor);
     if (newShoppingListId !== undefined) setShoppingListId(newShoppingListId);
     if (newPinned) setPinnedNavItems(newPinned);
     if (newDashboardOrder) setDashboardOrder(newDashboardOrder);
     if (newPastReviewOrder) setPastReviewOrder(newPastReviewOrder);
+    if (newResetHour !== undefined) {
+      setResetHour(newResetHour);
+      if (user) {
+        await setDoc(doc(db, 'users', user.uid), { resetHour: newResetHour }, { merge: true });
+      }
+    }
 
     const payload = {
       theme: newTheme || theme,
@@ -575,6 +628,52 @@ export const TaskProvider = ({ children }) => {
       alert("Erfolgreich synchronisiert!");
     } catch (err) {
       alert("Fehler beim Sync: " + err.message);
+    }
+  };
+
+  const acceptTaskInvitation = async (taskId) => {
+    try {
+      const taskRef = doc(db, 'shared_tasks', taskId);
+      await setDoc(taskRef, {
+        members: arrayUnion(user.uid),
+        pendingMembers: arrayRemove(user.uid)
+      }, { merge: true });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const rejectTaskInvitation = async (taskId) => {
+    try {
+      const taskRef = doc(db, 'shared_tasks', taskId);
+      await setDoc(taskRef, {
+        pendingMembers: arrayRemove(user.uid)
+      }, { merge: true });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const acceptListInvitation = async (listId) => {
+    try {
+      const listRef = doc(db, 'shared_lists', listId);
+      await setDoc(listRef, {
+        members: arrayUnion(user.uid),
+        pendingMembers: arrayRemove(user.uid)
+      }, { merge: true });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const rejectListInvitation = async (listId) => {
+    try {
+      const listRef = doc(db, 'shared_lists', listId);
+      await setDoc(listRef, {
+        pendingMembers: arrayRemove(user.uid)
+      }, { merge: true });
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -617,7 +716,15 @@ export const TaskProvider = ({ children }) => {
       timerRunning,
       setTimerRunning,
       timerSeconds,
-      setTimerSeconds
+      setTimerSeconds,
+      allUsersDB,
+      resetHour,
+      pendingTasks,
+      pendingLists,
+      acceptTaskInvitation,
+      rejectTaskInvitation,
+      acceptListInvitation,
+      rejectListInvitation
     }}>
       {children}
     </TaskContext.Provider>

@@ -10,11 +10,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import TimelineIcon from '@mui/icons-material/Timeline';
 
 const Calories = () => {
-  const { calorieGoal, updateCalorieGoal, calorieLogs, saveCalorieLog, deleteCalorieLog, getTodayDateString } = useTaskContext();
+  const { calorieGoal, updateCalorieGoal, calorieLogs, saveCalorieLog, deleteCalorieLog, getTodayDateString, resetHour } = useTaskContext();
   const [goalInput, setGoalInput] = useState(calorieGoal || '');
   const [differenceInput, setDifferenceInput] = useState('');
   const todayStr = getTodayDateString();
-  const todayDate = subHours(new Date(), 3);
+  const todayDate = subHours(new Date(), resetHour || 3);
 
   const handleSaveGoal = () => {
     updateCalorieGoal(goalInput);

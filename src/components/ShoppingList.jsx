@@ -137,8 +137,9 @@ const ShoppingList = () => {
   const handleInviteUser = async () => {
     if (!selectedUserToInvite || !activeList) return;
     await updateDoc(doc(db, 'shared_lists', activeList.id), {
-      members: arrayUnion(selectedUserToInvite)
+      pendingMembers: arrayUnion(selectedUserToInvite)
     });
+    setIsInviteModalOpen(false);
     setSelectedUserToInvite('');
   };
 

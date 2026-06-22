@@ -29,7 +29,7 @@ import GroupIcon from '@mui/icons-material/Group';
 
 const SortableTaskItem = ({ task, isWrongDay }) => {
   const [expanded, setExpanded] = useState(false);
-  const { toggleTaskCompletion, toggleSubTask, updateTask, categories, getTodayDateString } = useTaskContext();
+  const { toggleTaskCompletion, toggleSubTask, updateTask, categories, getTodayDateString, resetHour } = useTaskContext();
   const hasValidCategory = categories.some(c => c.id === task.categoryId);
   
   const {
@@ -81,7 +81,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     if (completedDates.length === 0) return 0;
 
     let streak = 0;
-    let checkDate = subHours(new Date(), 3); 
+    let checkDate = subHours(new Date(), resetHour || 3); 
     const todayStr = format(checkDate, 'yyyy-MM-dd');
     const yesterdayStr = format(subDays(checkDate, 1), 'yyyy-MM-dd');
 
@@ -263,7 +263,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
 };
 
 const TaskGrid = () => {
-  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories } = useTaskContext();
+  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories, resetHour } = useTaskContext();
   const [showCompleted, setShowCompleted] = useState(false);
 
   const displayGroups = categories.map(cat => ({
@@ -275,7 +275,7 @@ const TaskGrid = () => {
   displayGroups.push({ id: 'uncategorized', label: 'Ohne Kategorie', color: 'text.secondary' });
 
   const today = getTodayDateString();
-  const dayOfWeek = subHours(new Date(), 3).getDay();
+  const dayOfWeek = subHours(new Date(), resetHour || 3).getDay();
 
   const [collapsedCategories, setCollapsedCategories] = useState(() => {
     try {

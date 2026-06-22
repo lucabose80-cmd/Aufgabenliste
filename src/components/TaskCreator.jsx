@@ -82,6 +82,21 @@ const TaskCreator = () => {
       return { id: Math.random().toString(), title: s, completed: false };
     });
 
+    let newMembers = isShared && user ? [user.uid] : [];
+    let newPendingMembers = [];
+
+    if (editingTaskId && isShared) {
+      const existingTask = tasks.find(t => t.id === editingTaskId);
+      if (existingTask) {
+        newMembers = (existingTask.members || []).filter(m => m === user?.uid || selectedMembers.includes(m));
+        if (user && !newMembers.includes(user.uid)) newMembers.push(user.uid);
+        
+        newPendingMembers = selectedMembers.filter(m => !(existingTask.members || []).includes(m));
+      }
+    } else if (isShared) {
+      newPendingMembers = selectedMembers;
+    }
+
     const taskPayload = {
       title,
       categoryId,
@@ -90,7 +105,8 @@ const TaskCreator = () => {
       specificDays: type === 'specific-days' ? specificDays : [],
       subTasks: formattedSubTasks,
       isShared: isShared,
-      members: isShared && user ? [user.uid, ...selectedMembers] : []
+      members: newMembers,
+      pendingMembers: newPendingMembers
     };
 
     if (editingTaskId) {
@@ -120,7 +136,8 @@ const TaskCreator = () => {
     setSpecificDays(task.specificDays);
     setSubTasks(task.subTasks.map(st => st.title));
     setIsShared(task.isShared || false);
-    setSelectedMembers(task.members ? task.members.filter(m => m !== user?.uid) : []);
+    const allShared = [...(task.members || []), ...(task.pendingMembers || [])];
+    setSelectedMembers(allShared.filter(m => m !== user?.uid));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

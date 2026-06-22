@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Grid, Button, IconButton, Checkbox, FormControlLabel } from '@mui/material';
+import { Box, Card, Typography, Grid, Button, IconButton, Checkbox, FormControlLabel, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -28,7 +28,7 @@ const NAV_ITEMS = [
 ];
 
 const Settings = () => {
-  const { theme, accentColor, pinnedNavItems, saveSettings } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, saveSettings, resetHour } = useTaskContext();
 
   const handleThemeChange = (newTheme) => {
     saveSettings(newTheme, accentColor, undefined, pinnedNavItems);
@@ -36,6 +36,10 @@ const Settings = () => {
 
   const handleColorChange = (newColor) => {
     saveSettings(theme, newColor, undefined, pinnedNavItems);
+  };
+
+  const handleResetHourChange = (e) => {
+    saveSettings(theme, accentColor, undefined, pinnedNavItems, undefined, undefined, e.target.value);
   };
 
   const handleNavToggle = (itemId) => {
@@ -200,6 +204,29 @@ const Settings = () => {
               );
             })}
           </Grid>
+        </Box>
+
+        {/* Reset Timer */}
+        <Box sx={{ mt: 5 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>Tageswechsel (Reset)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Um wie viel Uhr sollen deine täglichen Aufgaben für den neuen Tag zurückgesetzt werden?
+          </Typography>
+          <FormControl fullWidth sx={{ maxWidth: 300 }}>
+            <InputLabel id="reset-hour-label">Uhrzeit</InputLabel>
+            <Select
+              labelId="reset-hour-label"
+              value={resetHour || 3}
+              label="Uhrzeit"
+              onChange={handleResetHourChange}
+            >
+              {[...Array(24)].map((_, i) => (
+                <MenuItem key={i} value={i}>
+                  {i.toString().padStart(2, '0')}:00 Uhr
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Box>
 
       </Card>
