@@ -558,7 +558,8 @@ export const TaskProvider = ({ children }) => {
       date, 
       timeSpent, 
       amount: parseFloat(amount) || 0,
-      endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null 
+      endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null,
+      createdAt: new Date().toISOString()
     };
     if (!user) setReadingSessions([...readingSessions, newSession]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', newSession.id), newSession);

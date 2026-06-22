@@ -3,8 +3,10 @@ import { useTaskContext } from '../context/TaskContext';
 import { format } from 'date-fns';
 import { 
   Box, Card, Typography, TextField, Button, IconButton, 
-  List, ListItem, ListItemText, ListItemSecondaryAction, Divider 
+  List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
+  Tabs, Tab
 } from '@mui/material';
+import ReadingAnalytics from './ReadingAnalytics';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
@@ -24,6 +26,7 @@ const ReadingSpeed = () => {
   const [amount, setAmount] = useState('');
   const [endedOnPage, setEndedOnPage] = useState('');
   const [showAmountField, setShowAmountField] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
 
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editMinutes, setEditMinutes] = useState(0);
@@ -79,12 +82,21 @@ const ReadingSpeed = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
-      <Card sx={{ p: { xs: 2, sm: 4 } }}>
-        <Typography variant="h5" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-          <MenuBookIcon color="primary" fontSize="large" /> Lesegeschwindigkeit
-        </Typography>
+      <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mb: -2 }}>
+        <MenuBookIcon color="primary" fontSize="large" /> Lesegeschwindigkeit
+      </Typography>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', my: { xs: 8, sm: 4 }, minHeight: { xs: '40vh', sm: 'auto' } }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+          <Tab label="Eingabe & Historie" />
+          <Tab label="Statistiken" />
+        </Tabs>
+      </Box>
+
+      {activeTab === 0 ? (
+        <>
+          <Card sx={{ p: { xs: 2, sm: 4 } }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', my: { xs: 8, sm: 4 }, minHeight: { xs: '40vh', sm: 'auto' } }}>
           <Typography 
             variant="h2" 
             sx={{ 
@@ -277,6 +289,10 @@ const ReadingSpeed = () => {
             ))}
           </List>
         </Card>
+      )}
+      </>
+      ) : (
+        <ReadingAnalytics />
       )}
     </Box>
   );
