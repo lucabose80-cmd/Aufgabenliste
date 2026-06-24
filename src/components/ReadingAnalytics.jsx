@@ -28,7 +28,12 @@ const ReadingAnalytics = () => {
     let seconds = 0;
 
     const validSessions = readingSessions.filter(s => s.timeSpent > 0 && s.amount > 0)
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .sort((a, b) => {
+        const dateDiff = new Date(a.date) - new Date(b.date);
+        if (dateDiff !== 0) return dateDiff;
+        if (a.createdAt && b.createdAt) return new Date(a.createdAt) - new Date(b.createdAt);
+        return 0;
+      });
 
     // For Trend Chart
     const trend = [];

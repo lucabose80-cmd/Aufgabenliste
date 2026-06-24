@@ -77,7 +77,12 @@ const ReadingSpeed = () => {
   };
 
   const recentSessions = [...readingSessions]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .sort((a, b) => {
+      const dateDiff = new Date(b.date) - new Date(a.date);
+      if (dateDiff !== 0) return dateDiff;
+      if (b.createdAt && a.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+      return 0;
+    })
     .slice(0, 10);
 
   return (
