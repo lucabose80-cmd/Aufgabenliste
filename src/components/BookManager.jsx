@@ -20,19 +20,22 @@ const BookManager = () => {
   const [newBookName, setNewBookName] = useState('');
   const [newBookAuthor, setNewBookAuthor] = useState('');
   const [newBookSeries, setNewBookSeries] = useState('');
+  const [newBookWordsPerPage, setNewBookWordsPerPage] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editAuthor, setEditAuthor] = useState('');
   const [editSeries, setEditSeries] = useState('');
+  const [editWordsPerPage, setEditWordsPerPage] = useState('');
 
   const handleAddBook = () => {
     if (!newBookName.trim()) return;
-    addBook(newBookName, newBookAuthor, newBookSeries);
+    addBook(newBookName, newBookAuthor, newBookSeries, newBookWordsPerPage);
     setNewBookName('');
     setNewBookAuthor('');
     setNewBookSeries('');
+    setNewBookWordsPerPage('');
     setIsAdding(false);
   };
 
@@ -45,11 +48,12 @@ const BookManager = () => {
     setEditName(book.name);
     setEditAuthor(book.author || '');
     setEditSeries(book.series || '');
+    setEditWordsPerPage(book.wordsPerPage ? book.wordsPerPage.toString() : '');
   };
 
   const handleSaveEdit = (id) => {
     if (!editName.trim()) return;
-    updateBook(id, editName, editAuthor, editSeries);
+    updateBook(id, editName, editAuthor, editSeries, undefined, editWordsPerPage);
     setEditingId(null);
   };
 
@@ -119,6 +123,14 @@ const BookManager = () => {
             onInputChange={(e, newValue) => handleSeriesChange(newValue, false)}
             renderInput={(params) => <TextField {...params} label="Reihe" size="small" fullWidth />}
           />
+          <TextField 
+            label="Wörter pro Seite (Ø)" 
+            type="number"
+            value={newBookWordsPerPage} 
+            onChange={(e) => setNewBookWordsPerPage(e.target.value)} 
+            size="small" 
+            fullWidth 
+          />
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="contained" onClick={handleAddBook} disabled={!newBookName.trim()}>Speichern</Button>
             <Button variant="text" onClick={() => setIsAdding(false)}>Abbrechen</Button>
@@ -154,6 +166,13 @@ const BookManager = () => {
                       value={editSeries}
                       onInputChange={(e, newValue) => handleSeriesChange(newValue, true)}
                       renderInput={(params) => <TextField {...params} label="Reihe" size="small" />}
+                    />
+                    <TextField 
+                      label="Wörter pro Seite (Ø)" 
+                      type="number"
+                      value={editWordsPerPage} 
+                      onChange={(e) => setEditWordsPerPage(e.target.value)} 
+                      size="small" 
                     />
                   </Box>
                 ) : (

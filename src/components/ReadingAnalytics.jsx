@@ -12,6 +12,7 @@ import {
 import SpeedIcon from '@mui/icons-material/Speed';
 import TimerIcon from '@mui/icons-material/Timer';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import AutoGraphIcon from '@mui/icons-material/AutoGraph';
 
 const ReadingAnalytics = () => {
   const { readingSessions, books } = useTaskContext();
@@ -24,12 +25,15 @@ const ReadingAnalytics = () => {
     totalPages,
     totalSeconds,
     avgSpeedAllTime,
+    avgWpmAllTime,
     trendData,
     durationData,
     timeOfDayData
   } = useMemo(() => {
     let pages = 0;
     let seconds = 0;
+    let totalWords = 0;
+    let secondsForWpm = 0;
 
     let filteredSessions = readingSessions;
     if (filterType === 'book' && filterValue) {
@@ -71,6 +75,12 @@ const ReadingAnalytics = () => {
       seconds += s.timeSpent;
 
       const speed = (s.amount / (s.timeSpent / 3600)); // pages per hour
+
+      const book = books.find(b => b.id === s.bookId);
+      if (book && book.wordsPerPage) {
+        totalWords += s.amount * book.wordsPerPage;
+        secondsForWpm += s.timeSpent;
+      }
 
       // Trend
       trend.push({
@@ -128,6 +138,7 @@ const ReadingAnalytics = () => {
       totalPages: pages,
       totalSeconds: seconds,
       avgSpeedAllTime: seconds > 0 ? Math.round(pages / (seconds / 3600)) : 0,
+      avgWpmAllTime: secondsForWpm > 0 ? Math.round(totalWords / (secondsForWpm / 60)) : 0,
       trendData: trend,
       durationData: dData,
       timeOfDayData: tData
@@ -208,7 +219,7 @@ const ReadingAnalytics = () => {
       </Card>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
             <Box sx={{ p: 1.5, bgcolor: 'primary.light', borderRadius: 2, color: 'primary.main', display: 'flex' }}>
               <MenuBookIcon />
@@ -219,7 +230,7 @@ const ReadingAnalytics = () => {
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
             <Box sx={{ p: 1.5, bgcolor: 'success.light', borderRadius: 2, color: 'success.main', display: 'flex' }}>
               <TimerIcon />
@@ -230,7 +241,7 @@ const ReadingAnalytics = () => {
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
             <Box sx={{ p: 1.5, bgcolor: 'warning.light', borderRadius: 2, color: 'warning.main', display: 'flex' }}>
               <SpeedIcon />
@@ -238,6 +249,17 @@ const ReadingAnalytics = () => {
             <Box>
               <Typography variant="body2" color="text.secondary">Ø Geschwindigkeit</Typography>
               <Typography variant="h5" fontWeight="bold">{avgSpeedAllTime} S/h</Typography>
+            </Box>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
+            <Box sx={{ p: 1.5, bgcolor: 'info.light', borderRadius: 2, color: 'info.main', display: 'flex' }}>
+              <AutoGraphIcon />
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary">Ø Wörter / Min.</Typography>
+              <Typography variant="h5" fontWeight="bold">{avgWpmAllTime > 0 ? avgWpmAllTime : '-'} WPM</Typography>
             </Box>
           </Card>
         </Grid>

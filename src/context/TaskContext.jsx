@@ -619,23 +619,31 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series) => {
+  const addBook = async (name, author, series, wordsPerPage) => {
     const newBook = {
       id: uuidv4(),
       name,
       author: author || '',
       series: series || '',
       completed: false,
+      wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null,
       createdAt: new Date().toISOString()
     };
     if (!user) setBooks([...books, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
-    const updatedBook = { ...book, name, author: author || '', series: series || '', completed: completed !== undefined ? completed : !!book.completed };
+    const updatedBook = { 
+      ...book, 
+      name, 
+      author: author || '', 
+      series: series || '', 
+      completed: completed !== undefined ? completed : !!book.completed,
+      wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null
+    };
     if (!user) setBooks(books.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
   };
