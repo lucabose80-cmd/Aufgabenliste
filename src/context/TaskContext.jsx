@@ -19,6 +19,7 @@ export const TaskProvider = ({ children }) => {
 
   const [categories, setCategories] = useState([]);
   const [readingSessions, setReadingSessions] = useState([]);
+  const [books, setBooks] = useState([]);
   const [calorieLogs, setCalorieLogs] = useState([]);
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [allUsersDB, setAllUsersDB] = useState([]);
@@ -88,6 +89,9 @@ export const TaskProvider = ({ children }) => {
 
       const savedReading = localStorage.getItem('readingSessions');
       setReadingSessions(savedReading ? JSON.parse(savedReading) : []);
+      
+      const savedBooks = localStorage.getItem('books');
+      setBooks(savedBooks ? JSON.parse(savedBooks) : []);
 
       const savedCalories = localStorage.getItem('calorieLogs');
       setCalorieLogs(savedCalories ? JSON.parse(savedCalories) : []);
@@ -125,6 +129,7 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('tasks', JSON.stringify(personalTasks));
       localStorage.setItem('categories', JSON.stringify(categories));
       localStorage.setItem('readingSessions', JSON.stringify(readingSessions));
+      localStorage.setItem('books', JSON.stringify(books));
       localStorage.setItem('calorieLogs', JSON.stringify(calorieLogs));
       localStorage.setItem('calorieGoal', calorieGoal);
       localStorage.setItem('theme', theme);
@@ -135,7 +140,7 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('pastReviewOrder', JSON.stringify(pastReviewOrder));
       localStorage.setItem('resetHour', resetHour.toString());
     }
-  }, [personalTasks, categories, readingSessions, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, resetHour, user, isLoading]);
+  }, [personalTasks, categories, readingSessions, books, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, resetHour, user, isLoading]);
 
   const [userDisplayName, setUserDisplayName] = useState('');
 
@@ -199,6 +204,11 @@ export const TaskProvider = ({ children }) => {
       setReadingSessions(snapshot.docs.map(doc => doc.data()));
     });
 
+    const booksRef = collection(db, 'users', user.uid, 'books');
+    const unsubscribeBooks = onSnapshot(booksRef, (snapshot) => {
+      setBooks(snapshot.docs.map(doc => doc.data()));
+    });
+
     const caloriesRef = collection(db, 'users', user.uid, 'calorieLogs');
     const unsubscribeCalories = onSnapshot(caloriesRef, (snapshot) => {
       setCalorieLogs(snapshot.docs.map(doc => doc.data()));
@@ -260,6 +270,7 @@ export const TaskProvider = ({ children }) => {
       unsubscribePendingLists();
       unsubscribeCategories();
       unsubscribeReading();
+      unsubscribeBooks();
       unsubscribeCalories();
       unsubscribeSettings();
     };
@@ -552,14 +563,16 @@ export const TaskProvider = ({ children }) => {
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'categories', id));
   };
 
-  const saveReadingSession = async (timeSpent, amount, endedOnPage = null, date = getTodayDateString()) => {
+  const saveReadingSession = async (timeSpent, amount, endedOnPage = null, bookId = null, overrideDate = null, overrideCreatedAt = null) => {
+    const date = overrideDate || getTodayDateString();
     const newSession = { 
       id: uuidv4(), 
       date, 
       timeSpent, 
       amount: parseFloat(amount) || 0,
       endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null,
-      createdAt: new Date().toISOString()
+      bookId: bookId || null,
+      createdAt: overrideCreatedAt || new Date().toISOString()
     };
     if (!user) setReadingSessions([...readingSessions, newSession]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', newSession.id), newSession);
@@ -570,17 +583,45 @@ export const TaskProvider = ({ children }) => {
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'readingSessions', id));
   };
 
-  const updateReadingSession = async (id, timeSpent, amount, endedOnPage = null) => {
+  const updateReadingSession = async (id, timeSpent, amount, endedOnPage = null, bookId = null, overrideDate = null) => {
     const session = readingSessions.find(s => s.id === id);
     if (!session) return;
     const updatedSession = { 
       ...session, 
       timeSpent, 
       amount: parseFloat(amount) || 0,
-      endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null
+      endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null,
+      bookId: bookId || null
     };
+    if (overrideDate) updatedSession.date = overrideDate;
+
     if (!user) setReadingSessions(readingSessions.map(s => s.id === id ? updatedSession : s));
     if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', id), updatedSession);
+  };
+
+  const addBook = async (name, author, series) => {
+    const newBook = {
+      id: uuidv4(),
+      name,
+      author: author || '',
+      series: series || '',
+      createdAt: new Date().toISOString()
+    };
+    if (!user) setBooks([...books, newBook]);
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
+  };
+
+  const updateBook = async (id, name, author, series) => {
+    const book = books.find(b => b.id === id);
+    if (!book) return;
+    const updatedBook = { ...book, name, author: author || '', series: series || '' };
+    if (!user) setBooks(books.map(b => b.id === id ? updatedBook : b));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
+  };
+
+  const deleteBook = async (id) => {
+    if (!user) setBooks(books.filter(b => b.id !== id));
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'books', id));
   };
 
   const saveCalorieLog = async (difference, date = getTodayDateString()) => {
@@ -700,6 +741,10 @@ export const TaskProvider = ({ children }) => {
       categories,
       readingSessions,
       calorieLogs,
+      books,
+      addBook,
+      updateBook,
+      deleteBook,
       calorieGoal,
       addTask,
       updateTask,

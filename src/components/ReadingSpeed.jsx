@@ -4,9 +4,10 @@ import { format } from 'date-fns';
 import { 
   Box, Card, Typography, TextField, Button, IconButton, 
   List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
-  Tabs, Tab
+  Tabs, Tab, Select, MenuItem
 } from '@mui/material';
 import ReadingAnalytics from './ReadingAnalytics';
+import BookManager from './BookManager';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
@@ -20,11 +21,15 @@ import ClearIcon from '@mui/icons-material/Clear';
 const ReadingSpeed = () => {
   const { 
     readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession,
-    timerRunning, setTimerRunning, timerSeconds, setTimerSeconds
+    timerRunning, setTimerRunning, timerSeconds, setTimerSeconds,
+    books
   } = useTaskContext();
   
   const [amount, setAmount] = useState('');
   const [endedOnPage, setEndedOnPage] = useState('');
+  const [selectedBookId, setSelectedBookId] = useState('');
+  const [sessionDate, setSessionDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [sessionTime, setSessionTime] = useState(format(new Date(), 'HH:mm'));
   const [showAmountField, setShowAmountField] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
 
@@ -32,6 +37,9 @@ const ReadingSpeed = () => {
   const [editMinutes, setEditMinutes] = useState(0);
   const [editAmount, setEditAmount] = useState('');
   const [editEndedOnPage, setEditEndedOnPage] = useState('');
+  const [editBookId, setEditBookId] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
 
   const handleStartTimer = () => {
     setTimerRunning(true);
@@ -49,11 +57,20 @@ const ReadingSpeed = () => {
   };
 
   const handleSaveInfo = () => {
-    saveReadingSession(timerSeconds, amount, endedOnPage);
+    let finalDate = sessionDate;
+    let overrideCreatedAt = null;
+    const isToday = sessionDate === format(new Date(), 'yyyy-MM-dd');
+    if (!isToday) {
+      overrideCreatedAt = `${sessionDate}T${sessionTime || '12:00'}:00.000Z`;
+    }
+    
+    saveReadingSession(timerSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt);
     setTimerSeconds(0);
     setShowAmountField(false);
     setAmount('');
     setEndedOnPage('');
+    setSelectedBookId('');
+    setSessionDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
   const formatTime = (totalSeconds) => {
@@ -69,10 +86,17 @@ const ReadingSpeed = () => {
     setEditMinutes(Math.round(session.timeSpent / 60));
     setEditAmount(session.amount);
     setEditEndedOnPage(session.endedOnPage || '');
+    setEditBookId(session.bookId || '');
+    setEditDate(session.date || '');
+    if (session.createdAt) {
+      try { setEditTime(format(new Date(session.createdAt), 'HH:mm')); } catch(e) { setEditTime('12:00'); }
+    } else {
+      setEditTime('12:00');
+    }
   };
 
   const handleSaveEdit = (id) => {
-    updateReadingSession(id, parseInt(editMinutes, 10) * 60, parseFloat(editAmount), editEndedOnPage);
+    updateReadingSession(id, parseInt(editMinutes, 10) * 60, parseFloat(editAmount), editEndedOnPage, editBookId, editDate);
     setEditingSessionId(null);
   };
 
@@ -94,6 +118,7 @@ const ReadingSpeed = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
           <Tab label="Eingabe & Historie" />
+          <Tab label="Bücher" />
           <Tab label="Statistiken" />
         </Tabs>
       </Box>
@@ -183,6 +208,33 @@ const ReadingSpeed = () => {
             
             <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Datum:</Typography>
+                <TextField 
+                  type="date" 
+                  value={sessionDate} 
+                  onChange={(e) => setSessionDate(e.target.value)} 
+                  size="small"
+                  sx={{ flex: 1, minWidth: 100 }}
+                />
+              </Box>
+
+              {books.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Buch:</Typography>
+                  <Select
+                    value={selectedBookId}
+                    onChange={(e) => setSelectedBookId(e.target.value)}
+                    size="small"
+                    displayEmpty
+                    sx={{ flex: 1, minWidth: 100 }}
+                  >
+                    <MenuItem value="">Kein Buch zugeordnet</MenuItem>
+                    {books.map(b => <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>)}
+                  </Select>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                 <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Gelesene Seiten:</Typography>
                 <TextField 
                   type="number" 
@@ -265,6 +317,29 @@ const ReadingSpeed = () => {
                         sx={{ width: 100 }}
                       />
                     </Box>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <TextField 
+                        type="date" 
+                        value={editDate} 
+                        onChange={(e) => setEditDate(e.target.value)}
+                        size="small"
+                        sx={{ width: 140 }}
+                      />
+                    </Box>
+                    {books.length > 0 && (
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Select
+                          value={editBookId}
+                          onChange={(e) => setEditBookId(e.target.value)}
+                          size="small"
+                          displayEmpty
+                          sx={{ width: 140 }}
+                        >
+                          <MenuItem value="">Kein Buch</MenuItem>
+                          {books.map(b => <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>)}
+                        </Select>
+                      </Box>
+                    )}
                     <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
                       <IconButton color="success" onClick={() => handleSaveEdit(session.id)}>
                         <CheckIcon />
@@ -278,7 +353,16 @@ const ReadingSpeed = () => {
                   <>
                     <ListItemText 
                       primary={`${formatTime(session.timeSpent)} gelesen`} 
-                      secondary={`${session.amount} Seiten${session.endedOnPage ? ` | Beendet auf S. ${session.endedOnPage}` : ''} | ${format(new Date(session.date), 'dd.MM.yyyy HH:mm')}`}
+                      secondary={
+                        <React.Fragment>
+                          {`${session.amount} Seiten${session.endedOnPage ? ` | Beendet auf S. ${session.endedOnPage}` : ''} | ${format(new Date(session.date), 'dd.MM.yyyy HH:mm')}`}
+                          {session.bookId && books.find(b => b.id === session.bookId) && (
+                            <Typography component="span" variant="body2" sx={{ display: 'block', color: 'primary.main', mt: 0.5 }}>
+                              Buch: {books.find(b => b.id === session.bookId).name}
+                            </Typography>
+                          )}
+                        </React.Fragment>
+                      }
                     />
                     <ListItemSecondaryAction>
                       <IconButton color="primary" onClick={() => handleEditClick(session)} sx={{ mr: 1 }}>
@@ -296,6 +380,8 @@ const ReadingSpeed = () => {
         </Card>
       )}
       </>
+      ) : activeTab === 1 ? (
+        <BookManager />
       ) : (
         <ReadingAnalytics />
       )}

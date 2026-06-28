@@ -105,7 +105,47 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     return streak;
   };
 
+  const getConsistencyScore = () => {
+    if (!task.createdAt || task.type === 'general') return null;
+    const createdAtDate = new Date(task.createdAt);
+    const now = new Date();
+    const daysSinceCreation = Math.max(1, Math.floor((now - createdAtDate) / (1000 * 60 * 60 * 24)));
+    const totalDays = Math.min(30, daysSinceCreation); // Look at the last 30 days maximum
+    
+    let expectedCompletions = 1;
+    const completedCount = (task.completedDates || []).filter(dateStr => {
+      const d = new Date(dateStr);
+      return (now - d) / (1000 * 60 * 60 * 24) <= totalDays;
+    }).length;
+
+    switch (task.type) {
+      case 'daily':
+        expectedCompletions = totalDays;
+        break;
+      case 'weekly':
+        expectedCompletions = Math.max(1, Math.floor(totalDays / 7));
+        break;
+      case 'x-times':
+        expectedCompletions = Math.max(1, Math.floor((totalDays / 7) * task.targetCount));
+        break;
+      case 'specific-days':
+        let specificDaysCount = 0;
+        for (let i = 0; i < totalDays; i++) {
+          const d = subDays(now, i);
+          if (task.specificDays.includes(d.getDay())) specificDaysCount++;
+        }
+        expectedCompletions = Math.max(1, specificDaysCount);
+        break;
+      default:
+        return null;
+    }
+
+    const consistency = Math.min(100, Math.round((completedCount / expectedCompletions) * 100));
+    return consistency;
+  };
+
   const streak = calculateStreak();
+  const consistencyScore = getConsistencyScore();
 
   return (
     <Card 
@@ -167,6 +207,13 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
                 <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.8rem', color: 'error.main', bgcolor: 'background.default', px: 1, py: 0.25, borderRadius: 4, border: 1, borderColor: 'divider' }}>
                   <LocalFireDepartmentIcon fontSize="small" sx={{ mr: 0.5 }} /> {streak}
                 </Box>
+              </MuiTooltip>
+            )}
+            {consistencyScore !== null && (
+              <MuiTooltip title={`Zuverlässigkeit der letzten ${Math.min(30, Math.max(1, Math.floor((new Date() - new Date(task.createdAt)) / (1000 * 60 * 60 * 24))))} Tage`}>
+                <Typography variant="caption" sx={{ color: consistencyScore >= 80 ? 'success.main' : (consistencyScore >= 50 ? 'warning.main' : 'error.main'), fontWeight: 'bold' }}>
+                  {consistencyScore}%
+                </Typography>
               </MuiTooltip>
             )}
             {completedByToday && isCompleted && (

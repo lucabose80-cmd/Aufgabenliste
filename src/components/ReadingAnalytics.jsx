@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { format, parseISO, getHours } from 'date-fns';
 import { 
-  Box, Card, Typography, Grid, useTheme, Tooltip as MuiTooltip
+  Box, Card, Typography, Grid, useTheme, Tooltip as MuiTooltip,
+  Select, MenuItem
 } from '@mui/material';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -13,8 +14,11 @@ import TimerIcon from '@mui/icons-material/Timer';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 
 const ReadingAnalytics = () => {
-  const { readingSessions } = useTaskContext();
+  const { readingSessions, books } = useTaskContext();
   const theme = useTheme();
+
+  const [filterType, setFilterType] = React.useState('all'); // 'all', 'book', 'author'
+  const [filterValue, setFilterValue] = React.useState('');
 
   const {
     totalPages,
@@ -27,7 +31,15 @@ const ReadingAnalytics = () => {
     let pages = 0;
     let seconds = 0;
 
-    const validSessions = readingSessions.filter(s => s.timeSpent > 0 && s.amount > 0)
+    let filteredSessions = readingSessions;
+    if (filterType === 'book' && filterValue) {
+      filteredSessions = readingSessions.filter(s => s.bookId === filterValue);
+    } else if (filterType === 'author' && filterValue) {
+      const authorBooks = books.filter(b => b.author === filterValue).map(b => b.id);
+      filteredSessions = readingSessions.filter(s => s.bookId && authorBooks.includes(s.bookId));
+    }
+
+    const validSessions = filteredSessions.filter(s => s.timeSpent > 0 && s.amount > 0)
       .sort((a, b) => {
         const dateDiff = new Date(a.date) - new Date(b.date);
         if (dateDiff !== 0) return dateDiff;
@@ -120,7 +132,7 @@ const ReadingAnalytics = () => {
       durationData: dData,
       timeOfDayData: tData
     };
-  }, [readingSessions]);
+  }, [readingSessions, filterType, filterValue, books]);
 
   const formatTime = (totalSeconds) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -136,6 +148,13 @@ const ReadingAnalytics = () => {
       </Box>
     );
   }
+
+  const uniqueAuthors = Array.from(new Set(books.map(b => b.author).filter(Boolean)));
+
+  const handleFilterTypeChange = (e) => {
+    setFilterType(e.target.value);
+    setFilterValue('');
+  };
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -153,8 +172,41 @@ const ReadingAnalytics = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      
-      {/* KPI Cards */}
+      <Card sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Typography variant="body2" color="text.secondary">Filter:</Typography>
+        <Select value={filterType} onChange={handleFilterTypeChange} size="small" sx={{ minWidth: 120 }}>
+          <MenuItem value="all">Alle Einträge</MenuItem>
+          <MenuItem value="book">Nach Buch</MenuItem>
+          <MenuItem value="author">Nach Autor</MenuItem>
+        </Select>
+
+        {filterType === 'book' && (
+          <Select 
+            value={filterValue} 
+            onChange={(e) => setFilterValue(e.target.value)} 
+            size="small" 
+            displayEmpty
+            sx={{ minWidth: 150 }}
+          >
+            <MenuItem value="" disabled>Buch wählen...</MenuItem>
+            {books.map(b => <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>)}
+          </Select>
+        )}
+
+        {filterType === 'author' && (
+          <Select 
+            value={filterValue} 
+            onChange={(e) => setFilterValue(e.target.value)} 
+            size="small" 
+            displayEmpty
+            sx={{ minWidth: 150 }}
+          >
+            <MenuItem value="" disabled>Autor wählen...</MenuItem>
+            {uniqueAuthors.map(author => <MenuItem key={author} value={author}>{author}</MenuItem>)}
+          </Select>
+        )}
+      </Card>
+
       <Grid container spacing={3}>
         <Grid item xs={12} sm={4}>
           <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
