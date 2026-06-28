@@ -12,9 +12,10 @@ import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
 
 const BookManager = () => {
-  const { books, addBook, updateBook, deleteBook } = useTaskContext();
+  const { books, addBook, updateBook, deleteBook, assignBookToUnassignedSessions, readingSessions } = useTaskContext();
   
   const [newBookName, setNewBookName] = useState('');
   const [newBookAuthor, setNewBookAuthor] = useState('');
@@ -66,6 +67,23 @@ const BookManager = () => {
   const uniqueAuthors = Array.from(new Set(books.map(b => b.author).filter(Boolean)));
   const uniqueSeries = Array.from(new Set(books.map(b => b.series).filter(Boolean)));
 
+  const seriesAuthorMap = books.reduce((acc, book) => {
+    if (book.series && book.author) acc[book.series] = book.author;
+    return acc;
+  }, {});
+
+  const handleSeriesChange = (newValue, isEdit = false) => {
+    if (isEdit) {
+      setEditSeries(newValue);
+      if (seriesAuthorMap[newValue] && !editAuthor) setEditAuthor(seriesAuthorMap[newValue]);
+    } else {
+      setNewBookSeries(newValue);
+      if (seriesAuthorMap[newValue] && !newBookAuthor) setNewBookAuthor(seriesAuthorMap[newValue]);
+    }
+  };
+
+  const unassignedSessionsCount = readingSessions.filter(s => !s.bookId).length;
+
   return (
     <Card sx={{ p: { xs: 2, sm: 4 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -98,7 +116,7 @@ const BookManager = () => {
             freeSolo
             options={uniqueSeries}
             value={newBookSeries}
-            onInputChange={(e, newValue) => setNewBookSeries(newValue)}
+            onInputChange={(e, newValue) => handleSeriesChange(newValue, false)}
             renderInput={(params) => <TextField {...params} label="Reihe" size="small" fullWidth />}
           />
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -134,7 +152,7 @@ const BookManager = () => {
                       freeSolo
                       options={uniqueSeries}
                       value={editSeries}
-                      onInputChange={(e, newValue) => setEditSeries(newValue)}
+                      onInputChange={(e, newValue) => handleSeriesChange(newValue, true)}
                       renderInput={(params) => <TextField {...params} label="Reihe" size="small" />}
                     />
                   </Box>
@@ -174,6 +192,13 @@ const BookManager = () => {
                     </Box>
                   ) : (
                     <Box sx={{ display: 'flex' }}>
+                      {unassignedSessionsCount > 0 && (
+                        <Tooltip title={`Allen ${unassignedSessionsCount} Einträgen ohne Buch dieses Buch zuweisen`}>
+                          <IconButton onClick={() => assignBookToUnassignedSessions(book.id)} color="success" size="small">
+                            <LibraryAddCheckIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <IconButton onClick={() => handleEditClick(book)} size="small"><EditIcon /></IconButton>
                       <IconButton onClick={() => deleteBook(book.id)} color="error" size="small"><DeleteIcon /></IconButton>
                     </Box>

@@ -599,6 +599,26 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'readingSessions', id), updatedSession);
   };
 
+  const assignBookToUnassignedSessions = async (bookId) => {
+    const sessionsToUpdate = readingSessions.filter(s => !s.bookId);
+    if (sessionsToUpdate.length === 0) return;
+
+    if (!user) {
+      setReadingSessions(readingSessions.map(s => {
+        if (!s.bookId) return { ...s, bookId };
+        return s;
+      }));
+    } else {
+      const batch = writeBatch(db);
+      sessionsToUpdate.forEach(s => {
+        const ref = doc(db, 'users', user.uid, 'readingSessions', s.id);
+        batch.update(ref, { bookId });
+      });
+      await batch.commit();
+      // local state will update via listener
+    }
+  };
+
   const addBook = async (name, author, series) => {
     const newBook = {
       id: uuidv4(),
@@ -787,7 +807,8 @@ export const TaskProvider = ({ children }) => {
       acceptTaskInvitation,
       rejectTaskInvitation,
       acceptListInvitation,
-      rejectListInvitation
+      rejectListInvitation,
+      assignBookToUnassignedSessions
     }}>
       {children}
     </TaskContext.Provider>
