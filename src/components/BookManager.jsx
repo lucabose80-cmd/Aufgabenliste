@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { 
   Box, Card, Typography, TextField, Button, IconButton, 
-  List, ListItem, ListItemText, ListItemSecondaryAction, Divider
+  List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
+  Autocomplete, Checkbox, FormControlLabel, Tooltip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const BookManager = () => {
   const { books, addBook, updateBook, deleteBook } = useTaskContext();
@@ -30,6 +33,10 @@ const BookManager = () => {
     setNewBookAuthor('');
     setNewBookSeries('');
     setIsAdding(false);
+  };
+
+  const handleToggleCompleted = (book) => {
+    updateBook(book.id, book.name, book.author, book.series, !book.completed);
   };
 
   const handleEditClick = (book) => {
@@ -56,6 +63,9 @@ const BookManager = () => {
     return a.name.localeCompare(b.name);
   });
 
+  const uniqueAuthors = Array.from(new Set(books.map(b => b.author).filter(Boolean)));
+  const uniqueSeries = Array.from(new Set(books.map(b => b.series).filter(Boolean)));
+
   return (
     <Card sx={{ p: { xs: 2, sm: 4 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -77,19 +87,19 @@ const BookManager = () => {
             size="small" 
             fullWidth 
           />
-          <TextField 
-            label="Autor" 
-            value={newBookAuthor} 
-            onChange={(e) => setNewBookAuthor(e.target.value)} 
-            size="small" 
-            fullWidth 
+          <Autocomplete
+            freeSolo
+            options={uniqueAuthors}
+            value={newBookAuthor}
+            onInputChange={(e, newValue) => setNewBookAuthor(newValue)}
+            renderInput={(params) => <TextField {...params} label="Autor" size="small" fullWidth />}
           />
-          <TextField 
-            label="Reihe" 
-            value={newBookSeries} 
-            onChange={(e) => setNewBookSeries(e.target.value)} 
-            size="small" 
-            fullWidth 
+          <Autocomplete
+            freeSolo
+            options={uniqueSeries}
+            value={newBookSeries}
+            onInputChange={(e, newValue) => setNewBookSeries(newValue)}
+            renderInput={(params) => <TextField {...params} label="Reihe" size="small" fullWidth />}
           />
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="contained" onClick={handleAddBook} disabled={!newBookName.trim()}>Speichern</Button>
@@ -113,30 +123,47 @@ const BookManager = () => {
                       onChange={(e) => setEditName(e.target.value)} 
                       size="small" 
                     />
-                    <TextField 
-                      label="Autor" 
-                      value={editAuthor} 
-                      onChange={(e) => setEditAuthor(e.target.value)} 
-                      size="small" 
+                    <Autocomplete
+                      freeSolo
+                      options={uniqueAuthors}
+                      value={editAuthor}
+                      onInputChange={(e, newValue) => setEditAuthor(newValue)}
+                      renderInput={(params) => <TextField {...params} label="Autor" size="small" />}
                     />
-                    <TextField 
-                      label="Reihe" 
-                      value={editSeries} 
-                      onChange={(e) => setEditSeries(e.target.value)} 
-                      size="small" 
+                    <Autocomplete
+                      freeSolo
+                      options={uniqueSeries}
+                      value={editSeries}
+                      onInputChange={(e, newValue) => setEditSeries(newValue)}
+                      renderInput={(params) => <TextField {...params} label="Reihe" size="small" />}
                     />
                   </Box>
                 ) : (
-                  <ListItemText 
-                    primary={book.name} 
-                    secondary={
-                      <React.Fragment>
-                        {book.author && <Typography component="span" variant="body2" color="text.primary">Autor: {book.author}</Typography>}
-                        {book.author && book.series && <br />}
-                        {book.series && <Typography component="span" variant="body2" color="text.secondary">Reihe: {book.series}</Typography>}
-                      </React.Fragment>
-                    }
-                  />
+                  <>
+                    <Tooltip title={book.completed ? "Buch wieder öffnen" : "Buch abschließen"}>
+                      <Checkbox
+                        icon={<CheckCircleOutlinedIcon />}
+                        checkedIcon={<CheckCircleIcon color="success" />}
+                        checked={!!book.completed}
+                        onChange={() => handleToggleCompleted(book)}
+                        sx={{ mr: 1 }}
+                      />
+                    </Tooltip>
+                    <ListItemText 
+                      primary={
+                        <Typography sx={{ textDecoration: book.completed ? 'line-through' : 'none', color: book.completed ? 'text.secondary' : 'text.primary' }}>
+                          {book.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <React.Fragment>
+                          {book.author && <Typography component="span" variant="body2" color={book.completed ? 'text.disabled' : 'text.primary'}>Autor: {book.author}</Typography>}
+                          {book.author && book.series && <br />}
+                          {book.series && <Typography component="span" variant="body2" color={book.completed ? 'text.disabled' : 'text.secondary'}>Reihe: {book.series}</Typography>}
+                        </React.Fragment>
+                      }
+                    />
+                  </>
                 )}
                 
                 <ListItemSecondaryAction sx={{ top: '50%', transform: 'translateY(-50%)' }}>

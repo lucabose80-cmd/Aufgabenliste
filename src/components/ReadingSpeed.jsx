@@ -229,7 +229,9 @@ const ReadingSpeed = () => {
                     sx={{ flex: 1, minWidth: 100 }}
                   >
                     <MenuItem value="">Kein Buch zugeordnet</MenuItem>
-                    {books.map(b => <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>)}
+                    {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
+                      <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                    ))}
                   </Select>
                 </Box>
               )}
@@ -336,7 +338,9 @@ const ReadingSpeed = () => {
                           sx={{ width: 140 }}
                         >
                           <MenuItem value="">Kein Buch</MenuItem>
-                          {books.map(b => <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>)}
+                          {books.filter(b => !b.completed || b.id === editBookId).map(b => (
+                            <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                          ))}
                         </Select>
                       </Box>
                     )}

@@ -605,16 +605,17 @@ export const TaskProvider = ({ children }) => {
       name,
       author: author || '',
       series: series || '',
+      completed: false,
       createdAt: new Date().toISOString()
     };
     if (!user) setBooks([...books, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series) => {
+  const updateBook = async (id, name, author, series, completed) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
-    const updatedBook = { ...book, name, author: author || '', series: series || '' };
+    const updatedBook = { ...book, name, author: author || '', series: series || '', completed: completed !== undefined ? completed : !!book.completed };
     if (!user) setBooks(books.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
   };
