@@ -600,12 +600,12 @@ export const TaskProvider = ({ children }) => {
   };
 
   const assignBookToUnassignedSessions = async (bookId) => {
-    const sessionsToUpdate = readingSessions.filter(s => !s.bookId);
+    const sessionsToUpdate = readingSessions.filter(s => !s.bookId || !books.some(b => b.id === s.bookId));
     if (sessionsToUpdate.length === 0) return;
 
     if (!user) {
       setReadingSessions(readingSessions.map(s => {
-        if (!s.bookId) return { ...s, bookId };
+        if (!s.bookId || !books.some(b => b.id === s.bookId)) return { ...s, bookId };
         return s;
       }));
     } else {

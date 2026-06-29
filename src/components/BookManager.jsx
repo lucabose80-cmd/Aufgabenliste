@@ -85,8 +85,7 @@ const BookManager = () => {
       if (seriesAuthorMap[newValue] && !newBookAuthor) setNewBookAuthor(seriesAuthorMap[newValue]);
     }
   };
-
-  const unassignedSessionsCount = readingSessions.filter(s => !s.bookId).length;
+  const unassignedSessionsCount = readingSessions.filter(s => !s.bookId || !books.some(b => b.id === s.bookId)).length;
 
   return (
     <Card sx={{ p: { xs: 2, sm: 4 } }}>
