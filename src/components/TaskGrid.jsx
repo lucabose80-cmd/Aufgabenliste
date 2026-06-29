@@ -76,30 +76,49 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
   };
 
   const calculateStreak = () => {
-    if (task.type !== 'daily') return 0;
+    if (task.type !== 'daily' && task.type !== 'specific-days') return 0;
     const completedDates = task.completedDates || [];
     if (completedDates.length === 0) return 0;
 
     let streak = 0;
     let checkDate = subHours(new Date(), resetHour || 3); 
     const todayStr = format(checkDate, 'yyyy-MM-dd');
-    const yesterdayStr = format(subDays(checkDate, 1), 'yyyy-MM-dd');
+    let createdStr = task.createdAt ? format(new Date(task.createdAt), 'yyyy-MM-dd') : null;
 
-    if (!completedDates.includes(todayStr) && !completedDates.includes(yesterdayStr)) {
-      return 0;
-    }
-
-    if (!completedDates.includes(todayStr)) {
-      checkDate = subDays(checkDate, 1);
-    }
+    const isScheduled = (d) => {
+      if (task.type === 'daily') return true;
+      if (task.type === 'specific-days') return task.specificDays.includes(d.getDay());
+      return false;
+    };
 
     while (true) {
       const dateStr = format(checkDate, 'yyyy-MM-dd');
-      if (completedDates.includes(dateStr)) {
-        streak++;
-        checkDate = subDays(checkDate, 1);
+      const completed = completedDates.includes(dateStr);
+      const scheduled = isScheduled(checkDate);
+
+      if (scheduled) {
+        if (completed) {
+          streak++;
+        } else {
+          if (dateStr === todayStr) {
+            // Grace period: today is not yet missed
+          } else {
+            // Past scheduled day missed, streak broken
+            break;
+          }
+        }
       } else {
+        if (completed) {
+          streak++; // Bonus
+        }
+      }
+
+      checkDate = subDays(checkDate, 1);
+
+      if (createdStr && format(checkDate, 'yyyy-MM-dd') < createdStr) {
         break;
+      } else if (streak > 3650) {
+        break; // Safety fallback
       }
     }
     return streak;
