@@ -109,13 +109,34 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
     if (!task.createdAt || task.type === 'general') return null;
     const createdAtDate = new Date(task.createdAt);
     const now = new Date();
-    const daysSinceCreation = Math.max(1, Math.floor((now - createdAtDate) / (1000 * 60 * 60 * 24)));
-    const totalDays = Math.min(30, daysSinceCreation); // Look at the last 30 days maximum
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const createdDay = new Date(createdAtDate.getFullYear(), createdAtDate.getMonth(), createdAtDate.getDate());
+
+    const isCompletedToday = (task.completedDates || []).some(dateStr => {
+      const d = new Date(dateStr);
+      return d.getFullYear() === today.getFullYear() && 
+             d.getMonth() === today.getMonth() && 
+             d.getDate() === today.getDate();
+    });
+
+    const calendarDaysPast = Math.max(0, Math.floor((today - createdDay) / (1000 * 60 * 60 * 24)));
+    const daysSinceCreation = isCompletedToday ? calendarDaysPast + 1 : calendarDaysPast;
+    
+    if (daysSinceCreation === 0) return 100;
+    
+    const totalDays = Math.min(30, daysSinceCreation);
     
     let expectedCompletions = 1;
     const completedCount = (task.completedDates || []).filter(dateStr => {
       const d = new Date(dateStr);
-      return (now - d) / (1000 * 60 * 60 * 24) <= totalDays;
+      const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const daysAgo = Math.floor((today - dDay) / (1000 * 60 * 60 * 24));
+      
+      if (isCompletedToday) {
+        return daysAgo >= 0 && daysAgo < totalDays;
+      } else {
+        return daysAgo > 0 && daysAgo <= totalDays;
+      }
     }).length;
 
     switch (task.type) {
@@ -131,7 +152,8 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
       case 'specific-days':
         let specificDaysCount = 0;
         for (let i = 0; i < totalDays; i++) {
-          const d = subDays(now, i);
+          const offset = isCompletedToday ? i : i + 1;
+          const d = new Date(today.getTime() - offset * 24 * 60 * 60 * 1000);
           if (task.specificDays.includes(d.getDay())) specificDaysCount++;
         }
         expectedCompletions = Math.max(1, specificDaysCount);
