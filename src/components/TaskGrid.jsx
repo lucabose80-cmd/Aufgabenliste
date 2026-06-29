@@ -76,49 +76,87 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
   };
 
   const calculateStreak = () => {
-    if (task.type !== 'daily' && task.type !== 'specific-days') return 0;
+    if (task.type === 'general') return 0;
     const completedDates = task.completedDates || [];
     if (completedDates.length === 0) return 0;
 
     let streak = 0;
-    let checkDate = subHours(new Date(), resetHour || 3); 
-    const todayStr = format(checkDate, 'yyyy-MM-dd');
+    const now = subHours(new Date(), resetHour || 3);
+    const todayStr = format(now, 'yyyy-MM-dd');
     let createdStr = task.createdAt ? format(new Date(task.createdAt), 'yyyy-MM-dd') : null;
 
-    const isScheduled = (d) => {
-      if (task.type === 'daily') return true;
-      if (task.type === 'specific-days') return task.specificDays.includes(d.getDay());
-      return false;
-    };
+    if (task.type === 'daily' || task.type === 'specific-days') {
+      let checkDate = now;
+      const isScheduled = (d) => {
+        if (task.type === 'daily') return true;
+        if (task.type === 'specific-days') return task.specificDays.includes(d.getDay());
+        return false;
+      };
 
-    while (true) {
-      const dateStr = format(checkDate, 'yyyy-MM-dd');
-      const completed = completedDates.includes(dateStr);
-      const scheduled = isScheduled(checkDate);
+      while (true) {
+        const dateStr = format(checkDate, 'yyyy-MM-dd');
+        const completed = completedDates.includes(dateStr);
+        const scheduled = isScheduled(checkDate);
 
-      if (scheduled) {
-        if (completed) {
+        if (scheduled) {
+          if (completed) {
+            streak++;
+          } else {
+            if (dateStr === todayStr) {
+              // Grace period
+            } else {
+              break;
+            }
+          }
+        } else {
+          if (completed) {
+            streak++;
+          }
+        }
+
+        checkDate = subDays(checkDate, 1);
+
+        if (createdStr && format(checkDate, 'yyyy-MM-dd') < createdStr) {
+          break;
+        } else if (streak > 3650) {
+          break;
+        }
+      }
+    } else if (task.type === 'weekly' || task.type === 'x-times') {
+      const target = task.type === 'weekly' ? 1 : (task.targetCount || 1);
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      let currentMonday = new Date(now.getFullYear(), now.getMonth(), diff);
+      currentMonday.setHours(0,0,0,0);
+      
+      let isCurrentWeek = true;
+
+      while (true) {
+        let count = 0;
+        for (let i = 0; i < 7; i++) {
+          const dStr = format(new Date(currentMonday.getFullYear(), currentMonday.getMonth(), currentMonday.getDate() + i), 'yyyy-MM-dd');
+          if (completedDates.includes(dStr)) count++;
+        }
+        
+        if (count >= target) {
           streak++;
         } else {
-          if (dateStr === todayStr) {
-            // Grace period: today is not yet missed
+          if (isCurrentWeek) {
+            // Grace period: week is not over yet
           } else {
-            // Past scheduled day missed, streak broken
             break;
           }
         }
-      } else {
-        if (completed) {
-          streak++; // Bonus
+
+        isCurrentWeek = false;
+        currentMonday = new Date(currentMonday.getFullYear(), currentMonday.getMonth(), currentMonday.getDate() - 7);
+        
+        if (createdStr) {
+           const sundayStr = format(new Date(currentMonday.getFullYear(), currentMonday.getMonth(), currentMonday.getDate() + 6), 'yyyy-MM-dd');
+           if (sundayStr < createdStr) break;
+        } else if (streak > 520) {
+           break;
         }
-      }
-
-      checkDate = subDays(checkDate, 1);
-
-      if (createdStr && format(checkDate, 'yyyy-MM-dd') < createdStr) {
-        break;
-      } else if (streak > 3650) {
-        break; // Safety fallback
       }
     }
     return streak;
@@ -244,7 +282,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
               </MuiTooltip>
             )}
             {streak > 0 && (
-              <MuiTooltip title={`${streak} Tage in Folge!`}>
+              <MuiTooltip title={`${streak} ${(task.type === 'weekly' || task.type === 'x-times') ? 'Wochen' : 'Tage'} in Folge!`}>
                 <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.8rem', color: 'error.main', bgcolor: 'background.default', px: 1, py: 0.25, borderRadius: 4, border: 1, borderColor: 'divider' }}>
                   <LocalFireDepartmentIcon fontSize="small" sx={{ mr: 0.5 }} /> {streak}
                 </Box>
