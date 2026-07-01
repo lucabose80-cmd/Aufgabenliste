@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { format, subDays, subHours } from 'date-fns';
+import { format, subDays, subHours, isSameWeek } from 'date-fns';
 import {
   DndContext,
   closestCenter,
@@ -64,11 +64,23 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
 
   const completedByToday = task.isShared && task.completedByMap && task.completedByMap[today];
 
+  const getXTimesCompletionsThisWeek = () => {
+    if (task.type !== 'x-times' || !task.completedDates) return 0;
+    const now = subHours(new Date(), resetHour || 3);
+    return task.completedDates.filter(dateStr => {
+      const [year, month, day] = dateStr.split('-');
+      const date = new Date(year, month - 1, day);
+      return isSameWeek(date, now, { weekStartsOn: 1 });
+    }).length;
+  };
+
   const getTypeLabel = () => {
     switch (task.type) {
       case 'daily': return 'Täglich';
       case 'weekly': return 'Einmal pro Woche';
-      case 'x-times': return `${task.targetCount}x pro Woche`;
+      case 'x-times': 
+        const count = getXTimesCompletionsThisWeek();
+        return `${count}/${task.targetCount}x pro Woche`;
       case 'specific-days': return 'Bestimmte Tage';
       case 'general': return 'Allgemeines To-Do';
       default: return task.type;
