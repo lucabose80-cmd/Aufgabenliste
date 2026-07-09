@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import ReadingAnalytics from './ReadingAnalytics';
 import BookManager from './BookManager';
+import BookUniverseMap from './BookUniverseMap';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
@@ -166,9 +167,10 @@ const ReadingSpeed = () => {
       </Typography>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
           <Tab label="Eingabe & Historie" />
           <Tab label="Bücher" />
+          <Tab label="Universum & Reihen" />
           <Tab label="Statistiken" />
         </Tabs>
       </Box>
@@ -436,6 +438,8 @@ const ReadingSpeed = () => {
       </>
       ) : activeTab === 1 ? (
         <BookManager />
+      ) : activeTab === 2 ? (
+        <BookUniverseMap />
       ) : (
         <ReadingAnalytics />
       )}
