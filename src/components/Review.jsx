@@ -88,11 +88,6 @@ const Review = () => {
     }
   });
 
-  const filteredReading = readingSessions.filter(session => isDateInView(session.date));
-  const totalReadingAmount = filteredReading.reduce((acc, s) => acc + s.amount, 0);
-  const totalReadingSeconds = filteredReading.reduce((acc, s) => acc + s.timeSpent, 0);
-  const totalReadingHours = (totalReadingSeconds / 3600).toFixed(1);
-
   const filteredCalories = calorieLogs.filter(log => isDateInView(log.date));
   const weeklySums = {};
   filteredCalories.forEach(log => {
@@ -105,57 +100,15 @@ const Review = () => {
   const totalWeeks = Object.keys(weeklySums).length;
   const successfulWeeks = Object.values(weeklySums).filter(sum => sum <= 0).length;
 
-  // --- READING STATS (Global) ---
-  const globalReadingSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0);
-  const globalReadingAmount = readingSessions.reduce((acc, s) => acc + s.amount, 0);
-  const formatTime = (totalSeconds) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
-  };
-
-  // --- HIGHLIGHTS ---
-  const allStreaks = [];
-  let maxTasksInOneDay = 0;
-  let bestDay = null;
-  
+  // --- BARCHART DATA ---
   const dailyTaskCounts = {};
 
   tasks.forEach(task => {
     const completedDates = task.completedDates || [];
     completedDates.forEach(d => {
       dailyTaskCounts[d] = (dailyTaskCounts[d] || 0) + 1;
-      if (dailyTaskCounts[d] > maxTasksInOneDay) {
-        maxTasksInOneDay = dailyTaskCounts[d];
-        bestDay = d;
-      }
     });
-
-    if (task.type === 'daily' && completedDates.length > 0) {
-      let streak = 0;
-      let checkDate = todayDate; 
-      const todayStr = format(checkDate, 'yyyy-MM-dd');
-      const yesterdayStr = format(subDays(checkDate, 1), 'yyyy-MM-dd');
-
-      if (completedDates.includes(todayStr) || completedDates.includes(yesterdayStr)) {
-        if (!completedDates.includes(todayStr)) checkDate = subDays(checkDate, 1);
-        while (true) {
-          const dateStr = format(checkDate, 'yyyy-MM-dd');
-          if (completedDates.includes(dateStr)) {
-            streak++;
-            checkDate = subDays(checkDate, 1);
-          } else {
-            break;
-          }
-        }
-        if (streak > 0) allStreaks.push({ title: task.title, streak });
-      }
-    }
   });
-
-  allStreaks.sort((a, b) => b.streak - a.streak);
-  const topStreaks = allStreaks.slice(0, 3);
 
   // --- BARCHART DATA ---
   const taskData = [];
@@ -321,18 +274,6 @@ const Review = () => {
           </Card>
 
           <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
-            <Box sx={{ p: 2, bgcolor: '#fce4ec', borderRadius: '50%', display: 'flex', color: '#ec4899' }}>
-              <ShowChartIcon fontSize="large" />
-            </Box>
-            <Typography variant="h6" color="text.secondary">Lesegeschwindigkeit (Ø)</Typography>
-            <Typography variant="h3" fontWeight="bold" color="#ec4899">
-              {totalReadingHours > 0 ? Math.round(totalReadingAmount / totalReadingHours) : 0} 
-              <Typography component="span" variant="h6" color="text.primary" sx={{ ml: 1 }}>S./h</Typography>
-            </Typography>
-            <Typography variant="body2" color="text.secondary">basierend auf {totalReadingAmount} Seiten</Typography>
-          </Card>
-
-          <Card sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, p: 3 }}>
             <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: '50%', display: 'flex', color: 'error.contrastText' }}>
               <LocalFireDepartmentIcon fontSize="large" />
             </Box>
@@ -347,55 +288,6 @@ const Review = () => {
             <Typography variant="body2" color="text.secondary">Wochen erreicht</Typography>
           </Card>
         </Box>
-      );
-      case 'highlights': return (
-        <Card sx={{ p: { xs: 2, sm: 4 } }}>
-          <Typography variant="h5" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-            <EmojiEventsIcon color="warning" /> Highlights & Rekorde
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="stretch">
-            <Box sx={{ flex: 1, p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>PRODUKTIVSTER TAG</Typography>
-              {bestDay ? (
-                <>
-                  <Typography variant="h4" fontWeight="bold" color="primary.main">{maxTasksInOneDay} Aufgaben</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Dein Rekord wurde am {format(parseISO(bestDay), 'dd. MMMM yyyy', { locale: de })} aufgestellt.
-                  </Typography>
-                </>
-              ) : (
-                <Typography color="text.secondary">Noch keine Aufgaben erledigt.</Typography>
-              )}
-            </Box>
-
-            <Box sx={{ flex: 1, p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>LESE-MEILENSTEIN</Typography>
-              <Typography variant="h4" fontWeight="bold" color="secondary.main">{globalReadingAmount} Seiten</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Insgesamt gelesen in {formatTime(globalReadingSeconds)}. Weiter so!
-              </Typography>
-            </Box>
-            
-            <Box sx={{ flex: 1, p: 3, bgcolor: 'background.default', borderRadius: 3, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>AKTUELLE TOP STREAKS</Typography>
-              {topStreaks.length > 0 ? (
-                <Stack spacing={2} sx={{ mt: 2 }}>
-                  {topStreaks.map((s, index) => (
-                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="h5">{index === 0 ? '🔥' : index === 1 ? '✨' : '⭐'}</Typography>
-                      <Box>
-                        <Typography variant="body1" fontWeight="bold">{s.title}</Typography>
-                        <Typography variant="body2" color="text.secondary">{s.streak} Tage in Folge</Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Stack>
-              ) : (
-                <Typography color="text.secondary" sx={{ mt: 2 }}>Noch keine aktiven Streaks.</Typography>
-              )}
-            </Box>
-          </Stack>
-        </Card>
       );
       case 'chart': return (
         <Card sx={{ p: { xs: 2, sm: 4 } }}>

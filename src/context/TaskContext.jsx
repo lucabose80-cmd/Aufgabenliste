@@ -619,7 +619,7 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series, wordsPerPage) => {
+  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages) => {
     const newBook = {
       id: uuidv4(),
       name,
@@ -627,13 +627,16 @@ export const TaskProvider = ({ children }) => {
       series: series || '',
       completed: false,
       wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null,
+      seriesNumber: seriesNumber ? parseInt(seriesNumber, 10) : null,
+      universe: universe || '',
+      totalPages: totalPages ? parseInt(totalPages, 10) : null,
       createdAt: new Date().toISOString()
     };
     if (!user) setBooks([...books, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed, wordsPerPage) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const updatedBook = { 
@@ -642,10 +645,49 @@ export const TaskProvider = ({ children }) => {
       author: author || '', 
       series: series || '', 
       completed: completed !== undefined ? completed : !!book.completed,
-      wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null
+      wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null,
+      seriesNumber: seriesNumber !== undefined ? (seriesNumber ? parseInt(seriesNumber, 10) : null) : book.seriesNumber,
+      universe: universe !== undefined ? universe : (book.universe || ''),
+      totalPages: totalPages !== undefined ? (totalPages ? parseInt(totalPages, 10) : null) : book.totalPages
     };
     if (!user) setBooks(books.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
+  };
+
+  const renameAuthor = async (oldName, newName) => {
+    const booksToUpdate = books.filter(b => b.author === oldName);
+    if (!user) {
+      setBooks(books.map(b => b.author === oldName ? { ...b, author: newName } : b));
+    } else {
+      const batch = writeBatch(db);
+      booksToUpdate.forEach(b => {
+        const ref = doc(db, 'users', user.uid, 'books', b.id);
+        batch.update(ref, { author: newName });
+      });
+      await batch.commit();
+    }
+  };
+
+  const deleteAuthor = async (oldName) => {
+    await renameAuthor(oldName, '');
+  };
+
+  const renameSeries = async (oldName, newName) => {
+    const booksToUpdate = books.filter(b => b.series === oldName);
+    if (!user) {
+      setBooks(books.map(b => b.series === oldName ? { ...b, series: newName } : b));
+    } else {
+      const batch = writeBatch(db);
+      booksToUpdate.forEach(b => {
+        const ref = doc(db, 'users', user.uid, 'books', b.id);
+        batch.update(ref, { series: newName });
+      });
+      await batch.commit();
+    }
+  };
+
+  const deleteSeries = async (oldName) => {
+    await renameSeries(oldName, '');
   };
 
   const deleteBook = async (id) => {
@@ -774,6 +816,10 @@ export const TaskProvider = ({ children }) => {
       addBook,
       updateBook,
       deleteBook,
+      renameAuthor,
+      deleteAuthor,
+      renameSeries,
+      deleteSeries,
       calorieGoal,
       addTask,
       updateTask,

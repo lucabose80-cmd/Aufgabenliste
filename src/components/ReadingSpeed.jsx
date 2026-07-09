@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { 
   Box, Card, Typography, TextField, Button, IconButton, 
   List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
-  Tabs, Tab, Select, MenuItem
+  Tabs, Tab, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import ReadingAnalytics from './ReadingAnalytics';
 import BookManager from './BookManager';
@@ -32,6 +32,8 @@ const ReadingSpeed = () => {
   const [sessionTime, setSessionTime] = useState(format(new Date(), 'HH:mm'));
   const [showAmountField, setShowAmountField] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
 
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editMinutes, setEditMinutes] = useState(0);
@@ -64,6 +66,54 @@ const ReadingSpeed = () => {
       overrideCreatedAt = `${sessionDate}T${sessionTime || '12:00'}:00.000Z`;
     }
     
+    const parsedAmount = parseFloat(amount) || 0;
+    const timeInHours = timerSeconds / 3600;
+    const pagesPerHour = timeInHours > 0 ? parsedAmount / timeInHours : 0;
+    
+    let forecast = null;
+    if (selectedBookId) {
+      const book = books.find(b => b.id === selectedBookId);
+      if (book && book.totalPages) {
+        const sessions = readingSessions.filter(s => s.bookId === book.id);
+        let pagesRead = 0;
+        let maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
+        
+        const currentEndedOnPage = parseInt(endedOnPage, 10);
+        if (currentEndedOnPage && currentEndedOnPage > maxEndedOnPage) {
+          pagesRead = currentEndedOnPage;
+        } else if (maxEndedOnPage > 0) {
+          pagesRead = maxEndedOnPage + parsedAmount;
+        } else {
+          pagesRead = sessions.reduce((acc, s) => acc + s.amount, 0) + parsedAmount;
+        }
+        
+        if (pagesRead < book.totalPages) {
+          const remainingPages = book.totalPages - pagesRead;
+          const globalReadingSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0) + timerSeconds;
+          const globalReadingAmount = readingSessions.reduce((acc, s) => acc + s.amount, 0) + parsedAmount;
+          const globalSpeed = globalReadingAmount / (globalReadingSeconds / 3600);
+          
+          if (globalSpeed > 0) {
+            const remainingHours = remainingPages / globalSpeed;
+            const h = Math.floor(remainingHours);
+            const m = Math.round((remainingHours - h) * 60);
+            forecast = `Noch ca. ${h}h ${m}m (${remainingPages} Seiten verbleibend)`;
+          }
+        } else {
+          forecast = "Du hast das Buch scheinbar beendet!";
+        }
+      }
+    }
+
+    setSummaryData({
+      timeStr: formatTime(timerSeconds),
+      amount: parsedAmount,
+      endedOnPage,
+      pagesPerHour: Math.round(pagesPerHour),
+      forecast
+    });
+    setSummaryModalOpen(true);
+
     saveReadingSession(timerSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt);
     setTimerSeconds(0);
     setShowAmountField(false);
@@ -389,6 +439,41 @@ const ReadingSpeed = () => {
       ) : (
         <ReadingAnalytics />
       )}
+
+      <Dialog open={summaryModalOpen} onClose={() => setSummaryModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>Session gespeichert! 🎉</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+          {summaryData && (
+            <>
+              <Typography variant="h6" color="primary">{summaryData.amount} Seiten in {summaryData.timeStr}</Typography>
+              
+              <Box sx={{ display: 'flex', gap: 4, mt: 2 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4">{summaryData.pagesPerHour}</Typography>
+                  <Typography variant="body2" color="text.secondary">Seiten / h</Typography>
+                </Box>
+                {summaryData.endedOnPage && (
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h4">{summaryData.endedOnPage}</Typography>
+                    <Typography variant="body2" color="text.secondary">Seite erreicht</Typography>
+                  </Box>
+                )}
+              </Box>
+
+              {summaryData.forecast && (
+                <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 2, width: '100%', textAlign: 'center' }}>
+                  <Typography variant="subtitle2" color="text.secondary">Prognose für dieses Buch</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>{summaryData.forecast}</Typography>
+                </Box>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', p: 2 }}>
+          <Button variant="contained" onClick={() => setSummaryModalOpen(false)} size="large">Klasse!</Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };
