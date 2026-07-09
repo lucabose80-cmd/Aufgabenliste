@@ -17,6 +17,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.1.1",
     "@mui/material": "^9.1.1",
+    "@xyflow/react": "^12.11.2",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.4.0",
     "firebase": "^12.15.0",
