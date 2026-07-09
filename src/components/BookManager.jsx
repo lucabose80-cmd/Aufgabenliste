@@ -139,6 +139,7 @@ const BookManager = () => {
 
   const uniqueAuthors = Array.from(new Set(books.map(b => b.author).filter(Boolean)));
   const uniqueSeries = Array.from(new Set(books.map(b => b.series).filter(Boolean)));
+  const uniqueUniverses = Array.from(new Set(books.map(b => b.universe).filter(Boolean)));
 
   const seriesAuthorMap = books.reduce((acc, book) => {
     if (book.series && book.author) acc[book.series] = book.author;
@@ -252,12 +253,13 @@ const BookManager = () => {
             />
           </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField 
-              label="Universum" 
-              value={newBookUniverse} 
-              onChange={(e) => setNewBookUniverse(e.target.value)} 
-              size="small" 
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={uniqueUniverses}
+              value={newBookUniverse}
+              onInputChange={(e, newValue) => setNewBookUniverse(newValue)}
+              renderInput={(params) => <TextField {...params} label="Universum" size="small" fullWidth />}
+              sx={{ flex: 1 }}
             />
           </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -325,11 +327,12 @@ const BookManager = () => {
                         sx={{ flex: 1 }}
                       />
                     </Box>
-                    <TextField 
-                      label="Universum" 
-                      value={editUniverse} 
-                      onChange={(e) => setEditUniverse(e.target.value)} 
-                      size="small" 
+                    <Autocomplete
+                      freeSolo
+                      options={uniqueUniverses}
+                      value={editUniverse}
+                      onInputChange={(e, newValue) => setEditUniverse(newValue)}
+                      renderInput={(params) => <TextField {...params} label="Universum" size="small" />}
                     />
                     <Box sx={{ display: 'flex', gap: 2 }}>
                       <TextField 
