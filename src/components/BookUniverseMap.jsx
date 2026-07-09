@@ -4,7 +4,7 @@ import { Box, Card, Typography, useTheme, Chip } from '@mui/material';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import PublicIcon from '@mui/icons-material/Public';
 import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
-import { ReactFlow, MiniMap, Controls, Background, Handle, Position } from '@xyflow/react';
+import { ReactFlow, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 // Custom Nodes
@@ -180,7 +180,14 @@ const BookUniverseMap = () => {
         <Typography variant="body2" color="text.secondary">Tippe/Klicke und ziehe, um dich zu bewegen. Scrolle zum Zoomen.</Typography>
       </Box>
 
-      <Box sx={{ flexGrow: 1, width: '100%', position: 'relative' }}>
+      <Box sx={{ 
+        flexGrow: 1, 
+        width: '100%', 
+        position: 'relative',
+        background: theme.palette.mode === 'dark' 
+          ? 'linear-gradient(135deg, rgba(25,118,210,0.1) 0%, rgba(156,39,176,0.1) 100%)' 
+          : 'linear-gradient(135deg, rgba(25,118,210,0.05) 0%, rgba(156,39,176,0.05) 100%)'
+      }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -190,11 +197,7 @@ const BookUniverseMap = () => {
           minZoom={0.1}
           maxZoom={1.5}
           attributionPosition="bottom-right"
-        >
-          <Background color="#ccc" gap={16} />
-          <Controls />
-          <MiniMap nodeStrokeWidth={3} zoomable pannable />
-        </ReactFlow>
+        />
       </Box>
     </Card>
   );
