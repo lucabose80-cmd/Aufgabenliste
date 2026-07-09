@@ -3,7 +3,7 @@ import { useTaskContext } from '../context/TaskContext';
 import { 
   Box, Card, Typography, TextField, Button, IconButton, 
   List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
-  Autocomplete, Checkbox, FormControlLabel, Tooltip, Dialog, DialogTitle, DialogContent
+  Autocomplete, Checkbox, FormControlLabel, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -134,7 +134,7 @@ const BookManager = () => {
     const authorA = a.author || '';
     const authorB = b.author || '';
     if (authorA !== authorB) return authorA.localeCompare(authorB);
-    return a.name.localeCompare(b.name);
+    return (a.name || '').localeCompare(b.name || '');
   });
 
   const uniqueAuthors = Array.from(new Set(books.map(b => b.author).filter(Boolean)));

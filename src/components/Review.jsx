@@ -445,11 +445,15 @@ const Review = () => {
       {/* DASHBOARD WIDGETS WITH DND */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={dashboardOrder} strategy={verticalListSortingStrategy}>
-          {dashboardOrder.map(id => (
-            <SortableDashboardItem key={id} id={id}>
-              {renderWidget(id)}
-            </SortableDashboardItem>
-          ))}
+          {dashboardOrder.map(id => {
+            const widget = renderWidget(id);
+            if (!widget) return null;
+            return (
+              <SortableDashboardItem key={id} id={id}>
+                {widget}
+              </SortableDashboardItem>
+            );
+          })}
         </SortableContext>
       </DndContext>
 
