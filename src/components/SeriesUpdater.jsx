@@ -84,7 +84,7 @@ export default function SeriesUpdater() {
                       originalId: s.id,
                       data: {
                         apiId: `mal-${a.mal_id}`,
-                        name: a.title,
+                        name: a.title_english || a.title,
                         type: 'anime',
                         status: a.status === 'Finished Airing' ? 'Abgeschlossen' : 'Aktuell am schauen',
                         releaseDay: day,
