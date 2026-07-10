@@ -45,6 +45,7 @@ export default function SeriesManager() {
   const [searchType, setSearchType] = useState('serie'); // 'serie' or 'anime'
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [errorMsg, setErrorMsg] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
   // Form state
@@ -83,10 +84,12 @@ export default function SeriesManager() {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     setSearchResults([]);
+    setErrorMsg('');
 
     try {
       if (searchType === 'serie') {
         const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(searchQuery)}`);
+        if (!res.ok) throw new Error("Serien-Datenbank ist aktuell nicht erreichbar.");
         const data = await res.json();
         const mapped = data.map(item => {
           const s = item.show;
@@ -108,7 +111,14 @@ export default function SeriesManager() {
         setSearchResults(mapped);
       } else {
         const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(searchQuery)}&sfw=true`);
+        if (!res.ok) {
+           const errorData = await res.json().catch(() => ({}));
+           throw new Error(errorData.message || "Anime-Datenbank (MyAnimeList) ist aktuell überlastet oder nicht erreichbar.");
+        }
         const data = await res.json();
+        if (data.status >= 400 || data.error) {
+           throw new Error(data.message || "Anime-Datenbank Fehler.");
+        }
         const mapped = (data.data || []).map(a => {
           let day = '';
           if (a.broadcast && a.broadcast.day) {
@@ -131,8 +141,11 @@ export default function SeriesManager() {
       }
     } catch (err) {
       console.error(err);
+      setErrorMsg(err.message || 'Ein unbekannter Fehler ist aufgetreten.');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
-    setIsSearching(false);
   };
 
   const selectSearchResult = (item) => {
@@ -279,6 +292,12 @@ export default function SeriesManager() {
                   {isSearching ? <CircularProgress size={24} color="inherit" /> : <SearchIcon />}
                 </Button>
               </Box>
+
+              {errorMsg && (
+                <Typography color="error" variant="body2" sx={{ mb: 2, textAlign: 'center' }}>
+                  {errorMsg}
+                </Typography>
+              )}
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {searchResults.map((res, i) => (
