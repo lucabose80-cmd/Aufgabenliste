@@ -52,7 +52,10 @@ export default function SeriesCalendar() {
                   )}
                   <CardContent sx={{ p: 1.5, flexGrow: 1 }}>
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.2, mb: 1 }}>{s.name}</Typography>
-                    <Chip label={s.type === 'anime' ? 'Anime' : 'Serie'} size="small" variant="outlined" sx={{ mb: 1 }} />
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                      <Chip label={s.type === 'anime' ? 'Anime' : 'Serie'} size="small" variant="outlined" />
+                      {s.releaseTime && <Chip label={`${s.releaseTime} Uhr`} size="small" color="primary" variant="outlined" />}
+                    </Box>
                     <Typography variant="body2" color="text.secondary">
                       Episode: {s.currentEpisode} {s.totalEpisodes ? `/ ${s.totalEpisodes}` : ''}
                     </Typography>

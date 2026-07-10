@@ -53,6 +53,7 @@ export default function SeriesManager() {
     type: 'serie',
     status: 'Aktuell am schauen',
     releaseDay: '',
+    releaseTime: '',
     currentEpisode: 0,
     totalEpisodes: '',
     coverUrl: '',
@@ -66,7 +67,7 @@ export default function SeriesManager() {
     setSearchResults([]);
     setFormData({
       name: '', type: 'serie', status: 'Aktuell am schauen', 
-      releaseDay: '', currentEpisode: 0, totalEpisodes: '', coverUrl: '', apiId: ''
+      releaseDay: '', releaseTime: '', currentEpisode: 0, totalEpisodes: '', coverUrl: '', apiId: ''
     });
     setIsDialogOpen(true);
   };
@@ -99,7 +100,8 @@ export default function SeriesManager() {
             type: 'serie',
             status: s.status === 'Ended' ? 'Abgeschlossen' : 'Aktuell am schauen',
             releaseDay: day,
-            coverUrl: s.image ? s.image.medium : '',
+            releaseTime: (s.schedule && s.schedule.time) ? s.schedule.time : '',
+            coverUrl: s.image ? (s.image.original || s.image.medium) : '',
             totalEpisodes: '' // TVMaze search doesn't return total episodes easily
           };
         });
@@ -120,7 +122,8 @@ export default function SeriesManager() {
             type: 'anime',
             status: a.status === 'Finished Airing' ? 'Abgeschlossen' : 'Aktuell am schauen',
             releaseDay: day,
-            coverUrl: a.images && a.images.jpg ? a.images.jpg.image_url : '',
+            releaseTime: (a.broadcast && a.broadcast.time) ? a.broadcast.time : '',
+            coverUrl: a.images && a.images.jpg ? (a.images.jpg.large_image_url || a.images.jpg.image_url) : '',
             totalEpisodes: a.episodes || ''
           };
         });
@@ -199,7 +202,7 @@ export default function SeriesManager() {
                   <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     <Chip label={s.type === 'anime' ? 'Anime' : 'Serie'} size="small" variant="outlined" />
                     <Chip label={s.status} size="small" color={statusColors[s.status]} />
-                    {s.releaseDay && <Chip label={s.releaseDay} size="small" color="primary" variant="outlined" />}
+                    {s.releaseDay && <Chip label={`${s.releaseDay}${s.releaseTime ? ` ${s.releaseTime}` : ''}`} size="small" color="primary" variant="outlined" />}
                   </Box>
 
                   <Box sx={{ mt: 'auto' }}>
@@ -334,16 +337,27 @@ export default function SeriesManager() {
                 {STATUS_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
               </TextField>
 
-              <TextField 
-                select 
-                label="Release Tag (Optional)" 
-                fullWidth 
-                value={formData.releaseDay} 
-                onChange={(e) => setFormData({...formData, releaseDay: e.target.value})}
-              >
-                <MenuItem value="">- Kein spezifischer Tag -</MenuItem>
-                {DAY_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-              </TextField>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField 
+                  select 
+                  label="Release Tag" 
+                  fullWidth 
+                  value={formData.releaseDay} 
+                  onChange={(e) => setFormData({...formData, releaseDay: e.target.value})}
+                >
+                  <MenuItem value="">- Kein spezifischer Tag -</MenuItem>
+                  {DAY_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                </TextField>
+                
+                <TextField 
+                  label="Uhrzeit" 
+                  type="time" 
+                  fullWidth 
+                  InputLabelProps={{ shrink: true }}
+                  value={formData.releaseTime || ''} 
+                  onChange={(e) => setFormData({...formData, releaseTime: e.target.value})} 
+                />
+              </Box>
 
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField 

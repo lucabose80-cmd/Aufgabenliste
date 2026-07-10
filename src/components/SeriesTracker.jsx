@@ -3,7 +3,9 @@ import { Box, Tabs, Tab } from '@mui/material';
 import LiveTvIcon from '@mui/icons-material/LiveTv';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SeriesManager from './SeriesManager';
+import SeriesUpcoming from './SeriesUpcoming';
 import SeriesCalendar from './SeriesCalendar';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 export default function SeriesTracker() {
   const [activeTab, setActiveTab] = useState(0);
@@ -19,13 +21,15 @@ export default function SeriesTracker() {
           scrollButtons="auto"
         >
           <Tab icon={<LiveTvIcon />} label="Meine Serien" iconPosition="start" />
-          <Tab icon={<CalendarMonthIcon />} label="Release Kalender" iconPosition="start" />
+          <Tab icon={<AccessTimeIcon />} label="Upcoming" iconPosition="start" />
+          <Tab icon={<CalendarMonthIcon />} label="Kalender" iconPosition="start" />
         </Tabs>
       </Box>
 
       <Box sx={{ flexGrow: 1, overflow: 'auto', p: 1 }}>
         {activeTab === 0 && <SeriesManager />}
-        {activeTab === 1 && <SeriesCalendar />}
+        {activeTab === 1 && <SeriesUpcoming />}
+        {activeTab === 2 && <SeriesCalendar />}
       </Box>
     </Box>
   );
