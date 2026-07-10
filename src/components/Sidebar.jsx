@@ -17,6 +17,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import SyncIcon from '@mui/icons-material/Sync';
+import LiveTvIcon from '@mui/icons-material/LiveTv';
 
 const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   const { forceSync, pinnedNavItems } = useTaskContext();
@@ -29,6 +30,7 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
     { id: 'review', label: 'Statistik', icon: <BarChartIcon /> },
     { id: 'past-review', label: 'Rückblick', icon: <HistoryIcon /> },
     { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <MenuBookIcon /> },
+    { id: 'series-tracker', label: 'Serien Tracker', icon: <LiveTvIcon /> },
     { id: 'calories', label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
     { id: 'shopping', label: 'Einkaufsliste', icon: <ShoppingCartIcon /> },
     { id: 'create', label: 'Aufgabe erstellen', icon: <AddBoxIcon /> },

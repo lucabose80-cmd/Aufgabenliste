@@ -20,6 +20,7 @@ export const TaskProvider = ({ children }) => {
   const [categories, setCategories] = useState([]);
   const [readingSessions, setReadingSessions] = useState([]);
   const [books, setBooks] = useState([]);
+  const [trackedSeries, setTrackedSeries] = useState([]);
   const [calorieLogs, setCalorieLogs] = useState([]);
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [allUsersDB, setAllUsersDB] = useState([]);
@@ -93,6 +94,9 @@ export const TaskProvider = ({ children }) => {
       const savedBooks = localStorage.getItem('books');
       setBooks(savedBooks ? JSON.parse(savedBooks) : []);
 
+      const savedSeries = localStorage.getItem('trackedSeries');
+      setTrackedSeries(savedSeries ? JSON.parse(savedSeries) : []);
+
       const savedCalories = localStorage.getItem('calorieLogs');
       setCalorieLogs(savedCalories ? JSON.parse(savedCalories) : []);
 
@@ -130,6 +134,7 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('categories', JSON.stringify(categories));
       localStorage.setItem('readingSessions', JSON.stringify(readingSessions));
       localStorage.setItem('books', JSON.stringify(books));
+      localStorage.setItem('trackedSeries', JSON.stringify(trackedSeries));
       localStorage.setItem('calorieLogs', JSON.stringify(calorieLogs));
       localStorage.setItem('calorieGoal', calorieGoal);
       localStorage.setItem('theme', theme);
@@ -140,7 +145,7 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('pastReviewOrder', JSON.stringify(pastReviewOrder));
       localStorage.setItem('resetHour', resetHour.toString());
     }
-  }, [personalTasks, categories, readingSessions, books, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, resetHour, user, isLoading]);
+  }, [personalTasks, categories, readingSessions, books, trackedSeries, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, resetHour, user, isLoading]);
 
   const [userDisplayName, setUserDisplayName] = useState('');
 
@@ -209,6 +214,11 @@ export const TaskProvider = ({ children }) => {
       setBooks(snapshot.docs.map(doc => doc.data()));
     });
 
+    const seriesRef = collection(db, 'users', user.uid, 'trackedSeries');
+    const unsubscribeSeries = onSnapshot(seriesRef, (snapshot) => {
+      setTrackedSeries(snapshot.docs.map(doc => doc.data()));
+    });
+
     const caloriesRef = collection(db, 'users', user.uid, 'calorieLogs');
     const unsubscribeCalories = onSnapshot(caloriesRef, (snapshot) => {
       setCalorieLogs(snapshot.docs.map(doc => doc.data()));
@@ -271,6 +281,7 @@ export const TaskProvider = ({ children }) => {
       unsubscribeCategories();
       unsubscribeReading();
       unsubscribeBooks();
+      unsubscribeSeries();
       unsubscribeCalories();
       unsubscribeSettings();
     };
@@ -695,6 +706,29 @@ export const TaskProvider = ({ children }) => {
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'books', id));
   };
 
+  const addTrackedSeries = async (seriesData) => {
+    const newSeries = {
+      id: uuidv4(),
+      ...seriesData,
+      createdAt: new Date().toISOString()
+    };
+    if (!user) setTrackedSeries([...trackedSeries, newSeries]);
+    if (user) await setDoc(doc(db, 'users', user.uid, 'trackedSeries', newSeries.id), newSeries);
+  };
+
+  const updateTrackedSeries = async (id, updates) => {
+    const series = trackedSeries.find(s => s.id === id);
+    if (!series) return;
+    const updated = { ...series, ...updates };
+    if (!user) setTrackedSeries(trackedSeries.map(s => s.id === id ? updated : s));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'trackedSeries', id), updated);
+  };
+
+  const deleteTrackedSeries = async (id) => {
+    if (!user) setTrackedSeries(trackedSeries.filter(s => s.id !== id));
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'trackedSeries', id));
+  };
+
   const saveCalorieLog = async (difference, date = getTodayDateString()) => {
     const newLog = { id: date, date, difference: parseInt(difference, 10) || 0 };
     if (!user) {
@@ -827,6 +861,10 @@ export const TaskProvider = ({ children }) => {
       toggleSubTask,
       toggleTaskCompletion,
       reorderTasks,
+      trackedSeries,
+      addTrackedSeries,
+      updateTrackedSeries,
+      deleteTrackedSeries,
       addCategory,
       updateCategory,
       reorderCategories,
