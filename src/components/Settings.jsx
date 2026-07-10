@@ -5,6 +5,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 const COLORS = [
   { name: 'Indigo (Standard)', hex: '#6366f1' },
@@ -21,6 +23,7 @@ const NAV_ITEMS = [
   { id: 'review', label: 'Statistik' },
   { id: 'past-review', label: 'Rückblick' },
   { id: 'reading-speed', label: 'Lesegeschwindigkeit' },
+  { id: 'series-tracker', label: 'Serien Tracker' },
   { id: 'shopping', label: 'Einkaufsliste' },
   { id: 'calories', label: 'Kalorienziel' },
   { id: 'categories', label: 'Kategorien verwalten' },
@@ -55,6 +58,29 @@ const Settings = () => {
     }
     saveSettings(theme, accentColor, undefined, newPinned);
   };
+
+  const moveNav = (e, itemId, direction) => {
+    e.stopPropagation();
+    let newPinned = [...(pinnedNavItems || [])];
+    const index = newPinned.indexOf(itemId);
+    if (index === -1) return;
+    
+    if (direction === 'up' && index > 0) {
+      [newPinned[index - 1], newPinned[index]] = [newPinned[index], newPinned[index - 1]];
+    } else if (direction === 'down' && index < newPinned.length - 1) {
+      [newPinned[index + 1], newPinned[index]] = [newPinned[index], newPinned[index + 1]];
+    }
+    saveSettings(theme, accentColor, undefined, newPinned);
+  };
+
+  const sortedNavItems = [...NAV_ITEMS].sort((a, b) => {
+    const aIndex = (pinnedNavItems || []).indexOf(a.id);
+    const bIndex = (pinnedNavItems || []).indexOf(b.id);
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    return 0;
+  });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
@@ -174,8 +200,9 @@ const Settings = () => {
             Wähle bis zu 5 Punkte, die unten in der Navigation angezeigt werden sollen. Der Rest landet im "Mehr" Menü.
           </Typography>
           <Grid container spacing={2}>
-            {NAV_ITEMS.map((item) => {
+            {sortedNavItems.map((item) => {
               const isPinned = (pinnedNavItems || []).includes(item.id);
+              const pinIndex = (pinnedNavItems || []).indexOf(item.id);
               return (
                 <Grid item xs={12} sm={6} md={4} key={item.id}>
                   <Box 
@@ -198,7 +225,30 @@ const Settings = () => {
                       checked={isPinned} 
                       sx={{ p: 0.5, mr: 1, color: isPinned ? 'primary.contrastText' : 'inherit', '&.Mui-checked': { color: 'primary.contrastText' } }} 
                     />
-                    <Typography variant="body2" fontWeight={isPinned ? 'bold' : 'normal'}>{item.label}</Typography>
+                    <Typography variant="body2" fontWeight={isPinned ? 'bold' : 'normal'} sx={{ flexGrow: 1 }}>
+                      {item.label}
+                    </Typography>
+                    
+                    {isPinned && (
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => moveNav(e, item.id, 'up')}
+                          disabled={pinIndex === 0}
+                          sx={{ p: 0, color: 'inherit', opacity: pinIndex === 0 ? 0.3 : 1 }}
+                        >
+                          <KeyboardArrowUpIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => moveNav(e, item.id, 'down')}
+                          disabled={pinIndex === pinnedNavItems.length - 1}
+                          sx={{ p: 0, color: 'inherit', opacity: pinIndex === pinnedNavItems.length - 1 ? 0.3 : 1 }}
+                        >
+                          <KeyboardArrowDownIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    )}
                   </Box>
                 </Grid>
               );
