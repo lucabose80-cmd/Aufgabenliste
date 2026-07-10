@@ -104,7 +104,7 @@ export default function SeriesManager() {
             coverUrl: s.image ? (s.image.original || s.image.medium) : '',
             totalEpisodes: '' // TVMaze search doesn't return total episodes easily
           };
-        });
+        }).filter(s => !trackedSeries.some(t => t.apiId === s.apiId));
         setSearchResults(mapped);
       } else {
         const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(searchQuery)}&sfw=true`);
@@ -126,7 +126,7 @@ export default function SeriesManager() {
             coverUrl: a.images && a.images.jpg ? (a.images.jpg.large_image_url || a.images.jpg.image_url) : '',
             totalEpisodes: a.episodes || ''
           };
-        });
+        }).filter(s => !trackedSeries.some(t => t.apiId === s.apiId));
         setSearchResults(mapped);
       }
     } catch (err) {

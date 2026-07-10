@@ -4,6 +4,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useTaskContext } from '../context/TaskContext';
 import { addDays, setDay, setHours, setMinutes, setSeconds, isBefore, format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import SeriesUpdater from './SeriesUpdater';
 
 const DAY_MAP = {
   'Sonntag': 0,
@@ -71,7 +72,10 @@ export default function SeriesUpcoming() {
 
   return (
     <Box sx={{ p: 1, pb: 8, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>Als nächstes fällig</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Als nächstes fällig</Typography>
+        <SeriesUpdater />
+      </Box>
       
       {upcomingList.length === 0 ? (
         <Typography color="text.secondary">Du hast aktuell keine fortlaufenden Serien mit Release-Tagen.</Typography>
