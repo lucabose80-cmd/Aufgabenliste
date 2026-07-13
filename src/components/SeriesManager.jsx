@@ -188,42 +188,49 @@ export default function SeriesManager() {
           Du hast noch keine Serien oder Animes hinzugefügt.
         </Typography>
       ) : (
-        <Grid container spacing={2}>
+        <Grid container spacing={1.5}>
           {trackedSeries.map(s => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={s.id}>
-              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Grid item xs={6} sm={4} md={3} lg={2} key={s.id}>
+              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+                <Box sx={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 0.5, bgcolor: 'rgba(0,0,0,0.6)', borderRadius: 1, zIndex: 10 }}>
+                  <IconButton size="small" sx={{ color: 'white', p: 0.5 }} onClick={() => openEditDialog(s)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" color="error" sx={{ p: 0.5 }} onClick={() => deleteTrackedSeries(s.id)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
                 {s.coverUrl && (
                   <CardMedia
                     component="img"
-                    height="180"
+                    height="160"
                     image={s.coverUrl}
                     alt={s.name}
                     sx={{ objectFit: 'cover' }}
                   />
                 )}
-                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1, lineHeight: 1.2 }}>
-                      {s.name}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton size="small" onClick={() => openEditDialog(s)}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => deleteTrackedSeries(s.id)}><DeleteIcon fontSize="small" /></IconButton>
-                    </Box>
-                  </Box>
+                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Typography 
+                    variant="subtitle2" 
+                    sx={{ 
+                      fontWeight: 'bold', mb: 1, lineHeight: 1.2,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                    }}
+                  >
+                    {s.name}
+                  </Typography>
                   
-                  <Box sx={{ mb: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    <Chip label={s.type === 'anime' ? 'Anime' : 'Serie'} size="small" variant="outlined" />
-                    <Chip label={s.status} size="small" color={statusColors[s.status]} />
-                    {s.releaseDay && <Chip label={`${s.releaseDay}${s.releaseTime ? ` ${s.releaseTime}` : ''}`} size="small" color="primary" variant="outlined" />}
+                  <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    <Chip label={s.type === 'anime' ? 'Anime' : 'Serie'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+                    <Chip label={s.status} size="small" color={statusColors[s.status]} sx={{ height: 20, fontSize: '0.65rem' }} />
                   </Box>
 
                   <Box sx={{ mt: 'auto' }}>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Episode: {s.currentEpisode} {s.totalEpisodes ? `/ ${s.totalEpisodes}` : ''}
+                    <Typography variant="caption" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
+                      Ep: {s.currentEpisode} {s.totalEpisodes ? `/ ${s.totalEpisodes}` : ''}
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, -1)}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, -1)} sx={{ p: 0 }}>
                         <RemoveCircleOutlinedIcon />
                       </IconButton>
                       <Box sx={{ flexGrow: 1 }}>
@@ -231,18 +238,18 @@ export default function SeriesManager() {
                           <LinearProgress 
                             variant="determinate" 
                             value={Math.min(100, (s.currentEpisode / s.totalEpisodes) * 100)} 
-                            sx={{ height: 8, borderRadius: 4 }}
+                            sx={{ height: 6, borderRadius: 3 }}
                           />
                         ) : (
                           <LinearProgress 
                             variant="determinate" 
                             value={100} 
                             color="success"
-                            sx={{ height: 8, borderRadius: 4, opacity: 0.5 }}
+                            sx={{ height: 6, borderRadius: 3, opacity: 0.5 }}
                           />
                         )}
                       </Box>
-                      <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, 1)}>
+                      <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, 1)} sx={{ p: 0 }}>
                         <AddCircleOutlinedIcon />
                       </IconButton>
                     </Box>
