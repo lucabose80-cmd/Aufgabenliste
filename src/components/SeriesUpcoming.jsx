@@ -70,6 +70,23 @@ export default function SeriesUpcoming() {
       }
     }
     
+    const out = getEpisodesOut(series);
+    if (out !== null) {
+      if (out > series.currentEpisode) {
+        // They are behind! Return a past date so it stays "Bereits erschienen"
+        return mostRecentOcc;
+      } else {
+        // They are caught up. Next episode is in the future.
+        let next = addDays(mostRecentOcc, 7);
+        // Ensure it's strictly in the future
+        while(isBefore(next, now)) {
+           next = addDays(next, 7);
+        }
+        return next;
+      }
+    }
+    
+    // Fallback if startDate is unknown
     const buffer = 1 * 60 * 60 * 1000;
     const effectiveOcc = new Date(mostRecentOcc.getTime() - buffer);
 
