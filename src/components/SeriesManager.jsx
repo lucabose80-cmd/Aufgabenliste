@@ -170,7 +170,11 @@ export default function SeriesManager() {
 
   const adjustEpisode = (series, delta) => {
     const newEp = Math.max(0, (series.currentEpisode || 0) + delta);
-    updateTrackedSeries(series.id, { currentEpisode: newEp });
+    const updates = { currentEpisode: newEp };
+    if (delta > 0) {
+      updates.lastWatchedDate = new Date().toISOString();
+    }
+    updateTrackedSeries(series.id, updates);
   };
 
   const statusColors = {

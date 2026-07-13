@@ -19,12 +19,17 @@ const DAY_MAP = {
 export default function SeriesUpcoming() {
   const { trackedSeries, updateTrackedSeries } = useTaskContext();
 
-  const getNextOccurrence = (dayName, timeStr) => {
+  const getNextOccurrence = (series) => {
+    const dayName = series.releaseDay;
+    const timeStr = series.releaseTime;
+    const lastWatchedStr = series.lastWatchedDate || series.createdAt || new Date(0).toISOString();
+    const lastWatched = new Date(lastWatchedStr);
+
     const now = new Date();
     const targetDayIndex = DAY_MAP[dayName];
     if (targetDayIndex === undefined) return null;
     
-    let targetDate = setDay(now, targetDayIndex, { weekStartsOn: 1 });
+    let thisWeekOcc = setDay(now, targetDayIndex, { weekStartsOn: 1 });
     
     let hours = 0;
     let minutes = 0;
@@ -36,22 +41,23 @@ export default function SeriesUpcoming() {
       }
     }
     
-    targetDate = setHours(targetDate, hours);
-    targetDate = setMinutes(targetDate, minutes);
-    targetDate = setSeconds(targetDate, 0);
+    thisWeekOcc = setHours(thisWeekOcc, hours);
+    thisWeekOcc = setMinutes(thisWeekOcc, minutes);
+    thisWeekOcc = setSeconds(thisWeekOcc, 0);
     
-    // If the release time is exactly now or in the past (within this week), 
-    // it moves to the next week. Wait, if it aired 2 hours ago, maybe they still want to watch it today.
-    // Let's say if it aired more than 24 hours ago, it's next week. If it aired within the last 24 hours, show it as "Available now" (but date-fns isBefore will just be true).
-    // Let's just sort strictly by "next air date", but if it's within the last 12 hours, keep it as "Today".
-    
-    // For simplicity: if targetDate is more than 6 hours in the past, move to next week.
-    // That gives the user a 6-hour window to check it off on the same day.
-    const threshold = new Date(now.getTime() - 6 * 60 * 60 * 1000); 
-    if (isBefore(targetDate, threshold)) {
-      targetDate = addDays(targetDate, 7);
+    let mostRecentOcc = thisWeekOcc;
+    if (isBefore(now, mostRecentOcc)) {
+      mostRecentOcc = addDays(mostRecentOcc, -7);
     }
-    return targetDate;
+    
+    const buffer = 1 * 60 * 60 * 1000;
+    const effectiveOcc = new Date(mostRecentOcc.getTime() - buffer);
+
+    if (isBefore(lastWatched, effectiveOcc)) {
+      return mostRecentOcc;
+    } else {
+      return addDays(mostRecentOcc, 7);
+    }
   };
 
   const activeSeries = trackedSeries.filter(s => 
@@ -60,14 +66,17 @@ export default function SeriesUpcoming() {
   );
 
   const upcomingList = activeSeries.map(s => {
-    const nextDate = getNextOccurrence(s.releaseDay, s.releaseTime);
+    const nextDate = getNextOccurrence(s);
     return { ...s, nextDate };
   }).filter(s => s.nextDate !== null)
     .sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
 
   const handleCheckOff = (series) => {
     const newEp = (series.currentEpisode || 0) + 1;
-    updateTrackedSeries(series.id, { currentEpisode: newEp });
+    updateTrackedSeries(series.id, { 
+      currentEpisode: newEp,
+      lastWatchedDate: new Date().toISOString()
+    });
   };
 
   return (
@@ -98,12 +107,15 @@ export default function SeriesUpcoming() {
               <CardContent sx={{ flexGrow: 1, py: 1, '&:last-child': { pb: 1 } }}>
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.2 }}>{s.name}</Typography>
                 
-                <Box sx={{ display: 'flex', gap: 1, mt: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                  {isAvailableNow ? (
-                    <Chip label="Jetzt verfügbar!" color="success" size="small" />
-                  ) : (
-                    <Chip label={`${dateStr}${timeStr}`} color="primary" variant="outlined" size="small" />
-                  )}
+                {isAvailableNow ? (
+                  <Chip size="small" label="Bereits erschienen" color="success" sx={{ mt: 0.5, height: 20, fontSize: '0.65rem' }} />
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {dateStr}{timeStr}
+                  </Typography>
+                )}
+                
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
                   <Chip label={`Episode ${s.currentEpisode + 1} anstehend`} size="small" />
                 </Box>
               </CardContent>
