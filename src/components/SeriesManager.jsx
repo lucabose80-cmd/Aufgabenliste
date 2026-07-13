@@ -189,9 +189,9 @@ export default function SeriesManager() {
         </Typography>
       ) : (
         <Grid container spacing={1}>
-          {trackedSeries.map(s => (
-            <Grid item xs={4} sm={3} md={2} key={s.id} sx={{ maxWidth: { xs: '33.33%', sm: '25%', md: '16.66%' }, flexBasis: { xs: '33.33%', sm: '25%', md: '16.66%' } }}>
-              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden' }}>
+          {[...trackedSeries].sort((a, b) => (b.currentEpisode || 0) - (a.currentEpisode || 0)).map(s => (
+            <Grid item xs={4} sm={3} md={2} key={s.id} sx={{ minWidth: 0 }}>
+              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden', minWidth: 0 }}>
                 <Box sx={{ position: 'absolute', top: 2, right: 2, display: 'flex', flexDirection: 'column', gap: 0.25, zIndex: 10 }}>
                   <IconButton size="small" sx={{ color: 'white', p: 0.25, bgcolor: 'rgba(0,0,0,0.5)', '&:hover':{bgcolor:'rgba(0,0,0,0.7)'} }} onClick={() => openEditDialog(s)}>
                     <EditIcon sx={{ fontSize: '1rem' }} />
@@ -211,7 +211,7 @@ export default function SeriesManager() {
                 ) : (
                    <Box sx={{ height: 120, bgcolor: 'grey.800' }} />
                 )}
-                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 0.75, '&:last-child': { pb: 0.75 }, overflow: 'hidden' }}>
+                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 0.75, '&:last-child': { pb: 0.75 }, overflow: 'hidden', minWidth: 0 }}>
                   <Typography 
                     variant="caption" 
                     noWrap
