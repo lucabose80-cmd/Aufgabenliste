@@ -49,6 +49,26 @@ export default function SeriesUpcoming() {
     if (isBefore(now, mostRecentOcc)) {
       mostRecentOcc = addDays(mostRecentOcc, -7);
     }
+
+    if (series.startDate) {
+      let dubStartDate = new Date(series.startDate);
+      if (series.dubDelay) {
+        dubStartDate = addDays(dubStartDate, series.dubDelay * 7);
+      }
+      
+      // If the show (or dub) hasn't started yet, find the next occurrence on or after dubStartDate
+      if (isBefore(now, dubStartDate)) {
+        // Find the first occurrence after the dubStartDate
+        let nextOcc = setDay(dubStartDate, targetDayIndex, { weekStartsOn: 1 });
+        nextOcc = setHours(nextOcc, hours);
+        nextOcc = setMinutes(nextOcc, minutes);
+        nextOcc = setSeconds(nextOcc, 0);
+        if (isBefore(nextOcc, dubStartDate)) {
+           nextOcc = addDays(nextOcc, 7);
+        }
+        return nextOcc;
+      }
+    }
     
     const buffer = 1 * 60 * 60 * 1000;
     const effectiveOcc = new Date(mostRecentOcc.getTime() - buffer);
@@ -68,7 +88,8 @@ export default function SeriesUpcoming() {
       if (isBefore(now, start)) return 0;
       const msPerWeek = 7 * 24 * 60 * 60 * 1000;
       const weeks = Math.floor((now.getTime() - start.getTime()) / msPerWeek);
-      const out = weeks + 1;
+      let out = weeks + 1 - (series.dubDelay || 0);
+      out = Math.max(0, out);
       if (series.totalEpisodes) {
         return Math.min(out, parseInt(series.totalEpisodes, 10));
       }

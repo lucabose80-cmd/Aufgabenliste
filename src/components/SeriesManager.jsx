@@ -58,7 +58,8 @@ export default function SeriesManager() {
     currentEpisode: 0,
     totalEpisodes: '',
     coverUrl: '',
-    apiId: ''
+    apiId: '',
+    dubDelay: 0
   });
 
   const openAddDialog = () => {
@@ -68,7 +69,7 @@ export default function SeriesManager() {
     setSearchResults([]);
     setFormData({
       name: '', type: 'serie', status: 'Aktuell am schauen', 
-      releaseDay: '', releaseTime: '', currentEpisode: 0, totalEpisodes: '', coverUrl: '', apiId: ''
+      releaseDay: '', releaseTime: '', currentEpisode: 0, totalEpisodes: '', coverUrl: '', apiId: '', dubDelay: 0
     });
     setIsDialogOpen(true);
   };
@@ -397,6 +398,13 @@ export default function SeriesManager() {
                   fullWidth 
                   value={formData.totalEpisodes} 
                   onChange={(e) => setFormData({...formData, totalEpisodes: parseInt(e.target.value) || ''})} 
+                />
+                <TextField 
+                  label="Synchro-Verzögerung" 
+                  type="number" 
+                  fullWidth 
+                  value={formData.dubDelay || 0} 
+                  onChange={(e) => setFormData({...formData, dubDelay: Math.max(0, parseInt(e.target.value) || 0)})} 
                 />
               </Box>
 
