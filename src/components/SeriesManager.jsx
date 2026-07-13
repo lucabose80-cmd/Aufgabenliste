@@ -188,10 +188,9 @@ export default function SeriesManager() {
           Du hast noch keine Serien oder Animes hinzugefügt.
         </Typography>
       ) : (
-        <Grid container spacing={1}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(4, 1fr)', md: 'repeat(6, 1fr)' }, gap: 1 }}>
           {[...trackedSeries].sort((a, b) => (b.currentEpisode || 0) - (a.currentEpisode || 0)).map(s => (
-            <Grid item xs={4} sm={3} md={2} key={s.id} sx={{ minWidth: 0 }}>
-              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden', minWidth: 0 }}>
+            <Card key={s.id} sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden', minWidth: 0 }}>
                 <Box sx={{ position: 'absolute', top: 2, right: 2, display: 'flex', flexDirection: 'column', gap: 0.25, zIndex: 10 }}>
                   <IconButton size="small" sx={{ color: 'white', p: 0.25, bgcolor: 'rgba(0,0,0,0.5)', '&:hover':{bgcolor:'rgba(0,0,0,0.7)'} }} onClick={() => openEditDialog(s)}>
                     <EditIcon sx={{ fontSize: '1rem' }} />
@@ -249,10 +248,9 @@ export default function SeriesManager() {
                     </Box>
                   </Box>
                 </CardContent>
-              </Card>
-            </Grid>
+            </Card>
           ))}
-        </Grid>
+        </Box>
       )}
 
       <Fab 
