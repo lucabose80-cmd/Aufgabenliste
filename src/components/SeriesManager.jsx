@@ -188,69 +188,62 @@ export default function SeriesManager() {
           Du hast noch keine Serien oder Animes hinzugefügt.
         </Typography>
       ) : (
-        <Grid container spacing={1.5}>
+        <Grid container spacing={1}>
           {trackedSeries.map(s => (
-            <Grid item xs={6} sm={4} md={3} lg={2} key={s.id}>
-              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
-                <Box sx={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 0.5, bgcolor: 'rgba(0,0,0,0.6)', borderRadius: 1, zIndex: 10 }}>
-                  <IconButton size="small" sx={{ color: 'white', p: 0.5 }} onClick={() => openEditDialog(s)}>
-                    <EditIcon fontSize="small" />
+            <Grid item xs={4} sm={3} md={2} key={s.id} sx={{ minWidth: 0 }}>
+              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', minWidth: 0 }}>
+                <Box sx={{ position: 'absolute', top: 2, right: 2, display: 'flex', flexDirection: 'column', gap: 0.25, zIndex: 10 }}>
+                  <IconButton size="small" sx={{ color: 'white', p: 0.25, bgcolor: 'rgba(0,0,0,0.5)', '&:hover':{bgcolor:'rgba(0,0,0,0.7)'} }} onClick={() => openEditDialog(s)}>
+                    <EditIcon sx={{ fontSize: '1rem' }} />
                   </IconButton>
-                  <IconButton size="small" color="error" sx={{ p: 0.5 }} onClick={() => deleteTrackedSeries(s.id)}>
-                    <DeleteIcon fontSize="small" />
+                  <IconButton size="small" color="error" sx={{ p: 0.25, bgcolor: 'rgba(0,0,0,0.5)', '&:hover':{bgcolor:'rgba(0,0,0,0.7)'} }} onClick={() => deleteTrackedSeries(s.id)}>
+                    <DeleteIcon sx={{ fontSize: '1rem' }} />
                   </IconButton>
                 </Box>
-                {s.coverUrl && (
+                {s.coverUrl ? (
                   <CardMedia
                     component="img"
-                    height="160"
+                    height="120"
                     image={s.coverUrl}
                     alt={s.name}
                     sx={{ objectFit: 'cover' }}
                   />
+                ) : (
+                   <Box sx={{ height: 120, bgcolor: 'grey.800' }} />
                 )}
-                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1, '&:last-child': { pb: 1 }, minWidth: 0 }}>
                   <Typography 
-                    variant="subtitle2" 
+                    variant="caption" 
                     sx={{ 
-                      fontWeight: 'bold', mb: 1, lineHeight: 1.2,
+                      fontWeight: 'bold', mb: 0.5, lineHeight: 1.1,
                       display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
                     }}
                   >
                     {s.name}
                   </Typography>
                   
-                  <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    <Chip label={s.type === 'anime' ? 'Anime' : 'Serie'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                    <Chip label={s.status} size="small" color={statusColors[s.status]} sx={{ height: 20, fontSize: '0.65rem' }} />
+                  <Box sx={{ mb: 'auto' }}>
+                    <Box sx={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', bgcolor: `${statusColors[s.status]}.main`, mr: 0.5 }} />
+                    <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary' }}>
+                      {s.type === 'anime' ? 'Anime' : 'Serie'}
+                    </Typography>
                   </Box>
 
-                  <Box sx={{ mt: 'auto' }}>
-                    <Typography variant="caption" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
-                      Ep: {s.currentEpisode} {s.totalEpisodes ? `/ ${s.totalEpisodes}` : ''}
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+                      Ep: {s.currentEpisode}{s.totalEpisodes ? `/${s.totalEpisodes}` : ''}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, -1)} sx={{ p: 0 }}>
-                        <RemoveCircleOutlinedIcon />
-                      </IconButton>
                       <Box sx={{ flexGrow: 1 }}>
-                        {s.totalEpisodes ? (
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={Math.min(100, (s.currentEpisode / s.totalEpisodes) * 100)} 
-                            sx={{ height: 6, borderRadius: 3 }}
-                          />
-                        ) : (
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={100} 
-                            color="success"
-                            sx={{ height: 6, borderRadius: 3, opacity: 0.5 }}
-                          />
-                        )}
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={s.totalEpisodes ? Math.min(100, (s.currentEpisode / s.totalEpisodes) * 100) : 100} 
+                          color={s.totalEpisodes ? "primary" : "success"}
+                          sx={{ height: 4, borderRadius: 2, opacity: s.totalEpisodes ? 1 : 0.5 }}
+                        />
                       </Box>
                       <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, 1)} sx={{ p: 0 }}>
-                        <AddCircleOutlinedIcon />
+                        <AddCircleOutlinedIcon sx={{ fontSize: '1.2rem' }} />
                       </IconButton>
                     </Box>
                   </Box>
