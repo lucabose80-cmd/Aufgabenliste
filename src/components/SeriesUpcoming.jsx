@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box, Typography, Card, CardContent, CardMedia, IconButton, Chip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useTaskContext } from '../context/TaskContext';
@@ -60,10 +60,62 @@ export default function SeriesUpcoming() {
     }
   };
 
+  const getEpisodesOut = (series) => {
+    if (series.status === 'Abgeschlossen') return parseInt(series.totalEpisodes, 10) || null;
+    if (series.startDate) {
+      const start = new Date(series.startDate);
+      const now = new Date();
+      if (isBefore(now, start)) return 0;
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+      const weeks = Math.floor((now.getTime() - start.getTime()) / msPerWeek);
+      const out = weeks + 1;
+      if (series.totalEpisodes) {
+        return Math.min(out, parseInt(series.totalEpisodes, 10));
+      }
+      return out;
+    }
+    return null;
+  };
+
   const activeSeries = trackedSeries.filter(s => 
     s.releaseDay && 
     (s.status === 'Aktuell am schauen' || s.status === 'Wartet auf neue Staffel' || s.status === 'Geplant')
   );
+
+  const fetchedRefs = useRef(new Set());
+  useEffect(() => {
+    const fetchMissingData = async () => {
+      for (const s of activeSeries) {
+        if (!('startDate' in s) && s.apiId && !fetchedRefs.current.has(s.id)) {
+          fetchedRefs.current.add(s.id);
+          try {
+            if (s.apiId.startsWith('mal-')) {
+              const id = s.apiId.split('-')[1];
+              const res = await fetch(`https://api.jikan.moe/v4/anime/${id}`);
+              if (res.ok) {
+                const data = await res.json();
+                const startDate = data.data?.aired?.from || null;
+                const totalEpisodes = data.data?.episodes || s.totalEpisodes || '';
+                updateTrackedSeries(s.id, { startDate, totalEpisodes });
+              }
+              await new Promise(r => setTimeout(r, 500));
+            } else if (s.apiId.startsWith('tvm-')) {
+              const id = s.apiId.split('-')[1];
+              const res = await fetch(`https://api.tvmaze.com/shows/${id}`);
+              if (res.ok) {
+                const data = await res.json();
+                const startDate = data.premiered || null;
+                updateTrackedSeries(s.id, { startDate });
+              }
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
+    };
+    fetchMissingData();
+  }, [activeSeries, updateTrackedSeries]);
 
   const upcomingList = activeSeries.map(s => {
     const nextDate = getNextOccurrence(s);
@@ -116,7 +168,21 @@ export default function SeriesUpcoming() {
                 )}
                 
                 <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                  <Chip label={`Episode ${s.currentEpisode + 1} anstehend`} size="small" />
+                  {(() => {
+                    const episodesOut = getEpisodesOut(s);
+                    const isFinished = s.status === 'Abgeschlossen';
+                    let epLabel = `Episode ${s.currentEpisode + 1} anstehend`;
+                    
+                    if (episodesOut !== null && episodesOut > s.currentEpisode) {
+                      const remaining = episodesOut - s.currentEpisode;
+                      if (remaining > 1) {
+                        epLabel = `${remaining} Folgen verfügbar (bis Ep. ${episodesOut})`;
+                      } else if (isFinished) {
+                         epLabel = `Letzte Folge anstehend`;
+                      }
+                    }
+                    return <Chip label={epLabel} size="small" />;
+                  })()}
                 </Box>
               </CardContent>
               <Box sx={{ px: 2 }}>

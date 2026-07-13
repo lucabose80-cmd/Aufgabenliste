@@ -105,7 +105,8 @@ export default function SeriesManager() {
             releaseDay: day,
             releaseTime: (s.schedule && s.schedule.time) ? s.schedule.time : '',
             coverUrl: s.image ? (s.image.original || s.image.medium) : '',
-            totalEpisodes: '' // TVMaze search doesn't return total episodes easily
+            totalEpisodes: '', // TVMaze search doesn't return total episodes easily
+            startDate: s.premiered || null
           };
         }).filter(s => !trackedSeries.some(t => t.apiId === s.apiId));
         setSearchResults(mapped);
@@ -134,7 +135,8 @@ export default function SeriesManager() {
             releaseDay: day,
             releaseTime: (a.broadcast && a.broadcast.time) ? a.broadcast.time : '',
             coverUrl: a.images && a.images.jpg ? (a.images.jpg.large_image_url || a.images.jpg.image_url) : '',
-            totalEpisodes: a.episodes || ''
+            totalEpisodes: a.episodes || '',
+            startDate: a.aired ? a.aired.from : null
           };
         }).filter(s => !trackedSeries.some(t => t.apiId === s.apiId));
         setSearchResults(mapped);
