@@ -52,6 +52,13 @@ export default function SeriesUpcoming() {
 
     if (series.startDate) {
       let dubStartDate = new Date(series.startDate);
+      if (series.releaseTime) {
+        const parts = series.releaseTime.split(':');
+        if (parts.length === 2) {
+          dubStartDate = setHours(dubStartDate, parseInt(parts[0], 10) || 0);
+          dubStartDate = setMinutes(dubStartDate, parseInt(parts[1], 10) || 0);
+        }
+      }
       if (series.dubDelay) {
         dubStartDate = addDays(dubStartDate, series.dubDelay * 7);
       }
@@ -100,7 +107,14 @@ export default function SeriesUpcoming() {
   const getEpisodesOut = (series) => {
     if (series.status === 'Abgeschlossen') return parseInt(series.totalEpisodes, 10) || null;
     if (series.startDate) {
-      const start = new Date(series.startDate);
+      let start = new Date(series.startDate);
+      if (series.releaseTime) {
+        const parts = series.releaseTime.split(':');
+        if (parts.length === 2) {
+          start = setHours(start, parseInt(parts[0], 10) || 0);
+          start = setMinutes(start, parseInt(parts[1], 10) || 0);
+        }
+      }
       const now = new Date();
       if (isBefore(now, start)) return 0;
       const msPerWeek = 7 * 24 * 60 * 60 * 1000;

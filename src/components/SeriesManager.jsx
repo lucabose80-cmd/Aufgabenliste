@@ -400,7 +400,7 @@ export default function SeriesManager() {
                   onChange={(e) => setFormData({...formData, totalEpisodes: parseInt(e.target.value) || ''})} 
                 />
                 <TextField 
-                  label="Synchro-Verzögerung" 
+                  label="Verzögerung in Wochen (Synchro/Pausen)" 
                   type="number" 
                   fullWidth 
                   value={formData.dubDelay || 0} 
