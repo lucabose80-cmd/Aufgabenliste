@@ -190,8 +190,8 @@ export default function SeriesManager() {
       ) : (
         <Grid container spacing={1}>
           {trackedSeries.map(s => (
-            <Grid item xs={4} sm={3} md={2} key={s.id} sx={{ minWidth: 0 }}>
-              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', minWidth: 0 }}>
+            <Grid item xs={4} sm={3} md={2} key={s.id} sx={{ maxWidth: { xs: '33.33%', sm: '25%', md: '16.66%' }, flexBasis: { xs: '33.33%', sm: '25%', md: '16.66%' } }}>
+              <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden' }}>
                 <Box sx={{ position: 'absolute', top: 2, right: 2, display: 'flex', flexDirection: 'column', gap: 0.25, zIndex: 10 }}>
                   <IconButton size="small" sx={{ color: 'white', p: 0.25, bgcolor: 'rgba(0,0,0,0.5)', '&:hover':{bgcolor:'rgba(0,0,0,0.7)'} }} onClick={() => openEditDialog(s)}>
                     <EditIcon sx={{ fontSize: '1rem' }} />
@@ -211,30 +211,31 @@ export default function SeriesManager() {
                 ) : (
                    <Box sx={{ height: 120, bgcolor: 'grey.800' }} />
                 )}
-                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1, '&:last-child': { pb: 1 }, minWidth: 0 }}>
+                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 0.75, '&:last-child': { pb: 0.75 }, overflow: 'hidden' }}>
                   <Typography 
                     variant="caption" 
+                    noWrap
+                    title={s.name}
                     sx={{ 
-                      fontWeight: 'bold', mb: 0.5, lineHeight: 1.1,
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                      fontWeight: 'bold', mb: 0.5, lineHeight: 1.1, display: 'block'
                     }}
                   >
                     {s.name}
                   </Typography>
                   
-                  <Box sx={{ mb: 'auto' }}>
-                    <Box sx={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', bgcolor: `${statusColors[s.status]}.main`, mr: 0.5 }} />
-                    <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary' }}>
+                  <Box sx={{ mb: 'auto', display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ flexShrink: 0, width: 6, height: 6, borderRadius: '50%', bgcolor: `${statusColors[s.status]}.main`, mr: 0.5 }} />
+                    <Typography variant="caption" noWrap sx={{ fontSize: '0.6rem', color: 'text.secondary', display: 'block' }}>
                       {s.type === 'anime' ? 'Anime' : 'Serie'}
                     </Typography>
                   </Box>
 
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
                       Ep: {s.currentEpisode}{s.totalEpisodes ? `/${s.totalEpisodes}` : ''}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Box sx={{ flexGrow: 1 }}>
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         <LinearProgress 
                           variant="determinate" 
                           value={s.totalEpisodes ? Math.min(100, (s.currentEpisode / s.totalEpisodes) * 100) : 100} 
@@ -242,7 +243,7 @@ export default function SeriesManager() {
                           sx={{ height: 4, borderRadius: 2, opacity: s.totalEpisodes ? 1 : 0.5 }}
                         />
                       </Box>
-                      <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, 1)} sx={{ p: 0 }}>
+                      <IconButton size="small" color="primary" onClick={() => adjustEpisode(s, 1)} sx={{ p: 0, flexShrink: 0 }}>
                         <AddCircleOutlinedIcon sx={{ fontSize: '1.2rem' }} />
                       </IconButton>
                     </Box>
