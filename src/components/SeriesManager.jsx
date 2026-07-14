@@ -112,32 +112,75 @@ export default function SeriesManager() {
         }).filter(s => !trackedSeries.some(t => t.apiId === s.apiId));
         setSearchResults(mapped);
       } else {
-        const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(searchQuery)}&sfw=true`);
-        if (!res.ok) {
-           const errorData = await res.json().catch(() => ({}));
-           throw new Error(errorData.message || "Anime-Datenbank (MyAnimeList) ist aktuell überlastet oder nicht erreichbar.");
-        }
-        const data = await res.json();
-        if (data.status >= 400 || data.error) {
-           throw new Error(data.message || "Anime-Datenbank Fehler.");
-        }
-        const mapped = (data.data || []).map(a => {
-          let day = '';
-          if (a.broadcast && a.broadcast.day) {
-            // "Mondays" -> "Montag"
-            const engDay = a.broadcast.day.split(' ')[0];
-            day = DAYS_MAP[engDay] || '';
+        const query = `
+          query ($search: String) {
+            Page(page: 1, perPage: 20) {
+              media(search: $search, type: ANIME, isAdult: false) {
+                id
+                title {
+                  romaji
+                  english
+                }
+                status
+                nextAiringEpisode {
+                  airingAt
+                }
+                coverImage {
+                  large
+                }
+                episodes
+                startDate {
+                  year
+                  month
+                  day
+                }
+              }
+            }
           }
+        `;
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            query: query,
+            variables: { search: searchQuery }
+          })
+        });
+        
+        if (!res.ok) {
+           throw new Error("Anime-Datenbank (AniList) ist aktuell nicht erreichbar.");
+        }
+        const json = await res.json();
+        const data = json.data.Page.media;
+        
+        const mapped = data.map(a => {
+          let day = '';
+          let releaseTime = '';
+          if (a.nextAiringEpisode && a.nextAiringEpisode.airingAt) {
+            const date = new Date(a.nextAiringEpisode.airingAt * 1000);
+            const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            day = days[date.getDay()];
+            releaseTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+          }
+          
+          let statusStr = 'Geplant';
+          if (a.status === 'FINISHED') statusStr = 'Abgeschlossen';
+          else if (a.status === 'RELEASING') statusStr = 'Aktuell am schauen';
+          else if (a.status === 'HIATUS') statusStr = 'Pausiert';
+
           return {
-            apiId: `mal-${a.mal_id}`,
-            name: a.title_english || a.title,
+            apiId: `al-${a.id}`,
+            name: a.title.english || a.title.romaji,
             type: 'anime',
-            status: a.status === 'Finished Airing' ? 'Abgeschlossen' : 'Aktuell am schauen',
+            status: statusStr,
             releaseDay: day,
-            releaseTime: (a.broadcast && a.broadcast.time) ? a.broadcast.time : '',
-            coverUrl: a.images && a.images.jpg ? (a.images.jpg.large_image_url || a.images.jpg.image_url) : '',
+            releaseTime: releaseTime,
+            coverUrl: a.coverImage ? a.coverImage.large : '',
             totalEpisodes: a.episodes || '',
-            startDate: a.aired ? a.aired.from : null
+            startDate: a.startDate && a.startDate.year ? `${a.startDate.year}-${String(a.startDate.month).padStart(2, '0')}-${String(a.startDate.day).padStart(2, '0')}` : null
           };
         }).filter(s => !trackedSeries.some(t => t.apiId === s.apiId));
         setSearchResults(mapped);

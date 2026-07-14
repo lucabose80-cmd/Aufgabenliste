@@ -141,16 +141,49 @@ export default function SeriesUpcoming() {
         if (!('startDate' in s) && s.apiId && !fetchedRefs.current.has(s.id)) {
           fetchedRefs.current.add(s.id);
           try {
-            if (s.apiId.startsWith('mal-')) {
-              const id = s.apiId.split('-')[1];
-              const res = await fetch(`https://api.jikan.moe/v4/anime/${id}`);
+            if (s.apiId.startsWith('mal-') || s.apiId.startsWith('al-')) {
+              const id = parseInt(s.apiId.split('-')[1], 10);
+              const isMal = s.apiId.startsWith('mal-');
+              
+              const query = `
+                query ($idMal: Int, $id: Int) {
+                  Media(idMal: $idMal, id: $id, type: ANIME) {
+                    id
+                    startDate {
+                      year
+                      month
+                      day
+                    }
+                    episodes
+                  }
+                }
+              `;
+              
+              const variables = isMal ? { idMal: id } : { id: id };
+              
+              const res = await fetch('https://graphql.anilist.co', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                  query: query,
+                  variables: variables
+                })
+              });
+              
               if (res.ok) {
-                const data = await res.json();
-                const startDate = data.data?.aired?.from || null;
-                const totalEpisodes = data.data?.episodes || s.totalEpisodes || '';
-                updateTrackedSeries(s.id, { startDate, totalEpisodes });
+                const json = await res.json();
+                const media = json.data?.Media;
+                if (media) {
+                  const startDate = media.startDate && media.startDate.year 
+                    ? `${media.startDate.year}-${String(media.startDate.month).padStart(2, '0')}-${String(media.startDate.day).padStart(2, '0')}` 
+                    : null;
+                  const totalEpisodes = media.episodes || s.totalEpisodes || '';
+                  updateTrackedSeries(s.id, { startDate, totalEpisodes });
+                }
               }
-              await new Promise(r => setTimeout(r, 500));
             } else if (s.apiId.startsWith('tvm-')) {
               const id = s.apiId.split('-')[1];
               const res = await fetch(`https://api.tvmaze.com/shows/${id}`);

@@ -50,56 +50,100 @@ export default function SeriesUpdater() {
       setProgress(Math.round(((i) / seriesToCheck.length) * 100));
 
       try {
-        if (s.apiId && s.apiId.startsWith('mal-')) {
-          const malId = s.apiId.split('-')[1];
-          // 1. Check relations
-          const relRes = await fetch(`https://api.jikan.moe/v4/anime/${malId}/relations`);
-          if (relRes.status === 429) { await sleep(1000); i--; continue; } // rate limit retry
-          const relData = await relRes.json();
-          
-          if (relData && relData.data) {
-            const sequelRel = relData.data.find(r => r.relation === 'Sequel');
-            if (sequelRel && sequelRel.entry && sequelRel.entry.length > 0) {
-              const sequelMalId = sequelRel.entry[0].mal_id;
-              
-              // Ensure we don't already track this sequel
-              if (!trackedSeries.some(t => t.apiId === `mal-${sequelMalId}`)) {
-                await sleep(400); // rate limit for next request
-                
-                // 2. Fetch sequel details
-                const seqRes = await fetch(`https://api.jikan.moe/v4/anime/${sequelMalId}`);
-                if (seqRes.status === 429) { await sleep(1000); i--; continue; } // retry whole step? Actually this is risky, let's just fail this one.
-                if (seqRes.ok) {
-                  const seqData = await seqRes.json();
-                  const a = seqData.data;
-                  if (a) {
-                    let day = '';
-                    if (a.broadcast && a.broadcast.day) {
-                      const engDay = a.broadcast.day.split(' ')[0];
-                      day = DAYS_MAP[engDay] || '';
-                    }
-                    
-                    updates.push({
-                      type: 'new_anime',
-                      originalId: s.id,
-                      data: {
-                        apiId: `mal-${a.mal_id}`,
-                        name: a.title_english || a.title,
-                        type: 'anime',
-                        status: a.status === 'Finished Airing' ? 'Abgeschlossen' : 'Aktuell am schauen',
-                        releaseDay: day,
-                        releaseTime: (a.broadcast && a.broadcast.time) ? a.broadcast.time : '',
-                        coverUrl: a.images && a.images.jpg ? (a.images.jpg.large_image_url || a.images.jpg.image_url) : '',
-                        totalEpisodes: a.episodes || '',
-                        currentEpisode: 0
+        if (s.apiId && (s.apiId.startsWith('mal-') || s.apiId.startsWith('al-'))) {
+          const id = parseInt(s.apiId.split('-')[1], 10);
+          const isMal = s.apiId.startsWith('mal-');
+
+          const query = `
+            query ($idMal: Int, $id: Int) {
+              Media(idMal: $idMal, id: $id, type: ANIME) {
+                id
+                relations {
+                  edges {
+                    relationType
+                    node {
+                      id
+                      idMal
+                      title {
+                        romaji
+                        english
                       }
-                    });
+                      status
+                      nextAiringEpisode {
+                        airingAt
+                      }
+                      coverImage {
+                        large
+                      }
+                      episodes
+                    }
                   }
                 }
               }
             }
+          `;
+
+          const variables = isMal ? { idMal: id } : { id: id };
+
+          const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              query: query,
+              variables: variables
+            })
+          });
+
+          if (res.ok) {
+            const json = await res.json();
+            const media = json.data?.Media;
+            if (media && media.relations && media.relations.edges) {
+              const sequelEdge = media.relations.edges.find(e => e.relationType === 'SEQUEL');
+              if (sequelEdge && sequelEdge.node) {
+                const a = sequelEdge.node;
+                
+                // Track by AL ID going forward
+                const newApiId = `al-${a.id}`;
+                const legacyMalId = a.idMal ? `mal-${a.idMal}` : null;
+                
+                if (!trackedSeries.some(t => t.apiId === newApiId || (legacyMalId && t.apiId === legacyMalId))) {
+                  let day = '';
+                  let releaseTime = '';
+                  if (a.nextAiringEpisode && a.nextAiringEpisode.airingAt) {
+                    const date = new Date(a.nextAiringEpisode.airingAt * 1000);
+                    const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                    day = days[date.getDay()];
+                    releaseTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                  }
+
+                  let statusStr = 'Geplant';
+                  if (a.status === 'FINISHED') statusStr = 'Abgeschlossen';
+                  else if (a.status === 'RELEASING') statusStr = 'Aktuell am schauen';
+                  else if (a.status === 'HIATUS') statusStr = 'Pausiert';
+
+                  updates.push({
+                    type: 'new_anime',
+                    originalId: s.id,
+                    data: {
+                      apiId: newApiId,
+                      name: a.title.english || a.title.romaji,
+                      type: 'anime',
+                      status: statusStr,
+                      releaseDay: day,
+                      releaseTime: releaseTime,
+                      coverUrl: a.coverImage ? a.coverImage.large : '',
+                      totalEpisodes: a.episodes || '',
+                      currentEpisode: 0
+                    }
+                  });
+                }
+              }
+            }
           }
-          await sleep(500); // Be gentle with Jikan API
+          await sleep(200); // Be gentle with AniList API (90 req/min)
 
         } else if (s.apiId && s.apiId.startsWith('tvm-')) {
           const tvmId = s.apiId.split('-')[1];
