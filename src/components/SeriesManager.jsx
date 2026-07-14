@@ -114,8 +114,8 @@ export default function SeriesManager() {
       } else {
         const query = `
           query ($search: String) {
-            Page(page: 1, perPage: 20) {
-              media(search: $search, type: ANIME, isAdult: false) {
+            Page(page: 1, perPage: 50) {
+              media(search: $search, type: ANIME, isAdult: false, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
                 id
                 title {
                   romaji
