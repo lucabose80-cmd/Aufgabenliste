@@ -108,17 +108,48 @@ export default function SeriesUpcoming() {
     if (series.status === 'Abgeschlossen') return parseInt(series.totalEpisodes, 10) || null;
     if (series.startDate) {
       let start = new Date(series.startDate);
+      let hours = 0;
+      let minutes = 0;
       if (series.releaseTime) {
         const parts = series.releaseTime.split(':');
         if (parts.length === 2) {
-          start = setHours(start, parseInt(parts[0], 10) || 0);
-          start = setMinutes(start, parseInt(parts[1], 10) || 0);
+          hours = parseInt(parts[0], 10) || 0;
+          minutes = parseInt(parts[1], 10) || 0;
         }
       }
+      
+      start = setHours(start, hours);
+      start = setMinutes(start, minutes);
+      start = setSeconds(start, 0);
+
+      // Align start date to the correct local weekday, as API startDate might be off by a day
+      if (series.releaseDay && DAY_MAP[series.releaseDay] !== undefined) {
+        const targetDayIndex = DAY_MAP[series.releaseDay];
+        let diff = targetDayIndex - start.getDay();
+        if (diff > 3) diff -= 7;
+        if (diff < -3) diff += 7;
+        start = addDays(start, diff);
+      }
+
       const now = new Date();
       if (isBefore(now, start)) return 0;
-      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-      const weeks = Math.floor((now.getTime() - start.getTime()) / msPerWeek);
+      
+      // Calculate weeks based on pure calendar days to avoid Daylight Saving Time (DST) shifts
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const daysDiff = Math.round((nowDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000));
+      
+      let weeks = Math.floor(daysDiff / 7);
+      
+      // If we are on the exact same weekday, check if the time has passed today
+      if (daysDiff % 7 === 0) {
+        const nowTime = now.getHours() * 60 + now.getMinutes();
+        const startTime = start.getHours() * 60 + start.getMinutes();
+        if (nowTime < startTime) {
+          weeks -= 1;
+        }
+      }
+
       let out = weeks + 1 - (series.dubDelay || 0);
       out = Math.max(0, out);
       if (series.totalEpisodes) {
