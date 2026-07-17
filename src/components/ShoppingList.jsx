@@ -12,6 +12,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { startOfWeek, parseISO } from 'date-fns';
 
 import {
@@ -50,24 +51,32 @@ function SortableItem({ item, toggleItem, deleteItem, forceDragging }) {
       disablePadding 
       ref={setNodeRef} 
       style={style} 
-      {...attributes} 
-      {...listeners}
-      sx={{ touchAction: 'none' }}
     >
       <Box sx={{ 
         width: '100%', 
         bgcolor: item.completed ? 'action.hover' : 'transparent',
         display: 'flex',
         alignItems: 'center',
-        p: 1,
-        cursor: isDragging || forceDragging ? 'grabbing' : 'grab'
+        p: 1
       }}>
+        <Box 
+          {...attributes} 
+          {...listeners} 
+          sx={{ 
+            cursor: isDragging || forceDragging ? 'grabbing' : 'grab', 
+            display: 'flex', 
+            alignItems: 'center', 
+            color: 'text.disabled', 
+            touchAction: 'none',
+            mr: 0.5
+          }}
+        >
+          <DragIndicatorIcon fontSize="small" />
+        </Box>
         <Checkbox
           edge="start"
           checked={item.completed}
-          onPointerDown={(e) => e.stopPropagation()}
           onChange={(e) => {
-            e.stopPropagation();
             if (toggleItem) toggleItem(item.id, item.completed);
           }}
           color="success"
@@ -93,8 +102,7 @@ function SortableItem({ item, toggleItem, deleteItem, forceDragging }) {
           sx={{ m: 0 }}
         />
         <ListItemSecondaryAction>
-          <IconButton edge="end" color="error" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => {
-            e.stopPropagation();
+          <IconButton edge="end" color="error" onClick={(e) => {
             if (deleteItem) deleteItem(item.id);
           }}>
             <DeleteIcon />

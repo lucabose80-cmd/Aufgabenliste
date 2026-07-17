@@ -368,7 +368,7 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
       {task.subTasks.length > 0 && (
         <Collapse in={expanded}>
           <Box sx={{ ml: 6, mt: 1, mb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {task.subTasks.map(st => (
+            {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
               <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Checkbox
                   checked={st.completed}
