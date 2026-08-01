@@ -270,9 +270,18 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
         bgcolor: task.categoryColor ? `${task.categoryColor}1A` : 'background.paper',
         border: task.categoryColor ? `1px solid ${task.categoryColor}40` : '1px solid',
         borderColor: task.categoryColor ? `${task.categoryColor}40` : 'divider',
-        position: 'relative'
+        position: 'relative',
+        userSelect: 'none',
+        WebkitUserSelect: 'none'
       }}
     >
+      {isEditMode && (
+        <Box 
+          {...attributes} 
+          {...listeners} 
+          sx={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'grab', touchAction: 'none' }}
+        />
+      )}
       {isEditMode && (
         <IconButton 
           size="small" 
@@ -296,23 +305,6 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
 
       <Box sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', pointerEvents: isEditMode ? 'none' : 'auto' }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-        {!isEditMode && (
-          <Box 
-            {...attributes} 
-            {...listeners} 
-            sx={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'text.secondary', mt: 0.5, touchAction: 'none' }}
-          >
-            <DragIndicatorIcon fontSize="small" />
-          </Box>
-        )}
-        {isEditMode && (
-          <Box 
-            {...attributes} 
-            {...listeners} 
-            sx={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'grab', touchAction: 'none' }}
-          />
-        )}
-
         {!isEditMode && (
           <Checkbox
             checked={isCompleted}
