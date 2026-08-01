@@ -379,6 +379,7 @@ export const TaskProvider = ({ children }) => {
       completedDates: [],
       timerLogs: [],
       averageSpeed: null,
+      isPaused: taskData.isPaused || false,
       createdAt: new Date().toISOString(),
       order: Date.now(),
       isShared: taskData.isShared || false,
@@ -437,6 +438,26 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const toggleAllTasksPause = async (isPaused) => {
+    const tasksToUpdate = tasks.filter(t => !!t.isPaused !== isPaused);
+    if (tasksToUpdate.length === 0) return;
+
+    if (!user) {
+      setPersonalTasks(current => current.map(t => tasksToUpdate.some(tu => tu.id === t.id) ? { ...t, isPaused } : t));
+    }
+
+    if (user) {
+      const batch = writeBatch(db);
+      tasksToUpdate.forEach(t => {
+        const ref = t.isShared 
+          ? doc(db, 'shared_tasks', t.id) 
+          : doc(db, 'users', user.uid, 'tasks', t.id);
+        batch.update(ref, { isPaused });
+      });
+      await batch.commit();
+    }
+  };
+
   const deleteTask = async (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -481,13 +502,21 @@ export const TaskProvider = ({ children }) => {
     await saveTaskToFirestore(updatedTask);
   };
 
+  // Keep a ref of tasks to prevent stale closures in async functions like onUndo
+  const tasksRef = useRef(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
   const [snackbarInfo, setSnackbarInfo] = useState({ open: false, message: '', onUndo: null });
 
   const showSnackbar = (message, onUndo) => setSnackbarInfo({ open: true, message, onUndo });
   const closeSnackbar = () => setSnackbarInfo(prev => ({ ...prev, open: false }));
 
   const toggleTaskCompletion = async (taskId, date = null) => {
-    const task = tasks.find(t => t.id === taskId);
+    // Use tasksRef to always get the latest state
+    const currentTasks = tasksRef.current;
+    const task = currentTasks.find(t => t.id === taskId);
     if (!task) return;
     const effectiveDate = date || getTodayDateString(task);
     
@@ -517,14 +546,27 @@ export const TaskProvider = ({ children }) => {
     const updatedTask = { ...task, completedDates: newCompletedDates, completedByMap: newCompletedByMap };
     
     if (!user && !task.isShared) {
-      setPersonalTasks(personalTasks.map(t => t.id === taskId ? updatedTask : t));
+      setPersonalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
     }
     await saveTaskToFirestore(updatedTask);
 
     if (!isCompletedOnDate) {
-      showSnackbar('Aufgabe erledigt!', () => {
-        toggleTaskCompletion(taskId, date); // Undo
-      });
+      // Create a fresh reference for the undo action
+      const undoAction = async () => {
+        const latestTasks = tasksRef.current;
+        const currentTaskState = latestTasks.find(t => t.id === taskId);
+        if (currentTaskState) {
+          const undoDates = (currentTaskState.completedDates || []).filter(d => d !== effectiveDate);
+          const undoMap = { ...(currentTaskState.completedByMap || {}) };
+          delete undoMap[effectiveDate];
+          const revertedTask = { ...currentTaskState, completedDates: undoDates, completedByMap: undoMap };
+          if (!user && !currentTaskState.isShared) {
+            setPersonalTasks(prev => prev.map(t => t.id === taskId ? revertedTask : t));
+          }
+          await saveTaskToFirestore(revertedTask);
+        }
+      };
+      showSnackbar('Aufgabe erledigt!', undoAction);
       import('canvas-confetti').then(confetti => {
         confetti.default({ particleCount: 80, spread: 60, origin: { y: 0.8 }, zIndex: 9999 });
       });
@@ -857,6 +899,7 @@ export const TaskProvider = ({ children }) => {
       calorieGoal,
       addTask,
       updateTask,
+      toggleAllTasksPause,
       deleteTask,
       toggleSubTask,
       toggleTaskCompletion,

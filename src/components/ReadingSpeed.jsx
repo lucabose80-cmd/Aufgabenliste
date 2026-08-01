@@ -43,6 +43,7 @@ const ReadingSpeed = () => {
   const [editBookId, setEditBookId] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('all');
 
   const handleStartTimer = () => {
     setTimerRunning(true);
@@ -57,6 +58,23 @@ const ReadingSpeed = () => {
       handlePauseTimer();
     }
     setShowAmountField(true);
+  };
+
+  const handleBookSelect = (bookId) => {
+    setSelectedBookId(bookId);
+    if (bookId) {
+      const sessions = readingSessions.filter(s => s.bookId === bookId);
+      if (sessions.length > 0) {
+        let maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
+        if (maxEndedOnPage > 0) {
+          setEndedOnPage(maxEndedOnPage.toString());
+        } else {
+          setEndedOnPage(sessions.reduce((acc, s) => acc + s.amount, 0).toString());
+        }
+      } else {
+        setEndedOnPage('');
+      }
+    }
   };
 
   const handleSaveInfo = () => {
@@ -152,6 +170,13 @@ const ReadingSpeed = () => {
   };
 
   const recentSessions = [...readingSessions]
+    .filter(s => {
+      if (sessionFilter === 'active') {
+        const book = books.find(b => b.id === s.bookId);
+        return book && !book.completed;
+      }
+      return true;
+    })
     .sort((a, b) => {
       const dateDiff = new Date(b.date) - new Date(a.date);
       if (dateDiff !== 0) return dateDiff;
@@ -275,7 +300,7 @@ const ReadingSpeed = () => {
                   <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Buch:</Typography>
                   <Select
                     value={selectedBookId}
-                    onChange={(e) => setSelectedBookId(e.target.value)}
+                    onChange={(e) => handleBookSelect(e.target.value)}
                     size="small"
                     displayEmpty
                     sx={{ flex: 1, minWidth: 100 }}
@@ -335,7 +360,18 @@ const ReadingSpeed = () => {
 
       {recentSessions.length > 0 && (
         <Card sx={{ p: { xs: 2, sm: 4 } }}>
-          <Typography variant="h6" sx={{ mb: 3 }}>Letzte Lese-Einträge</Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="h6">Letzte Lese-Einträge</Typography>
+            <Select
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value)}
+              size="small"
+              sx={{ minWidth: 150 }}
+            >
+              <MenuItem value="all">Alle Einträge</MenuItem>
+              <MenuItem value="active">Nur aktive Bücher</MenuItem>
+            </Select>
+          </Box>
           <List>
             {recentSessions.map(session => (
               <ListItem key={session.id} sx={{ bgcolor: 'background.default', borderRadius: 2, mb: 1, border: 1, borderColor: 'divider', px: 2 }}>

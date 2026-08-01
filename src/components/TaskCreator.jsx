@@ -14,8 +14,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import ClearIcon from '@mui/icons-material/Clear';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PauseCircleFilledIcon from '@mui/icons-material/PauseCircleFilled';
 
-const TaskCreator = () => {
+const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = false }) => {
   const { addTask, updateTask, deleteTask, tasks, categories } = useTaskContext();
   const { user } = useAuth();
   
@@ -28,6 +29,7 @@ const TaskCreator = () => {
   const [specificDays, setSpecificDays] = useState([]);
   const [subTasks, setSubTasks] = useState([]);
   const [currentSubTask, setCurrentSubTask] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
   
   const [isShared, setIsShared] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -52,6 +54,15 @@ const TaskCreator = () => {
     };
     fetchUsers();
   }, [user]);
+
+  useEffect(() => {
+    if (initialEditTaskId) {
+      const task = tasks.find(t => t.id === initialEditTaskId);
+      if (task) {
+        handleEdit(task);
+      }
+    }
+  }, [initialEditTaskId, tasks]);
 
   const daysOfWeek = [
     { id: 1, label: 'Mo' },
@@ -102,8 +113,9 @@ const TaskCreator = () => {
       categoryId,
       type,
       targetCount: type === 'x-times' ? parseInt(targetCount, 10) : (type === 'weekly' ? 1 : 0),
-      specificDays: type === 'specific-days' ? specificDays : [],
+      specificDays: specificDays, // Now allowed for any type
       subTasks: formattedSubTasks,
+      isPaused: isPaused,
       isShared: isShared,
       members: newMembers,
       pendingMembers: newPendingMembers
@@ -123,8 +135,10 @@ const TaskCreator = () => {
     setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
+    setIsPaused(false);
     setIsShared(false);
     setSelectedMembers([]);
+    if (onClose) onClose();
   };
 
   const handleEdit = (task) => {
@@ -132,13 +146,14 @@ const TaskCreator = () => {
     setTitle(task.title);
     setCategoryId(task.categoryId);
     setType(task.type);
-    setTargetCount(task.targetCount);
-    setSpecificDays(task.specificDays);
-    setSubTasks(task.subTasks.map(st => st.title));
+    setTargetCount(task.targetCount || 1);
+    setSpecificDays(task.specificDays || []);
+    setSubTasks(task.subTasks ? task.subTasks.map(st => st.title) : []);
+    setIsPaused(task.isPaused || false);
     setIsShared(task.isShared || false);
     const allShared = [...(task.members || []), ...(task.pendingMembers || [])];
     setSelectedMembers(allShared.filter(m => m !== user?.uid));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!isOverlay) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
@@ -148,8 +163,10 @@ const TaskCreator = () => {
     setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
+    setIsPaused(false);
     setIsShared(false);
     setSelectedMembers([]);
+    if (onClose) onClose();
   };
 
   return (
@@ -334,6 +351,23 @@ const TaskCreator = () => {
               )}
             </Box>
 
+            {editingTaskId && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                <IconButton 
+                  color={isPaused ? "warning" : "default"} 
+                  onClick={() => setIsPaused(!isPaused)}
+                >
+                  <PauseCircleFilledIcon />
+                </IconButton>
+                <Box>
+                  <Typography variant="subtitle2">Aufgabe pausieren</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Pausierte Aufgaben werden ausgeblendet und zählen nicht in die Statistik.
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+
             <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
               <Button 
                 type="submit" 
@@ -360,7 +394,8 @@ const TaskCreator = () => {
         </form>
       </Card>
 
-      <Card sx={{ p: { xs: 2, sm: 4 } }}>
+      {!isOverlay && (
+        <Card sx={{ p: { xs: 2, sm: 4 } }}>
         <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
           Alle Aufgaben verwalten
         </Typography>
@@ -475,6 +510,7 @@ const TaskCreator = () => {
           </Box>
         )}
       </Card>
+      )}
     </Box>
   );
 };

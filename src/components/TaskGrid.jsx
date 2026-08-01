@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { format, subDays, subHours, isSameWeek } from 'date-fns';
 import {
@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse, Select, MenuItem } from '@mui/material';
+import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse, Select, MenuItem, Dialog, DialogContent, Fab } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
@@ -26,8 +26,22 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import GroupIcon from '@mui/icons-material/Group';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import TaskCreator from './TaskCreator';
 
-const SortableTaskItem = ({ task, isWrongDay }) => {
+const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setGlobalEditMode }) => {
+  const timerRef = useRef(null);
+  const handlePointerDown = () => {
+    if (isEditMode) return;
+    timerRef.current = setTimeout(() => {
+      setGlobalEditMode(true);
+    }, 600); // 600ms long press
+  };
+  const handlePointerUp = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
   const [expanded, setExpanded] = useState(false);
   const { toggleTaskCompletion, toggleSubTask, updateTask, categories, getTodayDateString, resetHour } = useTaskContext();
   const hasValidCategory = categories.some(c => c.id === task.categoryId);
@@ -241,37 +255,74 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
   return (
     <Card 
       ref={setNodeRef} 
+      className={isEditMode ? 'jiggle-mode' : ''}
       style={style} 
       elevation={isDragging ? 8 : 1}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       sx={{ 
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflow: 'visible',
         borderRadius: 3,
         mb: 0,
-        bgcolor: task.categoryColor ? `${task.categoryColor}1A` : 'background.paper', // 1A is ~10% opacity
+        bgcolor: task.categoryColor ? `${task.categoryColor}1A` : 'background.paper',
         border: task.categoryColor ? `1px solid ${task.categoryColor}40` : '1px solid',
-        borderColor: task.categoryColor ? `${task.categoryColor}40` : 'divider'
+        borderColor: task.categoryColor ? `${task.categoryColor}40` : 'divider',
+        position: 'relative'
       }}
     >
-      <Box sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-        <Box 
-          {...attributes} 
-          {...listeners} 
-          sx={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'text.secondary', mt: 0.5, touchAction: 'none' }}
+      {isEditMode && (
+        <IconButton 
+          size="small" 
+          color="error" 
+          onClick={(e) => { e.stopPropagation(); onDelete(task); }} 
+          sx={{ position: 'absolute', top: -12, right: -12, bgcolor: 'background.paper', boxShadow: 1, '&:hover': { bgcolor: 'error.main', color: 'white' }, zIndex: 10 }}
         >
-          <DragIndicatorIcon fontSize="small" />
-        </Box>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      )}
+      {isEditMode && (
+        <IconButton 
+          size="small" 
+          color="primary" 
+          onClick={(e) => { e.stopPropagation(); onEdit(task); }} 
+          sx={{ position: 'absolute', top: -12, left: -12, bgcolor: 'background.paper', boxShadow: 1, '&:hover': { bgcolor: 'primary.main', color: 'white' }, zIndex: 10 }}
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
+      )}
 
-        <Checkbox
-          checked={isCompleted}
-          onChange={() => toggleTaskCompletion(task.id)}
-          disabled={!allSubTasksCompleted && task.subTasks.length > 0}
-          icon={<CheckBoxOutlineBlankIcon />}
-          checkedIcon={<CheckBoxIcon color="success" />}
-          sx={{ p: 0.5, mr: 1 }}
-        />
+      <Box sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', pointerEvents: isEditMode ? 'none' : 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        {!isEditMode && (
+          <Box 
+            {...attributes} 
+            {...listeners} 
+            sx={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'text.secondary', mt: 0.5, touchAction: 'none' }}
+          >
+            <DragIndicatorIcon fontSize="small" />
+          </Box>
+        )}
+        {isEditMode && (
+          <Box 
+            {...attributes} 
+            {...listeners} 
+            sx={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'grab', touchAction: 'none' }}
+          />
+        )}
+
+        {!isEditMode && (
+          <Checkbox
+            checked={isCompleted}
+            onChange={() => toggleTaskCompletion(task.id)}
+            disabled={!allSubTasksCompleted && task.subTasks.length > 0}
+            icon={<CheckBoxOutlineBlankIcon />}
+            checkedIcon={<CheckBoxIcon color="success" />}
+            sx={{ p: 0.5, mr: 1 }}
+          />
+        )}
         
         <Box sx={{ flex: 1 }}>
           <Typography 
@@ -401,8 +452,12 @@ const SortableTaskItem = ({ task, isWrongDay }) => {
 };
 
 const TaskGrid = () => {
-  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories, resetHour } = useTaskContext();
+  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories, resetHour, deleteTask, toggleAllTasksPause } = useTaskContext();
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showPaused, setShowPaused] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   const displayGroups = categories.map(cat => ({
     id: cat.id,
@@ -436,6 +491,7 @@ const TaskGrid = () => {
     const isWrongDay = t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek);
     return { ...t, categoryColor: cat ? cat.color : undefined, isWrongDay };
   }).filter(t => {
+    if (t.isPaused && !showPaused) return false;
     if (t.isWrongDay && !showCompleted) return false; 
     const isCompletedToday = (t.completedDates || []).includes(today);
     if (isCompletedToday && !showCompleted && t.type !== 'general') return false;
@@ -461,8 +517,52 @@ const TaskGrid = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+      {isEditMode && (
+        <Box sx={{ position: 'sticky', top: 16, zIndex: 1100, display: 'flex', justifyContent: 'center', mb: -2 }}>
+          <Fab color="primary" onClick={() => setIsCreatingNew(true)}>
+            <AddIcon />
+          </Fab>
+        </Box>
+      )}
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant={showPaused ? "contained" : "outlined"} 
+            onClick={() => setShowPaused(!showPaused)}
+            color="warning"
+            size="small"
+            sx={{ borderRadius: 8 }}
+          >
+            Pausierte Aufgaben
+          </Button>
+          
+          <Button 
+            variant="outlined" 
+            onClick={() => {
+              const allPaused = tasks.length > 0 && tasks.every(t => t.isPaused);
+              toggleAllTasksPause(!allPaused);
+            }}
+            color="secondary"
+            size="small"
+            sx={{ borderRadius: 8 }}
+          >
+            {(tasks.length > 0 && tasks.every(t => t.isPaused)) ? 'Alle fortsetzen' : 'Alle pausieren'}
+          </Button>
+
+          {isEditMode && (
+            <Button 
+              variant="contained" 
+              color="success"
+              onClick={() => setIsEditMode(false)}
+              size="small"
+              sx={{ borderRadius: 8 }}
+            >
+              Fertig (Bearbeiten beenden)
+            </Button>
+          )}
+        </Box>
         <Button 
           variant={showCompleted ? "contained" : "outlined"} 
           onClick={() => setShowCompleted(!showCompleted)}
@@ -548,7 +648,19 @@ const TaskGrid = () => {
                       pl: group.color !== 'text.secondary' ? 2 : 0,
                     }}>
                       {catTasks.map(task => (
-                        <SortableTaskItem key={task.id} task={task} isWrongDay={task.isWrongDay} />
+                        <SortableTaskItem 
+                          key={task.id} 
+                          task={task} 
+                          isWrongDay={task.isWrongDay}
+                          isEditMode={isEditMode}
+                          setGlobalEditMode={setIsEditMode}
+                          onEdit={(t) => setTaskToEdit(t)}
+                          onDelete={(t) => {
+                            if (window.confirm(`Möchtest du die Aufgabe "${t.title}" wirklich löschen?`)) {
+                              deleteTask(t.id);
+                            }
+                          }}
+                        />
                       ))}
                     </Box>
                   </SortableContext>
@@ -570,6 +682,29 @@ const TaskGrid = () => {
           <Typography variant="h6">Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".</Typography>
         </Card>
       )}
+
+      <Dialog open={!!taskToEdit} onClose={() => setTaskToEdit(null)} maxWidth="sm" fullWidth>
+        <DialogContent sx={{ p: 0 }}>
+          {taskToEdit && (
+            <TaskCreator 
+              initialEditTaskId={taskToEdit.id} 
+              onClose={() => setTaskToEdit(null)}
+              isOverlay={true}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreatingNew} onClose={() => setIsCreatingNew(false)} maxWidth="sm" fullWidth>
+        <DialogContent sx={{ p: 0 }}>
+          {isCreatingNew && (
+            <TaskCreator 
+              onClose={() => setIsCreatingNew(false)}
+              isOverlay={true}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

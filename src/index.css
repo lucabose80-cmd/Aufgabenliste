@@ -7,3 +7,4 @@ html, body {
 #root {
   height: 100%;
 }
+@keyframes jiggle { 0% { transform: rotate(-1deg); } 50% { transform: rotate(1.5deg); } 100% { transform: rotate(-1deg); } } .jiggle-mode { animation: jiggle 0.3s infinite; }

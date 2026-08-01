@@ -45,7 +45,20 @@ const BookManager = () => {
 
   const handleAddBook = () => {
     if (!newBookName.trim()) return;
-    addBook(newBookName, newBookAuthor, newBookSeries, newBookWordsPerPage, newBookSeriesNumber, newBookUniverse, newBookTotalPages);
+    
+    let wordsToSave = newBookWordsPerPage;
+    if (!wordsToSave) {
+      const similarBooks = books.filter(b => 
+        b.wordsPerPage && 
+        ((newBookAuthor && b.author === newBookAuthor) || (newBookSeries && b.series === newBookSeries))
+      );
+      if (similarBooks.length > 0) {
+        const avg = similarBooks.reduce((acc, b) => acc + parseInt(b.wordsPerPage, 10), 0) / similarBooks.length;
+        wordsToSave = Math.round(avg).toString();
+      }
+    }
+
+    addBook(newBookName, newBookAuthor, newBookSeries, wordsToSave, newBookSeriesNumber, newBookUniverse, newBookTotalPages);
     setNewBookName('');
     setNewBookAuthor('');
     setNewBookSeries('');
