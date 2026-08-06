@@ -395,11 +395,12 @@ export const TaskProvider = ({ children }) => {
   };
 
   const updateTask = async (id, updates) => {
-    const task = tasks.find(t => t.id === id);
+    const currentTasks = tasksRef.current;
+    const task = currentTasks.find(t => t.id === id);
     if (!task) return;
     const updatedTask = { ...task, ...updates };
     if (!user && !updatedTask.isShared) {
-      setPersonalTasks(personalTasks.map(t => t.id === id ? updatedTask : t));
+      setPersonalTasks(prev => prev.map(t => t.id === id ? updatedTask : t));
     }
     
     if (task.isShared !== updatedTask.isShared) {
@@ -469,7 +470,8 @@ export const TaskProvider = ({ children }) => {
   };
 
   const toggleSubTask = async (taskId, subTaskId) => {
-    const task = tasks.find(t => t.id === taskId);
+    const currentTasks = tasksRef.current;
+    const task = currentTasks.find(t => t.id === taskId);
     if (!task) return;
     const today = getTodayDateString(task);
     const myName = userDisplayName || user?.email || 'Unbekannt';
@@ -497,7 +499,7 @@ export const TaskProvider = ({ children }) => {
     }
     const updatedTask = { ...task, subTasks: updatedSubTasks, completedDates: updatedCompletedDates, completedByMap: newCompletedByMap };
     if (!user && !task.isShared) {
-      setPersonalTasks(personalTasks.map(t => t.id === taskId ? updatedTask : t));
+      setPersonalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
     }
     await saveTaskToFirestore(updatedTask);
   };
