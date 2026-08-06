@@ -15,7 +15,8 @@ export const TaskProvider = ({ children }) => {
   // States
   const [personalTasks, setPersonalTasks] = useState([]);
   const [sharedTasks, setSharedTasks] = useState([]);
-  const tasks = !user ? personalTasks : [...personalTasks, ...sharedTasks];
+  
+  const tasks = !user ? personalTasks : Array.from(new Map([...personalTasks, ...sharedTasks].map(t => [t.id, t])).values());
 
   const [categories, setCategories] = useState([]);
   const [readingSessions, setReadingSessions] = useState([]);
