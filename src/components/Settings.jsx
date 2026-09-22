@@ -23,7 +23,6 @@ const NAV_ITEMS = [
   { id: 'review', label: 'Statistik' },
   { id: 'past-review', label: 'Rückblick' },
   { id: 'reading-speed', label: 'Lesegeschwindigkeit' },
-  { id: 'series-tracker', label: 'Serien Tracker' },
   { id: 'shopping', label: 'Einkaufsliste' },
   { id: 'calories', label: 'Kalorienziel' },
   { id: 'categories', label: 'Kategorien verwalten' },

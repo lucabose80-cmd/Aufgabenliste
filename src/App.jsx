@@ -13,7 +13,6 @@ import CategoryIcon from '@mui/icons-material/Category';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import HistoryIcon from '@mui/icons-material/History';
-import LiveTvIcon from '@mui/icons-material/LiveTv';
 import { createAppTheme } from './Theme';
 import { TaskProvider, useTaskContext } from './context/TaskContext';
 import Sidebar from './components/Sidebar';
@@ -23,7 +22,6 @@ import CategoriesManager from './components/CategoriesManager';
 import Review from './components/Review';
 import PastReview from './components/PastReview';
 import ReadingSpeed from './components/ReadingSpeed';
-import SeriesTracker from './components/SeriesTracker';
 import Calories from './components/Calories';
 import AuthModal from './components/AuthModal';
 import NotificationManager from './components/NotificationManager';
@@ -64,7 +62,6 @@ function MainApp() {
   const NAV_CONFIG = {
     'home': { label: 'Aufgaben', icon: <AssignmentIcon /> },
     'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
-    'series-tracker': { label: 'Serien', icon: <LiveTvIcon /> },
     'review': { label: 'Statistik', icon: <BarChartIcon /> },
     'past-review': { label: 'Rückblick', icon: <HistoryIcon /> },
     'shopping': { label: 'Shopping', icon: <ShoppingCartIcon /> },
@@ -88,8 +85,6 @@ function MainApp() {
         return <TaskCreator />;
       case 'reading-speed':
         return <ReadingSpeed />;
-      case 'series-tracker':
-        return <SeriesTracker />;
       case 'calories':
         return <Calories />;
       case 'categories':
@@ -110,7 +105,6 @@ function MainApp() {
       case 'past-review': return 'Rückblick';
       case 'create': return 'Neue Aufgabe erstellen';
       case 'reading-speed': return 'Lesegeschwindigkeit';
-      case 'series-tracker': return 'Serien Tracker';
       case 'calories': return 'Kalorienziel';
       case 'categories': return 'Kategorien verwalten';
       case 'settings': return 'Einstellungen';
