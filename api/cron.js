@@ -34,7 +34,12 @@ export default async function handler(req, res) {
       
       // 3. Hole die persönlichen Aufgaben des Benutzers
       const tasksSnap = await db.collection('users').doc(userDoc.id).collection('tasks').get();
-      const tasks = tasksSnap.docs.map(d => d.data());
+      const personalTasks = tasksSnap.docs.map(d => d.data());
+      
+      const sharedSnap = await db.collection('shared_tasks').where('members', 'array-contains', userDoc.id).get();
+      const sharedTasks = sharedSnap.docs.map(d => d.data());
+      
+      const tasks = Array.from(new Map([...personalTasks, ...sharedTasks].map(t => [t.id, t])).values());
       
       // Heutiges Datum (angepasst an Europe/Berlin und den 3 Uhr Reset der App)
       const userTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
@@ -70,6 +75,7 @@ export default async function handler(req, res) {
 
         // Ist sie heute schon erledigt?
         if ((t.completedDates || []).includes(todayStr)) return false;
+        if (t.isShared && t.completedByMap && t.completedByMap[todayStr]) return false;
         
         return true;
       });
@@ -84,7 +90,7 @@ export default async function handler(req, res) {
           },
           webpush: {
             notification: {
-              icon: "https://aufgabenliste-beta.vercel.app/vite.svg"
+              icon: "https://aufgabenliste-beta.vercel.app/pwa-192x192.png"
             }
           },
           android: {

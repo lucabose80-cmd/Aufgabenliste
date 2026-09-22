@@ -25,7 +25,7 @@ messaging.onBackgroundMessage((payload) => {
     const notificationTitle = payload.data?.title || "TaskMaster";
     const notificationOptions = {
       body: payload.data?.body,
-      icon: 'https://aufgabenliste-beta.vercel.app/vite.svg'
+      icon: 'https://aufgabenliste-beta.vercel.app/pwa-192x192.png'
     };
     self.registration.showNotification(notificationTitle, notificationOptions);
   }

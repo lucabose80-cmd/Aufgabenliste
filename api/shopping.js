@@ -58,7 +58,7 @@ export default async function handler(req, res) {
         },
         webpush: {
           notification: {
-            icon: "https://aufgabenliste-beta.vercel.app/vite.svg"
+            icon: "https://aufgabenliste-beta.vercel.app/pwa-192x192.png"
           }
         },
         android: {
