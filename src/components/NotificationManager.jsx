@@ -14,8 +14,7 @@ const NotificationManager = () => {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
           const currentToken = await getToken(messaging, { 
-            // WICHTIG: Hier muss später dein echtes VAPID Key Zertifikat rein
-            vapidKey: 'DEIN_VAPID_KEY_HIER' 
+            vapidKey: 'BO7em0OjRyHX89V3Dsu023QZOA_DUoC_FoAt6bzY7mR1oVaHWo3_jnDLzOVA-wG3op4tagAdCi_zw_4pHTMtqic' 
           });
           
           if (currentToken) {
