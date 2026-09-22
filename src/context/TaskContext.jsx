@@ -437,31 +437,38 @@ export const TaskProvider = ({ children }) => {
   };
 
   const resetTaskStatistics = async () => {
-    if (!user) {
-      const updatedTasks = personalTasks.map(t => ({ 
-        ...t, 
-        completedDates: [], 
-        completedByMap: {}, 
-        timerLogs: [], 
-        createdAt: new Date().toISOString(),
-        subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
-      }));
-      setPersonalTasks(updatedTasks);
-    } else {
-      const batch = writeBatch(db);
-      tasks.forEach(t => {
-        const ref = t.isShared 
-          ? doc(db, 'shared_tasks', t.id) 
-          : doc(db, 'users', user.uid, 'tasks', t.id);
-        batch.update(ref, { 
+    try {
+      if (!user) {
+        const updatedTasks = personalTasks.map(t => ({ 
+          ...t, 
           completedDates: [], 
           completedByMap: {}, 
           timerLogs: [], 
           createdAt: new Date().toISOString(),
           subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
+        }));
+        setPersonalTasks(updatedTasks);
+        alert('Statistiken erfolgreich zurückgesetzt!');
+      } else {
+        const batch = writeBatch(db);
+        tasks.forEach(t => {
+          const ref = t.isShared 
+            ? doc(db, 'shared_tasks', t.id) 
+            : doc(db, 'users', user.uid, 'tasks', t.id);
+          batch.update(ref, { 
+            completedDates: [], 
+            completedByMap: {}, 
+            timerLogs: [], 
+            createdAt: new Date().toISOString(),
+            subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
+          });
         });
-      });
-      await batch.commit();
+        await batch.commit();
+        alert('Statistiken erfolgreich zurückgesetzt!');
+      }
+    } catch (error) {
+      console.error("Fehler beim Zurücksetzen der Statistiken:", error);
+      alert('Fehler beim Zurücksetzen: ' + error.message);
     }
   };
 
