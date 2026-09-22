@@ -14,7 +14,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import ClearIcon from '@mui/icons-material/Clear';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import PauseCircleFilledIcon from '@mui/icons-material/PauseCircleFilled';
 
 const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = false }) => {
   const { addTask, updateTask, deleteTask, tasks, categories } = useTaskContext();
@@ -29,7 +28,6 @@ const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = fal
   const [specificDays, setSpecificDays] = useState([]);
   const [subTasks, setSubTasks] = useState([]);
   const [currentSubTask, setCurrentSubTask] = useState('');
-  const [isPaused, setIsPaused] = useState(false);
   
   const [isShared, setIsShared] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -115,7 +113,6 @@ const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = fal
       targetCount: type === 'x-times' ? parseInt(targetCount, 10) : (type === 'weekly' ? 1 : 0),
       specificDays: specificDays, // Now allowed for any type
       subTasks: formattedSubTasks,
-      isPaused: isPaused,
       isShared: isShared,
       members: newMembers,
       pendingMembers: newPendingMembers
@@ -135,7 +132,6 @@ const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = fal
     setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
-    setIsPaused(false);
     setIsShared(false);
     setSelectedMembers([]);
     if (onClose) onClose();
@@ -149,7 +145,6 @@ const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = fal
     setTargetCount(task.targetCount || 1);
     setSpecificDays(task.specificDays || []);
     setSubTasks(task.subTasks ? task.subTasks.map(st => st.title) : []);
-    setIsPaused(task.isPaused || false);
     setIsShared(task.isShared || false);
     const allShared = [...(task.members || []), ...(task.pendingMembers || [])];
     setSelectedMembers(allShared.filter(m => m !== user?.uid));
@@ -163,7 +158,6 @@ const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = fal
     setCurrentSubTask('');
     setSpecificDays([]);
     setTargetCount(1);
-    setIsPaused(false);
     setIsShared(false);
     setSelectedMembers([]);
     if (onClose) onClose();
@@ -350,23 +344,6 @@ const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = fal
                 </List>
               )}
             </Box>
-
-            {editingTaskId && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                <IconButton 
-                  color={isPaused ? "warning" : "default"} 
-                  onClick={() => setIsPaused(!isPaused)}
-                >
-                  <PauseCircleFilledIcon />
-                </IconButton>
-                <Box>
-                  <Typography variant="subtitle2">Aufgabe pausieren</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Pausierte Aufgaben werden ausgeblendet und zählen nicht in die Statistik.
-                  </Typography>
-                </Box>
-              </Box>
-            )}
 
             <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
               <Button 

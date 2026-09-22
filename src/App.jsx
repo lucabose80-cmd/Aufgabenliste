@@ -19,10 +19,8 @@ import Sidebar from './components/Sidebar';
 import TaskGrid from './components/TaskGrid';
 import TaskCreator from './components/TaskCreator';
 import CategoriesManager from './components/CategoriesManager';
-import Review from './components/Review';
 import PastReview from './components/PastReview';
 import ReadingSpeed from './components/ReadingSpeed';
-import Calories from './components/Calories';
 import AuthModal from './components/AuthModal';
 import NotificationManager from './components/NotificationManager';
 import Invitations from './components/Invitations';
@@ -62,10 +60,8 @@ function MainApp() {
   const NAV_CONFIG = {
     'home': { label: 'Aufgaben', icon: <AssignmentIcon /> },
     'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
-    'review': { label: 'Statistik', icon: <BarChartIcon /> },
     'past-review': { label: 'Rückblick', icon: <HistoryIcon /> },
     'shopping': { label: 'Shopping', icon: <ShoppingCartIcon /> },
-    'calories': { label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
     'categories': { label: 'Kategorien', icon: <CategoryIcon /> },
     'create': { label: 'Erstellen', icon: <AddBoxIcon /> },
     'settings': { label: 'Settings', icon: <SettingsIcon /> },
@@ -77,16 +73,12 @@ function MainApp() {
     switch (currentView) {
       case 'home':
         return <TaskGrid view="all" />;
-      case 'review':
-        return <Review />;
       case 'past-review':
         return <PastReview />;
       case 'create':
         return <TaskCreator />;
       case 'reading-speed':
         return <ReadingSpeed />;
-      case 'calories':
-        return <Calories />;
       case 'categories':
         return <CategoriesManager />;
       case 'settings':
@@ -100,12 +92,10 @@ function MainApp() {
 
   const getViewTitle = () => {
     switch (currentView) {
-      case 'home': return 'Aufgaben';
-      case 'review': return 'Statistik';
+      case 'home': return 'Deine Aufgaben';
       case 'past-review': return 'Rückblick';
       case 'create': return 'Neue Aufgabe erstellen';
       case 'reading-speed': return 'Lesegeschwindigkeit';
-      case 'calories': return 'Kalorienziel';
       case 'categories': return 'Kategorien verwalten';
       case 'settings': return 'Einstellungen';
       case 'shopping': return 'Einkaufsliste';

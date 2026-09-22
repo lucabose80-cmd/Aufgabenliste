@@ -37,6 +37,7 @@ export const TaskProvider = ({ children }) => {
   const [dashboardOrder, setDashboardOrder] = useState(['tracker', 'highlights', 'chart', 'quickStats']);
   const [pastReviewOrder, setPastReviewOrder] = useState(['tasks', 'perfectDays', 'reading', 'speed', 'calories']);
   const [resetHour, setResetHour] = useState(3);
+  const [vacationMode, setVacationMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Global Reading Timer
@@ -121,6 +122,9 @@ export const TaskProvider = ({ children }) => {
       const savedResetHour = localStorage.getItem('resetHour');
       if (savedResetHour) setResetHour(parseInt(savedResetHour, 10));
 
+      const savedVacationMode = localStorage.getItem('vacationMode');
+      if (savedVacationMode) setVacationMode(savedVacationMode === 'true');
+
       setIsLoading(false);
     }
   }, [user]);
@@ -140,8 +144,9 @@ export const TaskProvider = ({ children }) => {
       localStorage.setItem('dashboardOrder', JSON.stringify(dashboardOrder));
       localStorage.setItem('pastReviewOrder', JSON.stringify(pastReviewOrder));
       localStorage.setItem('resetHour', resetHour.toString());
+      localStorage.setItem('vacationMode', vacationMode ? 'true' : 'false');
     }
-  }, [personalTasks, categories, readingSessions, books, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, resetHour, user, isLoading]);
+  }, [personalTasks, categories, readingSessions, books, calorieLogs, calorieGoal, theme, accentColor, shoppingListId, pinnedNavItems, dashboardOrder, pastReviewOrder, resetHour, vacationMode, user, isLoading]);
 
   const [userDisplayName, setUserDisplayName] = useState('');
 
@@ -160,6 +165,7 @@ export const TaskProvider = ({ children }) => {
         const data = docSnap.data();
         if (data.displayName) setUserDisplayName(data.displayName);
         if (data.resetHour !== undefined) setResetHour(data.resetHour);
+        if (data.vacationMode !== undefined) setVacationMode(data.vacationMode);
       } else {
         setUserDisplayName('');
       }
@@ -226,6 +232,7 @@ export const TaskProvider = ({ children }) => {
         if (data.pinnedNavItems) setPinnedNavItems(data.pinnedNavItems);
         if (data.dashboardOrder) setDashboardOrder(data.dashboardOrder);
         if (data.pastReviewOrder) setPastReviewOrder(data.pastReviewOrder);
+        if (data.vacationMode !== undefined) setVacationMode(data.vacationMode);
       }
       setIsLoading(false);
     });
@@ -296,7 +303,7 @@ export const TaskProvider = ({ children }) => {
 
   // Auto-reset subtasks for a new day
   useEffect(() => {
-    if (tasks.length === 0 || isLoading) return;
+    if (tasks.length === 0 || isLoading || vacationMode) return;
     let hasChanges = false;
     const updatedTasks = tasks.map(task => {
       const today = getTodayDateString(task);
@@ -429,21 +436,28 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const toggleAllTasksPause = async (isPaused) => {
-    const tasksToUpdate = tasks.filter(t => !!t.isPaused !== isPaused);
-    if (tasksToUpdate.length === 0) return;
-
+  const resetTaskStatistics = async () => {
     if (!user) {
-      setPersonalTasks(current => current.map(t => tasksToUpdate.some(tu => tu.id === t.id) ? { ...t, isPaused } : t));
-    }
-
-    if (user) {
+      const updatedTasks = personalTasks.map(t => ({ 
+        ...t, 
+        completedDates: [], 
+        completedByMap: {}, 
+        timerLogs: [], 
+        subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
+      }));
+      setPersonalTasks(updatedTasks);
+    } else {
       const batch = writeBatch(db);
-      tasksToUpdate.forEach(t => {
+      tasks.forEach(t => {
         const ref = t.isShared 
           ? doc(db, 'shared_tasks', t.id) 
           : doc(db, 'users', user.uid, 'tasks', t.id);
-        batch.update(ref, { isPaused });
+        batch.update(ref, { 
+          completedDates: [], 
+          completedByMap: {}, 
+          timerLogs: [], 
+          subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
+        });
       });
       await batch.commit();
     }
@@ -787,6 +801,13 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), payload, { merge: true });
   };
 
+  const saveVacationMode = async (mode) => {
+    setVacationMode(mode);
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { vacationMode: mode }, { merge: true });
+    }
+  };
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.style.setProperty('--accent-primary', accentColor);
@@ -868,7 +889,7 @@ export const TaskProvider = ({ children }) => {
       calorieGoal,
       addTask,
       updateTask,
-      toggleAllTasksPause,
+      resetTaskStatistics,
       deleteTask,
       toggleSubTask,
       toggleTaskCompletion,
@@ -902,6 +923,8 @@ export const TaskProvider = ({ children }) => {
       setTimerSeconds,
       allUsersDB,
       resetHour,
+      vacationMode,
+      saveVacationMode,
       pendingTasks,
       pendingLists,
       acceptTaskInvitation,

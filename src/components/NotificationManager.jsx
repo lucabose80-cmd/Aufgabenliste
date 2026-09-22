@@ -3,7 +3,7 @@ import { useTaskContext } from '../context/TaskContext';
 import { format } from 'date-fns';
 
 const NotificationManager = () => {
-  const { tasks, calorieLogs, getTodayDateString } = useTaskContext();
+  const { tasks, getTodayDateString } = useTaskContext();
 
   useEffect(() => {
     // 1. Berechtigung anfragen, falls noch nicht passiert
@@ -18,11 +18,12 @@ const NotificationManager = () => {
         const hours = now.getHours();
         const todayStr = getTodayDateString();
 
-        // Erst ab 20 Uhr
-        if (hours >= 20) {
-          // Wurde heute schon benachrichtigt?
+        // Stündlich zwischen 20 und 24 Uhr (20, 21, 22, 23)
+        if (hours >= 20 && hours < 24) {
+          const notificationKey = `${todayStr}-${hours}`;
           const lastNotified = localStorage.getItem('lastNotificationDate');
-          if (lastNotified !== todayStr) {
+          
+          if (lastNotified !== notificationKey) {
             
             // Check ob noch Aufgaben offen sind (nur tägliche Routinen)
             const incompleteRoutines = tasks.filter(t => {
@@ -31,28 +32,18 @@ const NotificationManager = () => {
               return true;
             });
 
-            // Check ob Kalorien eingetragen wurden
-            const caloriesLogged = calorieLogs.some(l => l.date === todayStr);
-
-            if (incompleteRoutines.length > 0 || !caloriesLogged) {
+            if (incompleteRoutines.length > 0) {
               // Benachrichtigung senden
-              let message = "Erinnerung: Du hast heute noch offene Routinen!";
-              if (incompleteRoutines.length === 0 && !caloriesLogged) {
-                message = "Erinnerung: Du hast dein Kalorienziel für heute noch nicht eingetragen!";
-              } else if (incompleteRoutines.length > 0 && !caloriesLogged) {
-                message = "Erinnerung: Es fehlen noch Routinen und dein Kalorien-Eintrag!";
-              }
-
               new Notification("TaskMaster", {
-                body: message,
+                body: "Erinnerung: Du hast heute noch offene Routinen!",
                 icon: "/vite.svg" // oder ein passendes Icon
               });
 
-              // Speichern, dass wir heute benachrichtigt haben, um Spam zu vermeiden
-              localStorage.setItem('lastNotificationDate', todayStr);
+              // Speichern, dass wir in dieser Stunde benachrichtigt haben
+              localStorage.setItem('lastNotificationDate', notificationKey);
             } else {
-              // Alles erledigt, wir speichern auch, dass wir heute nicht mehr prüfen müssen
-              localStorage.setItem('lastNotificationDate', todayStr);
+              // Alles erledigt, wir speichern auch, dass wir in dieser Stunde nicht mehr prüfen müssen
+              localStorage.setItem('lastNotificationDate', notificationKey);
             }
           }
         }
@@ -60,7 +51,7 @@ const NotificationManager = () => {
     }, 60000); // alle 60 Sekunden prüfen
 
     return () => clearInterval(checkInterval);
-  }, [tasks, calorieLogs, getTodayDateString]);
+  }, [tasks, getTodayDateString]);
 
   return null; // Rendered nichts ins UI
 };

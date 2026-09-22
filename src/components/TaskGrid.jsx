@@ -444,9 +444,8 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
 };
 
 const TaskGrid = () => {
-  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories, resetHour, deleteTask, toggleAllTasksPause } = useTaskContext();
+  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories, resetHour, deleteTask, vacationMode } = useTaskContext();
   const [showCompleted, setShowCompleted] = useState(false);
-  const [showPaused, setShowPaused] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -483,7 +482,6 @@ const TaskGrid = () => {
     const isWrongDay = t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek);
     return { ...t, categoryColor: cat ? cat.color : undefined, isWrongDay };
   }).filter(t => {
-    if (t.isPaused && !showPaused) return false;
     if (t.isWrongDay && !showCompleted) return false; 
     const isCompletedToday = (t.completedDates || []).includes(today);
     if (isCompletedToday && !showCompleted && t.type !== 'general') return false;
@@ -520,29 +518,6 @@ const TaskGrid = () => {
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button 
-            variant={showPaused ? "contained" : "outlined"} 
-            onClick={() => setShowPaused(!showPaused)}
-            color="warning"
-            size="small"
-            sx={{ borderRadius: 8 }}
-          >
-            Pausierte Aufgaben
-          </Button>
-          
-          <Button 
-            variant="outlined" 
-            onClick={() => {
-              const allPaused = tasks.length > 0 && tasks.every(t => t.isPaused);
-              toggleAllTasksPause(!allPaused);
-            }}
-            color="secondary"
-            size="small"
-            sx={{ borderRadius: 8 }}
-          >
-            {(tasks.length > 0 && tasks.every(t => t.isPaused)) ? 'Alle fortsetzen' : 'Alle pausieren'}
-          </Button>
-
           {isEditMode && (
             <Button 
               variant="contained" 
@@ -566,8 +541,16 @@ const TaskGrid = () => {
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {displayGroups.sort((a, b) => {
-          if (a.id === 'uncategorized') return 1;
+        {vacationMode ? (
+          <Card sx={{ p: 6, textAlign: 'center', bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 4 }}>
+            <Typography variant="h4" gutterBottom>🏖️ Urlaubsmodus ist aktiv</Typography>
+            <Typography variant="body1">
+              Genieße deinen Urlaub! Aufgaben werden nicht angezeigt und deine Streaks bleiben erhalten.
+            </Typography>
+          </Card>
+        ) : (
+          displayGroups.sort((a, b) => {
+            if (a.id === 'uncategorized') return 1;
           if (b.id === 'uncategorized') return -1;
           const catA = categories.find(c => c.id === a.id);
           const catB = categories.find(c => c.id === b.id);
@@ -660,16 +643,16 @@ const TaskGrid = () => {
               </Collapse>
             </Box>
           );
-        })}
+        }))}
       </Box>
       
-      {filteredTasks.length === 0 && tasks.length > 0 && (
+      {!vacationMode && filteredTasks.length === 0 && tasks.length > 0 && (
         <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
           <Typography variant="h6">Alles erledigt für heute! 🎉</Typography>
         </Card>
       )}
 
-      {tasks.length === 0 && (
+      {!vacationMode && tasks.length === 0 && (
         <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
           <Typography variant="h6">Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".</Typography>
         </Card>

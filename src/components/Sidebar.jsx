@@ -26,10 +26,8 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   
   const menuItems = [
     { id: 'home', label: 'Aufgaben', icon: <AssignmentIcon /> },
-    { id: 'review', label: 'Statistik', icon: <BarChartIcon /> },
     { id: 'past-review', label: 'Rückblick', icon: <HistoryIcon /> },
     { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <MenuBookIcon /> },
-    { id: 'calories', label: 'Kalorienziel', icon: <LocalFireDepartmentIcon /> },
     { id: 'shopping', label: 'Einkaufsliste', icon: <ShoppingCartIcon /> },
     { id: 'create', label: 'Aufgabe erstellen', icon: <AddBoxIcon /> },
     { id: 'categories', label: 'Kategorien', icon: <FolderIcon /> },

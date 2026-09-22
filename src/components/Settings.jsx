@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Grid, Button, IconButton, Checkbox, FormControlLabel, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Box, Card, Typography, Grid, Button, IconButton, Checkbox, FormControlLabel, Select, MenuItem, FormControl, InputLabel, Switch } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -20,17 +20,15 @@ const COLORS = [
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Aufgaben' },
-  { id: 'review', label: 'Statistik' },
   { id: 'past-review', label: 'Rückblick' },
   { id: 'reading-speed', label: 'Lesegeschwindigkeit' },
   { id: 'shopping', label: 'Einkaufsliste' },
-  { id: 'calories', label: 'Kalorienziel' },
   { id: 'categories', label: 'Kategorien verwalten' },
   { id: 'create', label: 'Aufgabe erstellen' },
 ];
 
 const Settings = () => {
-  const { theme, accentColor, pinnedNavItems, saveSettings, resetHour } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, saveSettings, resetHour, vacationMode, saveVacationMode, resetTaskStatistics } = useTaskContext();
 
   const handleThemeChange = (newTheme) => {
     saveSettings(newTheme, accentColor, undefined, pinnedNavItems);
@@ -276,6 +274,37 @@ const Settings = () => {
               ))}
             </Select>
           </FormControl>
+        </Box>
+
+        {/* Urlaubsmodus */}
+        <Box sx={{ mt: 5 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>Urlaubsmodus</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Wenn aktiviert, werden Aufgaben nicht mehr angezeigt und Streaks brechen nicht ab, während du im Urlaub bist.
+          </Typography>
+          <FormControlLabel
+            control={<Switch checked={vacationMode} onChange={(e) => saveVacationMode(e.target.checked)} color="primary" />}
+            label={<Typography fontWeight="bold">Urlaubsmodus aktivieren</Typography>}
+          />
+        </Box>
+
+        {/* Reset Statistiken */}
+        <Box sx={{ mt: 5, p: 2, border: '1px solid', borderColor: 'error.main', borderRadius: 2, bgcolor: 'error.light', color: 'error.contrastText' }}>
+          <Typography variant="h6" gutterBottom color="error.dark">Gefahrenzone</Typography>
+          <Typography variant="body2" sx={{ mb: 2 }} color="error.dark">
+            Hier kannst du alle Statistiken und Erledigungen deiner Aufgaben unwiderruflich zurücksetzen. Deine Lese-Statistiken bleiben erhalten.
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={() => {
+              if (window.confirm("Bist du sicher? Alle abgeschlossenen Aufgaben und Streaks werden unwiderruflich gelöscht!")) {
+                resetTaskStatistics();
+              }
+            }}
+          >
+            Statistiken zurücksetzen
+          </Button>
         </Box>
 
       </Card>
