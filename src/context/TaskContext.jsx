@@ -455,13 +455,13 @@ export const TaskProvider = ({ children }) => {
           const ref = t.isShared 
             ? doc(db, 'shared_tasks', t.id) 
             : doc(db, 'users', user.uid, 'tasks', t.id);
-          batch.update(ref, { 
+          batch.set(ref, { 
             completedDates: [], 
             completedByMap: {}, 
             timerLogs: [], 
             createdAt: new Date().toISOString(),
             subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
-          });
+          }, { merge: true });
         });
         await batch.commit();
         alert('Statistiken erfolgreich zurückgesetzt!');
