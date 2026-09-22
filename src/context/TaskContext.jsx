@@ -443,6 +443,7 @@ export const TaskProvider = ({ children }) => {
         completedDates: [], 
         completedByMap: {}, 
         timerLogs: [], 
+        createdAt: new Date().toISOString(),
         subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
       }));
       setPersonalTasks(updatedTasks);
@@ -456,6 +457,7 @@ export const TaskProvider = ({ children }) => {
           completedDates: [], 
           completedByMap: {}, 
           timerLogs: [], 
+          createdAt: new Date().toISOString(),
           subTasks: (t.subTasks || []).map(st => ({ ...st, completed: false, completedBy: null })) 
         });
       });
