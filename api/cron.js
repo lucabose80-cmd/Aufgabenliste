@@ -80,14 +80,18 @@ export default async function handler(req, res) {
           token: userData.fcmToken,
           notification: {
             title: "TaskMaster",
-            body: `Erinnerung: Du hast heute noch ${incompleteRoutines.length} offene Routine(n)!`,
-            icon: "https://aufgabenliste-beta.vercel.app/vite.svg"
+            body: `Erinnerung: Du hast heute noch ${incompleteRoutines.length} offene Routine(n)!`
+          },
+          webpush: {
+            notification: {
+              icon: "https://aufgabenliste-beta.vercel.app/vite.svg"
+            }
           },
           android: {
             priority: "high",
             notification: {
               channelId: "default",
-              visibility: "public" // Wichtig für Lockscreen!
+              visibility: "public"
             }
           },
           apns: {

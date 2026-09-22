@@ -54,8 +54,12 @@ export default async function handler(req, res) {
         token: userData.fcmToken,
         notification: {
           title: "Einkauf erledigt!",
-          body: `Alles von der Liste "${listName}" wurde eingekauft.`,
-          icon: "https://aufgabenliste-beta.vercel.app/vite.svg"
+          body: `Alles von der Liste "${listName}" wurde eingekauft.`
+        },
+        webpush: {
+          notification: {
+            icon: "https://aufgabenliste-beta.vercel.app/vite.svg"
+          }
         },
         android: {
           priority: "high",
