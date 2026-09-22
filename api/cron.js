@@ -36,17 +36,41 @@ export default async function handler(req, res) {
       const tasksSnap = await db.collection('users').doc(userDoc.id).collection('tasks').get();
       const tasks = tasksSnap.docs.map(d => d.data());
       
-      // Heutiges Datum (YYYY-MM-DD Format wie im Frontend)
-      const now = new Date();
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      const todayStr = `${yyyy}-${mm}-${dd}`;
+      // Heutiges Datum (angepasst an Europe/Berlin und den 3 Uhr Reset der App)
+      const userTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+      // Hole eventuell gespeicherte ResetHour (Fallback: 3)
+      const resetHour = userData.resetHour || 3;
+      userTime.setHours(userTime.getHours() - resetHour);
       
-      // 4. Suche nach offenen täglichen Routinen
+      const yyyy = userTime.getFullYear();
+      const mm = String(userTime.getMonth() + 1).padStart(2, '0');
+      const dd = String(userTime.getDate()).padStart(2, '0');
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+      const dayOfWeek = userTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+      // Hole Kategorien um verwaiste Aufgaben zu ignorieren
+      const catsSnap = await db.collection('users').doc(userDoc.id).collection('categories').get();
+      const validCategoryIds = catsSnap.docs.map(d => d.id);
+      
+      // 4. Suche nach offenen Routinen
       const incompleteRoutines = tasks.filter(t => {
-        if (t.type !== 'daily') return false;
+        // Ignoriere pausierte Aufgaben und Aufgaben in gelöschten Kategorien
+        if (t.isPaused) return false;
+        if (!validCategoryIds.includes(t.categoryId)) return false;
+
+        // Prüfe ob die Aufgabe heute relevant ist
+        let isRelevantToday = false;
+        if (t.type === 'daily') {
+          isRelevantToday = true;
+        } else if (t.type === 'specific-days' && Array.isArray(t.specificDays)) {
+          isRelevantToday = t.specificDays.includes(dayOfWeek);
+        }
+
+        if (!isRelevantToday) return false;
+
+        // Ist sie heute schon erledigt?
         if ((t.completedDates || []).includes(todayStr)) return false;
+        
         return true;
       });
       
@@ -56,7 +80,22 @@ export default async function handler(req, res) {
           token: userData.fcmToken,
           notification: {
             title: "TaskMaster",
-            body: `Erinnerung: Du hast heute noch ${incompleteRoutines.length} offene Routine(n)!`
+            body: `Erinnerung: Du hast heute noch ${incompleteRoutines.length} offene Routine(n)!`,
+            icon: "https://aufgabenliste-beta.vercel.app/vite.svg"
+          },
+          android: {
+            priority: "high",
+            notification: {
+              channelId: "default",
+              visibility: "public" // Wichtig für Lockscreen!
+            }
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default"
+              }
+            }
           }
         });
         notificationsSent++;

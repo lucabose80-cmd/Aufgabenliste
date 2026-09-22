@@ -18,11 +18,15 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification.title || "TaskMaster";
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: payload.notification.icon || '/vite.svg'
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  // Wenn der Payload ein 'notification' Objekt hat, zeigt Firebase/Browser 
+  // die Benachrichtigung automatisch. Wir müssen sie nicht nochmal manuell zeigen,
+  // sonst kommt sie doppelt!
+  if (!payload.notification) {
+    const notificationTitle = payload.data?.title || "TaskMaster";
+    const notificationOptions = {
+      body: payload.data?.body,
+      icon: 'https://aufgabenliste-beta.vercel.app/vite.svg'
+    };
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  }
 });
