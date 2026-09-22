@@ -326,6 +326,20 @@ const ShoppingList = () => {
     if (!currentStatus) {
       updateData.completedAt = new Date().toISOString();
       updateData.completedBy = myName;
+
+      // Check if this was the last item to be completed
+      const remainingUncompleted = items.filter(i => !i.completed && i.id !== id);
+      if (remainingUncompleted.length === 0 && items.length > 0) {
+        // Call our Vercel API to send a push notification
+        fetch('/api/shopping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            listName: activeList.name, 
+            completedByUid: user.uid 
+          })
+        }).catch(err => console.error("Fehler beim Senden der Einkaufs-Benachrichtigung:", err));
+      }
     } else {
       updateData.completedAt = null;
       updateData.completedBy = null;
