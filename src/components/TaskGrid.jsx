@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { format, subDays, subHours, isSameWeek } from 'date-fns';
 import { de } from 'date-fns/locale';
