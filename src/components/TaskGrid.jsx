@@ -773,7 +773,11 @@ const TaskGrid = () => {
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" color="text.secondary" fontWeight="bold">Tagesziel</Typography>
+              <MuiTooltip title="Dein Tagesziel umfasst nur wiederkehrende Routinen (z.B. täglich oder an bestimmten Tagen). Allgemeine To-Dos werden hier nicht mitgezählt, damit sie deine tägliche Serie nicht blockieren.">
+                <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'help' }}>
+                  <Typography variant="body2" color="text.secondary" fontWeight="bold">Tagesziel (Routinen)</Typography>
+                </Box>
+              </MuiTooltip>
               <MuiTooltip title={allPerfect ? "Perfekte Woche!" : "Perfekte Tage (Letzte 7 Tage)"}>
                 <Box sx={{ display: 'flex', gap: 0.25 }}>
                   {perfectDays.map((d, i) => (
