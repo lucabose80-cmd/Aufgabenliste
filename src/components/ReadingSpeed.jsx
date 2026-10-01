@@ -203,7 +203,7 @@ const ReadingSpeed = () => {
       {!isOnline && (
         <Box sx={{ p: 2, bgcolor: 'warning.main', color: 'warning.contrastText', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" fontWeight="bold">
-            Du bist offline. Du kannst die Zeit stoppen, aber Speichern funktioniert erst wieder mit Internetverbindung.
+            Du bist offline. Deine Lesezeiten werden lokal gespeichert und hochgeladen, sobald du wieder Internet hast.
           </Typography>
         </Box>
       )}
@@ -358,7 +358,7 @@ const ReadingSpeed = () => {
                 />
               </Box>
 
-              <Button variant="contained" color="primary" onClick={handleSaveInfo} disabled={!isOnline} startIcon={<SaveIcon />} sx={{ mt: 2 }}>
+              <Button variant="contained" color="primary" onClick={handleSaveInfo} startIcon={<SaveIcon />} sx={{ mt: 2 }}>
                 Speichern
               </Button>
             </Box>
