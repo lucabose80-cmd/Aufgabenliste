@@ -31,6 +31,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
+const CURRENT_APP_VERSION = '1.0.1'; // Increment to show update notification
+
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -39,10 +41,14 @@ function MainApp() {
   const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
   const [userDisplayName, setUserDisplayName] = useState('');
   
+  const [hasUpdate, setHasUpdate] = useState(() => {
+    return localStorage.getItem('app_version') !== CURRENT_APP_VERSION;
+  });
+  
   const { user, logout } = useAuth();
   const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar, pendingTasks, pendingLists, enableReadingFeature } = useTaskContext();
   
-  const pendingCount = (pendingTasks?.length || 0) + (pendingLists?.length || 0);
+  const pendingCount = (pendingTasks?.length || 0) + (pendingLists?.length || 0) + (hasUpdate ? 1 : 0);
 
   useEffect(() => {
     if (!user) {
@@ -185,7 +191,14 @@ function MainApp() {
         maxWidth="sm"
         fullWidth
       >
-        <Invitations onClose={() => setIsInvitationsModalOpen(false)} />
+        <Invitations 
+          onClose={() => setIsInvitationsModalOpen(false)} 
+          hasUpdate={hasUpdate}
+          onClearUpdate={() => {
+            localStorage.setItem('app_version', CURRENT_APP_VERSION);
+            setHasUpdate(false);
+          }}
+        />
       </Dialog>
     
         {snackbarInfo && (

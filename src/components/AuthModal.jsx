@@ -5,7 +5,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
-const AuthModal = ({ isOpen, onClose }) => {
+const AuthModal = ({ isOpen, open, onClose }) => {
   const { loginWithEmail, registerWithEmail } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -42,7 +42,7 @@ const AuthModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="xs">
+    <Dialog open={isOpen || open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
         {isLogin ? 'Anmelden' : 'Registrieren'}
         <IconButton
