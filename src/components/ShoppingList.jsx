@@ -541,12 +541,22 @@ const ShoppingList = () => {
           <Box sx={{ width: 1, bgcolor: 'divider', height: 20, mx: 0.5, flexShrink: 0 }} />
 
           {/* Item name */}
-          <InputBase
+          <input
             placeholder="Artikel hinzufügen..."
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
             autoComplete="off"
-            sx={{ flex: 1, minWidth: 0, input: { fontSize: '0.9rem' } }}
+            style={{ 
+              flex: 1, 
+              minWidth: 0, 
+              fontSize: '0.9rem', 
+              width: '100%', 
+              background: 'transparent', 
+              border: 'none', 
+              outline: 'none',
+              color: 'inherit',
+              padding: '4px 0'
+            }}
           />
 
           {/* Submit */}
