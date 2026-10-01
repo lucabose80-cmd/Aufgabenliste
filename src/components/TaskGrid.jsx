@@ -452,6 +452,7 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
                   const d = subDays(baseDate, daysAgo);
                   const dateStr = format(d, 'yyyy-MM-dd');
                   const isDone = (task.completedDates || []).includes(dateStr);
+                  const isScheduled = task.type !== 'specific-days' || (task.specificDays || []).includes(d.getDay());
                   const shortDay = format(d, 'EE', { locale: de });
                   const shortDate = format(d, 'dd.MM');
                   return (
@@ -474,14 +475,14 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
                           width: 28, height: 28, 
                           borderRadius: '50%', 
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          bgcolor: isDone ? 'success.main' : 'background.default',
+                          bgcolor: isDone ? 'success.main' : (!isScheduled ? 'transparent' : 'background.default'),
                           color: isDone ? 'white' : 'text.disabled',
-                          border: 1,
+                          border: (!isScheduled && !isDone) ? 0 : 1,
                           borderColor: isDone ? 'success.main' : 'divider',
                           my: 0.5
                         }}
                       >
-                        {isDone ? <CheckBoxIcon fontSize="small" /> : <CheckBoxOutlineBlankIcon fontSize="small" />}
+                        {isDone ? <CheckBoxIcon fontSize="small" /> : (!isScheduled ? <Typography sx={{fontSize: '1rem', color: 'divider'}}>-</Typography> : <CheckBoxOutlineBlankIcon fontSize="small" />)}
                       </Box>
                       <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{shortDate}</Typography>
                     </Box>
