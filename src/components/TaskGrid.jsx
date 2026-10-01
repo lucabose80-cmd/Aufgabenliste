@@ -34,6 +34,9 @@ import TaskCreator from './TaskCreator';
 
 const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setGlobalEditMode }) => {
   const timerRef = useRef(null);
+  const touchStartRef = useRef(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+
   const handlePointerDown = () => {
     if (isEditMode) return;
     timerRef.current = setTimeout(() => {
@@ -43,8 +46,38 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
   const handlePointerUp = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
   };
-  const [expanded, setExpanded] = useState(false);
+
+  const handleTouchStart = (e) => {
+    if (isEditMode) return;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchStartRef.current || isEditMode) return;
+    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+    // only if horizontal swipe is dominant
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
+      setSwipeOffset(deltaX);
+    }
+  };
+
   const { toggleTaskCompletion, toggleSubTask, updateTask, categories, getTodayDateString, resetHour } = useTaskContext();
+
+  const handleTouchEnd = () => {
+    if (!touchStartRef.current || isEditMode) return;
+    if (swipeOffset > 80) {
+      // Swipe Right -> Complete
+      toggleTaskCompletion(task.id);
+    } else if (swipeOffset < -80) {
+      // Swipe Left -> Edit
+      onEdit(task);
+    }
+    setSwipeOffset(0);
+    touchStartRef.current = null;
+  };
+
+  const [expanded, setExpanded] = useState(false);
   const hasValidCategory = categories.some(c => c.id === task.categoryId);
   
   const {
@@ -56,9 +89,10 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
     isDragging,
   } = useSortable({ id: task.id });
 
+  const dndTransform = CSS.Transform.toString(transform) || '';
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: dndTransform + (swipeOffset ? ` translateX(${swipeOffset}px)` : ''),
+    transition: isDragging ? transition : (swipeOffset ? 'none' : 'transform 0.2s'),
     opacity: isDragging ? 0.5 : ((task.isCompleted || isWrongDay) ? 0.5 : 1),
     position: 'relative',
     zIndex: isDragging ? 999 : 1,
@@ -258,10 +292,13 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
       ref={setNodeRef} 
       className={isEditMode ? 'jiggle-mode' : ''}
       style={style} 
-      elevation={isDragging ? 8 : 1}
+      elevation={isDragging ? 8 : (swipeOffset ? 4 : 1)}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       sx={{ 
         display: 'flex',
         flexDirection: 'column',
@@ -532,16 +569,44 @@ const TaskGrid = () => {
     });
   };
 
-  const filteredTasks = tasks.map(t => {
+  const mappedTasks = tasks.map(t => {
     const cat = categories.find(c => c.id === t.categoryId);
     const isWrongDay = t.type === 'specific-days' && !t.specificDays.includes(dayOfWeek);
-    return { ...t, categoryColor: cat ? cat.color : undefined, isWrongDay };
-  }).filter(t => {
-    if (t.isWrongDay && !showCompleted) return false; 
-    const isCompletedToday = (t.completedDates || []).includes(today);
-    if (isCompletedToday && !showCompleted && t.type !== 'general') return false;
+    const isCompletedToday = (t.completedDates || []).includes(today) || (t.isShared && t.completedByMap && t.completedByMap[today]);
+    return { ...t, categoryColor: cat ? cat.color : undefined, isWrongDay, isCompletedToday };
+  });
+
+  const activeTasks = mappedTasks.filter(t => {
+    if (t.isWrongDay) return false; 
+    if (t.isCompletedToday) return false;
     return true;
   }).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const doneTasks = mappedTasks.filter(t => {
+    if (t.type === 'general' && (t.completedDates || []).length > 0) return false;
+    if (!t.isCompletedToday) return false;
+    return true;
+  }).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const allTasksForToday = tasks.filter(t => !t.isPaused && t.type !== 'general' && (t.type !== 'specific-days' || (t.specificDays && t.specificDays.includes(dayOfWeek))));
+  const totalTasks = allTasksForToday.length;
+  const completedTasks = allTasksForToday.filter(t => (t.completedDates || []).includes(today) || (t.isShared && t.completedByMap && t.completedByMap[today])).length;
+  const progressPercent = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+  const [quickAddText, setQuickAddText] = useState('');
+  const { addTask } = useTaskContext();
+  const handleQuickAdd = async (e) => {
+    e.preventDefault();
+    if (!quickAddText.trim()) return;
+    await addTask({
+      title: quickAddText.trim(),
+      type: 'general',
+      categoryId: categories[0]?.id || '1',
+      targetCount: 1,
+      specificDays: []
+    });
+    setQuickAddText('');
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -570,6 +635,30 @@ const TaskGrid = () => {
           </Fab>
         </Box>
       )}
+
+      {!vacationMode && totalTasks > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography variant="body2" color="text.secondary" fontWeight="bold">Tagesziel</Typography>
+            <Typography variant="body2" color="text.secondary" fontWeight="bold">{completedTasks} / {totalTasks} ({progressPercent}%)</Typography>
+          </Box>
+          <LinearProgress variant="determinate" value={progressPercent} sx={{ height: 10, borderRadius: 5 }} />
+        </Box>
+      )}
+
+      <Box component="form" onSubmit={handleQuickAdd} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Schnelle Aufgabe hinzufügen..."
+          value={quickAddText}
+          onChange={(e) => setQuickAddText(e.target.value)}
+          sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+        />
+        <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 2, minWidth: 48, px: 0 }}>
+          <AddIcon />
+        </Button>
+      </Box>
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -585,14 +674,6 @@ const TaskGrid = () => {
             </Button>
           )}
         </Box>
-        <Button 
-          variant={showCompleted ? "contained" : "outlined"} 
-          onClick={() => setShowCompleted(!showCompleted)}
-          size="small"
-          sx={{ borderRadius: 8 }}
-        >
-          {showCompleted ? 'Ausgeblendete verbergen' : 'Erledigte anzeigen'}
-        </Button>
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -604,19 +685,20 @@ const TaskGrid = () => {
             </Typography>
           </Card>
         ) : (
-          displayGroups.sort((a, b) => {
+          <>
+          {displayGroups.sort((a, b) => {
             if (a.id === 'uncategorized') return 1;
-          if (b.id === 'uncategorized') return -1;
-          const catA = categories.find(c => c.id === a.id);
-          const catB = categories.find(c => c.id === b.id);
-          return (catA?.order || 0) - (catB?.order || 0);
-        }).map((group, groupIndex, arr) => {
-          const catTasks = filteredTasks.filter(t => {
-            if (group.id === 'uncategorized') {
-              return !categories.find(c => c.id === t.categoryId);
-            }
-            return t.categoryId === group.id;
-          });
+            if (b.id === 'uncategorized') return -1;
+            const catA = categories.find(c => c.id === a.id);
+            const catB = categories.find(c => c.id === b.id);
+            return (catA?.order || 0) - (catB?.order || 0);
+          }).map((group, groupIndex, arr) => {
+            const catTasks = activeTasks.filter(t => {
+              if (group.id === 'uncategorized') {
+                return !categories.find(c => c.id === t.categoryId);
+              }
+              return t.categoryId === group.id;
+            });
           if (catTasks.length === 0) return null;
 
           const isFirstCat = groupIndex === 0;
@@ -698,19 +780,53 @@ const TaskGrid = () => {
               </Collapse>
             </Box>
           );
-        }))}
+        </>)}
       </Box>
       
-      {!vacationMode && filteredTasks.length === 0 && tasks.length > 0 && (
-        <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+      {!vacationMode && activeTasks.length === 0 && tasks.length > 0 && (
+        <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary', bgcolor: 'transparent', boxShadow: 'none' }}>
           <Typography variant="h6">Alles erledigt für heute! 🎉</Typography>
         </Card>
       )}
 
       {!vacationMode && tasks.length === 0 && (
         <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-          <Typography variant="h6">Noch keine Aufgaben vorhanden. Gehe auf "Aufgabe erstellen".</Typography>
+          <Typography variant="h6">Noch keine Aufgaben vorhanden. Füge eine hinzu!</Typography>
         </Card>
+      )}
+
+      {!vacationMode && doneTasks.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontWeight: 'bold', mb: 2 }}>
+            <IconButton size="small" onClick={() => setShowCompleted(!showCompleted)} sx={{ p: 0, mr: 0.5, color: 'inherit' }}>
+              {showCompleted ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+            Heute Erledigt ({doneTasks.length})
+          </Typography>
+          <Collapse in={showCompleted}>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={() => {}}>
+              <SortableContext items={doneTasks.map(t => t.id)} strategy={rectSortingStrategy}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, opacity: 0.7 }}>
+                  {doneTasks.map(task => (
+                    <SortableTaskItem 
+                      key={task.id} 
+                      task={task} 
+                      isWrongDay={false}
+                      isEditMode={isEditMode}
+                      setGlobalEditMode={setIsEditMode}
+                      onEdit={(t) => setTaskToEdit(t)}
+                      onDelete={(t) => {
+                        if (window.confirm(`Möchtest du die Aufgabe "${t.title}" wirklich löschen?`)) {
+                          deleteTask(t.id);
+                        }
+                      }}
+                    />
+                  ))}
+                </Box>
+              </SortableContext>
+            </DndContext>
+          </Collapse>
+        </Box>
       )}
 
       <Dialog open={!!taskToEdit} onClose={() => setTaskToEdit(null)} maxWidth="sm" fullWidth>

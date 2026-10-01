@@ -528,6 +528,24 @@ export const TaskProvider = ({ children }) => {
   const showSnackbar = (message, onUndo) => setSnackbarInfo({ open: true, message, onUndo });
   const closeSnackbar = () => setSnackbarInfo(prev => ({ ...prev, open: false }));
 
+  const playDing = () => {
+    try {
+      if (navigator.vibrate) navigator.vibrate(50);
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    } catch(e) {}
+  };
+
   const toggleTaskCompletion = async (taskId, date = null) => {
     // Use tasksRef to always get the latest state
     const currentTasks = tasksRef.current;
@@ -536,6 +554,7 @@ export const TaskProvider = ({ children }) => {
     const effectiveDate = date || getTodayDateString(task);
     
     if (task.type === 'general') { 
+      playDing();
       await deleteTask(taskId); 
       showSnackbar('Aufgabe erledigt!', async () => {
         if (!user && !task.isShared) setPersonalTasks(prev => [...prev, task]);
@@ -553,6 +572,7 @@ export const TaskProvider = ({ children }) => {
     
     const newCompletedByMap = { ...(task.completedByMap || {}) };
     if (!isCompletedOnDate) {
+      playDing();
       newCompletedByMap[effectiveDate] = myName;
     } else {
       delete newCompletedByMap[effectiveDate];
