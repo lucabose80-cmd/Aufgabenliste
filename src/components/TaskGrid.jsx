@@ -602,7 +602,7 @@ const TaskGrid = () => {
     return true;
   }).sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  const allTasksForToday = tasks.filter(t => !t.isPaused && t.type !== 'general' && (t.type !== 'specific-days' || (t.specificDays && t.specificDays.includes(dayOfWeek))));
+  const allTasksForToday = tasks.filter(t => !t.isPaused && t.type !== 'general' && t.type !== 'weekly' && t.type !== 'x-times' && (t.type !== 'specific-days' || (t.specificDays && t.specificDays.includes(dayOfWeek))));
   const totalTasks = allTasksForToday.length;
   const completedTasks = allTasksForToday.filter(t => (t.completedDates || []).includes(today) || (t.isShared && t.completedByMap && t.completedByMap[today])).length;
   const progressPercent = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
