@@ -7,6 +7,7 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import CategoriesManager from './CategoriesManager';
 
 const COLORS = [
   { name: 'Indigo (Standard)', hex: '#6366f1' },
@@ -190,67 +191,10 @@ const Settings = () => {
           </Grid>
         </Box>
 
-        {/* Navigation Personalization */}
+        {/* Kategorien verwalten */}
         <Box sx={{ mt: 5 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Menüleiste anpassen (Handy)</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Wähle bis zu 5 Punkte, die unten in der Navigation angezeigt werden sollen. Der Rest landet im "Mehr" Menü.
-          </Typography>
-          <Grid container spacing={2}>
-            {sortedNavItems.map((item) => {
-              const isPinned = (pinnedNavItems || []).includes(item.id);
-              const pinIndex = (pinnedNavItems || []).indexOf(item.id);
-              return (
-                <Grid item xs={12} sm={6} md={4} key={item.id}>
-                  <Box 
-                    onClick={() => handleNavToggle(item.id)}
-                    sx={{
-                      p: 1.5,
-                      border: 1,
-                      borderColor: isPinned ? 'primary.main' : 'divider',
-                      bgcolor: isPinned ? 'primary.light' : 'background.paper',
-                      color: isPinned ? 'primary.contrastText' : 'text.primary',
-                      borderRadius: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      '&:hover': { borderColor: 'primary.main' }
-                    }}
-                  >
-                    <Checkbox 
-                      checked={isPinned} 
-                      sx={{ p: 0.5, mr: 1, color: isPinned ? 'primary.contrastText' : 'inherit', '&.Mui-checked': { color: 'primary.contrastText' } }} 
-                    />
-                    <Typography variant="body2" fontWeight={isPinned ? 'bold' : 'normal'} sx={{ flexGrow: 1 }}>
-                      {item.label}
-                    </Typography>
-                    
-                    {isPinned && (
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <IconButton 
-                          size="small" 
-                          onClick={(e) => moveNav(e, item.id, 'up')}
-                          disabled={pinIndex === 0}
-                          sx={{ p: 0, color: 'inherit', opacity: pinIndex === 0 ? 0.3 : 1 }}
-                        >
-                          <KeyboardArrowUpIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton 
-                          size="small" 
-                          onClick={(e) => moveNav(e, item.id, 'down')}
-                          disabled={pinIndex === pinnedNavItems.length - 1}
-                          sx={{ p: 0, color: 'inherit', opacity: pinIndex === pinnedNavItems.length - 1 ? 0.3 : 1 }}
-                        >
-                          <KeyboardArrowDownIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    )}
-                  </Box>
-                </Grid>
-              );
-            })}
-          </Grid>
+          <Typography variant="h6" color="text.secondary" gutterBottom>Kategorien verwalten</Typography>
+          <CategoriesManager isEmbedded={true} />
         </Box>
 
         {/* Reset Timer */}

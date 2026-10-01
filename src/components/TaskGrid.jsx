@@ -597,6 +597,27 @@ const TaskGrid = () => {
   const completedTasks = allTasksForToday.filter(t => (t.completedDates || []).includes(today) || (t.isShared && t.completedByMap && t.completedByMap[today])).length;
   const progressPercent = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
+  const getPerfectDays = () => {
+    return [6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
+      const d = subDays(subHours(new Date(), resetHour || 3), daysAgo);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const dow = d.getDay();
+      
+      const trackable = tasks.filter(t => {
+        if (t.isPaused || t.type === 'general' || t.type === 'weekly' || t.type === 'x-times') return false;
+        if (t.createdAt && dateStr < format(new Date(t.createdAt), 'yyyy-MM-dd')) return false;
+        if (t.type === 'specific-days' && t.specificDays && !t.specificDays.includes(dow)) return false;
+        return true;
+      });
+
+      if (trackable.length === 0) return { dateStr, perfect: false };
+      const isPerfect = trackable.every(t => (t.completedDates || []).includes(dateStr) || (t.isShared && t.completedByMap && t.completedByMap[dateStr]));
+      return { dateStr, perfect: isPerfect };
+    });
+  };
+  const perfectDays = getPerfectDays();
+  const allPerfect = perfectDays.every(d => d.perfect);
+
   const [quickAddText, setQuickAddText] = useState('');
   const { addTask } = useTaskContext();
   const handleQuickAdd = async (e) => {
@@ -642,8 +663,26 @@ const TaskGrid = () => {
 
       {!vacationMode && totalTasks > 0 && (
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="body2" color="text.secondary" fontWeight="bold">Tagesziel</Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" color="text.secondary" fontWeight="bold">Tagesziel</Typography>
+              <MuiTooltip title={allPerfect ? "Perfekte Woche!" : "Perfekte Tage (Letzte 7 Tage)"}>
+                <Box sx={{ display: 'flex', gap: 0.25 }}>
+                  {perfectDays.map((d, i) => (
+                    <LocalFireDepartmentIcon 
+                      key={d.dateStr} 
+                      sx={{ 
+                        fontSize: '1rem', 
+                        color: d.perfect ? (allPerfect ? '#ffd700' : 'warning.main') : 'divider',
+                        filter: (allPerfect && d.perfect) ? 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.8))' : 'none',
+                        transform: (allPerfect && d.perfect) ? 'scale(1.1)' : 'scale(1)',
+                        transition: 'all 0.3s'
+                      }} 
+                    />
+                  ))}
+                </Box>
+              </MuiTooltip>
+            </Box>
             <Typography variant="body2" color="text.secondary" fontWeight="bold">{completedTasks} / {totalTasks} ({progressPercent}%)</Typography>
           </Box>
           <LinearProgress variant="determinate" value={progressPercent} sx={{ height: 10, borderRadius: 5 }} />

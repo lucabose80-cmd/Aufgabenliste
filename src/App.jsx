@@ -59,11 +59,8 @@ function MainApp() {
 
   const NAV_CONFIG = {
     'home': { label: 'Aufgaben', icon: <AssignmentIcon /> },
-    'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
-    'past-review': { label: 'Rückblick', icon: <HistoryIcon /> },
     'shopping': { label: 'Shopping', icon: <ShoppingCartIcon /> },
-    'categories': { label: 'Kategorien', icon: <CategoryIcon /> },
-    'create': { label: 'Erstellen', icon: <AddBoxIcon /> },
+    'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
     'settings': { label: 'Settings', icon: <SettingsIcon /> },
   };
 
@@ -164,26 +161,12 @@ function MainApp() {
             showLabels
             value={currentView}
             onChange={(event, newValue) => {
-              if (newValue !== 'more') {
-                setCurrentView(newValue);
-              }
+              setCurrentView(newValue);
             }}
           >
-            {(pinnedNavItems || []).slice(0, 5).map(itemId => {
-              const nav = NAV_CONFIG[itemId];
-              if (!nav) return null;
-              return <BottomNavigationAction key={itemId} label={nav.label} value={itemId} icon={nav.icon} />;
-            })}
-            
-            <BottomNavigationAction 
-              label="Mehr" 
-              value="more" 
-              icon={<MenuIcon />} 
-              onClick={(e) => {
-                e.preventDefault();
-                toggleSidebar();
-              }}
-            />
+            {Object.entries(NAV_CONFIG).map(([itemId, nav]) => (
+              <BottomNavigationAction key={itemId} label={nav.label} value={itemId} icon={nav.icon} />
+            ))}
           </BottomNavigation>
         </Paper>
 

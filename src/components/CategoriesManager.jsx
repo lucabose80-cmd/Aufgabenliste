@@ -7,7 +7,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 
-const CategoriesManager = () => {
+const CategoriesManager = ({ isEmbedded }) => {
   const { categories, addCategory, updateCategory, deleteCategory } = useTaskContext();
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#6366f1');
@@ -62,9 +62,12 @@ const CategoriesManager = () => {
     setCatToDelete(null);
   };
 
+  const Container = isEmbedded ? Box : Card;
+  const containerProps = isEmbedded ? {} : { sx: { maxWidth: 600, mx: 'auto', p: { xs: 2, sm: 3 } } };
+
   return (
-    <Card sx={{ maxWidth: 600, mx: 'auto', p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>Kategorien verwalten</Typography>
+    <Container {...containerProps}>
+      {!isEmbedded && <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>Kategorien verwalten</Typography>}
       
       <Box component="form" onSubmit={handleAdd} sx={{ display: 'flex', gap: 2, mb: 4, alignItems: 'center' }}>
         <TextField 
@@ -149,7 +152,7 @@ const CategoriesManager = () => {
           <Button onClick={confirmDelete} color="error" variant="contained">Löschen</Button>
         </DialogActions>
       </Dialog>
-    </Card>
+    </Container>
   );
 };
 

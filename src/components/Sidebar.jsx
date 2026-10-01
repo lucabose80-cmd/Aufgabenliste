@@ -26,17 +26,12 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
   
   const menuItems = [
     { id: 'home', label: 'Aufgaben', icon: <AssignmentIcon /> },
-    { id: 'past-review', label: 'Rückblick', icon: <HistoryIcon /> },
-    { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <MenuBookIcon /> },
     { id: 'shopping', label: 'Einkaufsliste', icon: <ShoppingCartIcon /> },
-    { id: 'create', label: 'Aufgabe erstellen', icon: <AddBoxIcon /> },
-    { id: 'categories', label: 'Kategorien', icon: <FolderIcon /> },
+    { id: 'reading-speed', label: 'Lesegeschwindigkeit', icon: <MenuBookIcon /> },
     { id: 'settings', label: 'Einstellungen', icon: <SettingsIcon /> },
   ];
 
-  const visibleMenuItems = isMobile && pinnedNavItems 
-    ? menuItems.filter(item => !pinnedNavItems.includes(item.id))
-    : menuItems;
+  const visibleMenuItems = menuItems;
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
