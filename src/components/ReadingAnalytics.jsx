@@ -30,6 +30,7 @@ const ReadingAnalytics = () => {
     avgSpeedAllTime,
     avgWpmAllTime,
     trendData,
+    monthlyTrendData,
     durationData,
     timeOfDayData
   } = useMemo(() => {

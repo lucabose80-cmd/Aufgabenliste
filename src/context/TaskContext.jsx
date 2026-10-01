@@ -38,7 +38,7 @@ export const TaskProvider = ({ children }) => {
   const [pastReviewOrder, setPastReviewOrder] = useState(['tasks', 'perfectDays', 'reading', 'speed', 'calories']);
   const [resetHour, setResetHour] = useState(3);
   const [vacationMode, setVacationMode] = useState(false);
-  const [enableReadingFeature, setEnableReadingFeature] = useState(true);
+  const [enableReadingFeature, setEnableReadingFeature] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Global Reading Timer
@@ -554,11 +554,11 @@ export const TaskProvider = ({ children }) => {
 
       const now = ctx.currentTime;
       // Duolingo-style warm satisfying chime (G4 -> C5 with some triangle texture for a "marimba" feel)
-      playTone(392.00, now, 0.12, 0.5, 'sine');
-      playTone(392.00, now, 0.12, 0.2, 'triangle');
+      playTone(392.00, now, 0.12, 1.5, 'sine');
+      playTone(392.00, now, 0.12, 0.6, 'triangle');
       
-      playTone(523.25, now + 0.1, 0.5, 0.5, 'sine');
-      playTone(523.25, now + 0.1, 0.5, 0.2, 'triangle');
+      playTone(523.25, now + 0.1, 0.5, 1.5, 'sine');
+      playTone(523.25, now + 0.1, 0.5, 0.6, 'triangle');
     } catch(e) {
       console.warn('Audio/Vibration feedback failed', e);
     }
@@ -581,6 +581,20 @@ export const TaskProvider = ({ children }) => {
       import('canvas-confetti').then(confetti => {
         confetti.default({ particleCount: 80, spread: 60, origin: { y: 0.8 }, zIndex: 9999 });
       });
+      if (task.isShared && task.members && user) {
+        const otherMembers = task.members.filter(m => m !== user.uid);
+        if (otherMembers.length > 0) {
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userIds: otherMembers,
+              title: "Aufgabe erledigt",
+              body: `${userDisplayName || user.email || 'Jemand'} hat die Aufgabe "${task.name}" abgeschlossen.`
+            })
+          }).catch(err => console.error(err));
+        }
+      }
       return; 
     }
     
@@ -623,6 +637,21 @@ export const TaskProvider = ({ children }) => {
       import('canvas-confetti').then(confetti => {
         confetti.default({ particleCount: 80, spread: 60, origin: { y: 0.8 }, zIndex: 9999 });
       });
+
+      if (task.isShared && task.members && user) {
+        const otherMembers = task.members.filter(m => m !== user.uid);
+        if (otherMembers.length > 0) {
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userIds: otherMembers,
+              title: "Aufgabe erledigt",
+              body: `${myName} hat die Aufgabe "${task.name}" abgeschlossen.`
+            })
+          }).catch(err => console.error("Error sending notification:", err));
+        }
+      }
     }
   };
 
