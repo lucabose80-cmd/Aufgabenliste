@@ -422,19 +422,7 @@ const ReadingAnalytics = () => {
           onClick={() => setExpandedChart('speed')}
           sx={{ p: {xs: 1.5, sm: 3}, height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', cursor: 'pointer', '&:hover': { boxShadow: 6 } }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ lineHeight: 1.2 }}>Geschwindigkeit</Typography>
-            <Box sx={{ display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-              <Select size="small" value={trendMetric} onChange={(e) => setTrendMetric(e.target.value)} sx={{ minWidth: 60, fontSize: '0.7rem', height: 22 }}>
-                <MenuItem value="speed" sx={{ fontSize: '0.75rem' }}>S/h</MenuItem>
-                <MenuItem value="wpm" sx={{ fontSize: '0.75rem' }}>WPM</MenuItem>
-              </Select>
-              <Select size="small" value={trendView} onChange={(e) => setTrendView(e.target.value)} sx={{ minWidth: 70, fontSize: '0.7rem', height: 22 }}>
-                <MenuItem value="months" sx={{ fontSize: '0.75rem' }}>Monate</MenuItem>
-                <MenuItem value="sessions" sx={{ fontSize: '0.75rem' }}>Sit.</MenuItem>
-              </Select>
-            </Box>
-          </Box>
+          <Typography variant="subtitle2" sx={{ lineHeight: 1.2, mb: 1 }}>Geschwindigkeit</Typography>
           <Box sx={{ height: 160, width: '100%', mt: 'auto', minWidth: 0 }}>
             {renderChartInner('speed', 160)}
           </Box>
