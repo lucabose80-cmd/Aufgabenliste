@@ -780,7 +780,9 @@ const TaskGrid = () => {
               </Collapse>
             </Box>
           );
-        </>)}
+          })}
+          </>
+        )}
       </Box>
       
       {!vacationMode && activeTasks.length === 0 && tasks.length > 0 && (
