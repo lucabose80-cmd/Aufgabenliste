@@ -68,6 +68,7 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
     if (!touchStartRef.current || isEditMode) return;
     if (swipeOffset > 80) {
       // Swipe Right -> Complete
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
       toggleTaskCompletion(task.id);
     } else if (swipeOffset < -80) {
       // Swipe Left -> Edit
@@ -346,7 +347,10 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
         {!isEditMode && (
           <Checkbox
             checked={isCompleted}
-            onChange={() => toggleTaskCompletion(task.id)}
+            onChange={() => {
+              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+              toggleTaskCompletion(task.id);
+            }}
             disabled={!allSubTasksCompleted && task.subTasks.length > 0}
             icon={<CheckBoxOutlineBlankIcon />}
             checkedIcon={<CheckBoxIcon color="success" />}
@@ -455,7 +459,10 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
                 <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Checkbox
                     checked={st.completed}
-                    onChange={() => toggleSubTask(task.id, st.id)}
+                    onChange={() => {
+                      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                      toggleSubTask(task.id, st.id);
+                    }}
                     size="small"
                     sx={{ p: 0.5 }}
                   />
@@ -499,7 +506,10 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
                   return (
                     <Box 
                       key={dateStr}
-                      onClick={() => toggleTaskCompletion(task.id, dateStr)}
+                      onClick={() => {
+                        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                        toggleTaskCompletion(task.id, dateStr);
+                      }}
                       sx={{ 
                         display: 'flex', 
                         flexDirection: 'column', 

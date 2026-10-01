@@ -531,29 +531,32 @@ export const TaskProvider = ({ children }) => {
   const playDing = () => {
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        // Double pulse vibration for better tactile feedback
+        // Fallback vibration here just in case
         navigator.vibrate([60, 40, 60]);
       }
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       
-      const playTone = (freq, startTime, duration, vol) => {
+      const playTone = (freq, startTime, duration, vol, type = 'sine') => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.type = 'sine';
+        osc.type = type;
         osc.frequency.setValueAtTime(freq, startTime);
         gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(vol, startTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        gain.gain.linearRampToValueAtTime(vol, startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
         osc.start(startTime);
         osc.stop(startTime + duration);
       };
 
       const now = ctx.currentTime;
-      // Play a rewarding B5 -> E6 chime (like a coin/success sound)
-      playTone(987.77, now, 0.15, 0.3);
-      playTone(1318.51, now + 0.1, 0.4, 0.4);
+      // Duolingo-style warm satisfying chime (D5 -> B5 with some triangle texture for a "marimba" feel)
+      playTone(587.33, now, 0.12, 0.4, 'sine');
+      playTone(587.33, now, 0.12, 0.15, 'triangle');
+      
+      playTone(987.77, now + 0.1, 0.5, 0.4, 'sine');
+      playTone(987.77, now + 0.1, 0.5, 0.15, 'triangle');
     } catch(e) {
       console.warn('Audio/Vibration feedback failed', e);
     }
