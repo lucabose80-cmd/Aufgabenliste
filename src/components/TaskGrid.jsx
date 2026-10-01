@@ -555,6 +555,18 @@ const TaskGrid = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const displayGroups = categories.map(cat => ({
     id: cat.id,
@@ -761,6 +773,14 @@ const TaskGrid = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+      {!isOnline && (
+        <Box sx={{ p: 2, bgcolor: 'error.dark', color: 'white', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" fontWeight="bold">
+            Du bist offline. Aufgaben können derzeit nicht synchronisiert werden. Nur die Lesegeschwindigkeit ist verfügbar.
+          </Typography>
+        </Box>
+      )}
+
       {isEditMode && (
         <Box sx={{ position: 'sticky', top: 16, zIndex: 1100, display: 'flex', justifyContent: 'center', mb: -2 }}>
           <Fab color="primary" onClick={() => setIsCreatingNew(true)}>
@@ -851,7 +871,7 @@ const TaskGrid = () => {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6, pointerEvents: !isOnline ? 'none' : 'auto', opacity: !isOnline ? 0.7 : 1 }}>
         {vacationMode ? (
           <Card sx={{ p: 6, textAlign: 'center', bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 4 }}>
             <Typography variant="h4" gutterBottom>🏖️ Urlaubsmodus ist aktiv</Typography>
