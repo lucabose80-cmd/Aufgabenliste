@@ -553,11 +553,25 @@ const ShoppingList = () => {
             variant="standard"
             disableUnderline
             autoComplete="off"
-            sx={{ flex: 1, '.MuiInput-input': { py: 0.5, fontSize: '0.9rem' } }}
+            sx={{ flex: 1, minWidth: 0, '.MuiInput-input': { py: 0.5, fontSize: '0.9rem', minWidth: 0 } }}
           />
 
           {/* Submit */}
-          <IconButton type="submit" size="small" color="primary" disabled={!newItemText.trim()} sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, '&:disabled': { bgcolor: 'action.disabledBackground' }, width: 32, height: 32 }}>
+          <IconButton 
+            type="submit" 
+            size="small" 
+            color="primary" 
+            disabled={!newItemText.trim()} 
+            sx={{ 
+              bgcolor: newItemText.trim() ? 'primary.main' : 'action.disabledBackground', 
+              color: newItemText.trim() ? 'white' : 'action.disabled', 
+              '&:hover': { bgcolor: 'primary.dark' }, 
+              width: 32, 
+              height: 32,
+              borderRadius: '50%',
+              flexShrink: 0
+            }}
+          >
             <AddIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </Paper>
