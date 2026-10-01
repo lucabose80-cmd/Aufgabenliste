@@ -602,7 +602,7 @@ const TaskGrid = () => {
     return true;
   }).sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  const allTasksForToday = tasks.filter(t => !t.isPaused && (t.type !== 'general' || t.isShared) && t.type !== 'weekly' && t.type !== 'x-times' && (t.type !== 'specific-days' || (t.specificDays && t.specificDays.includes(dayOfWeek))));
+  const allTasksForToday = tasks.filter(t => (t.type !== 'general' || t.isShared) && t.type !== 'weekly' && t.type !== 'x-times' && (t.type !== 'specific-days' || (t.specificDays && t.specificDays.includes(dayOfWeek))));
   const totalTasks = allTasksForToday.length;
   const completedTasks = allTasksForToday.filter(t => (t.completedDates || []).includes(today) || (t.isShared && t.completedByMap && t.completedByMap[today])).length;
   const progressPercent = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
@@ -614,7 +614,7 @@ const TaskGrid = () => {
       const dow = d.getDay();
       
       const trackable = tasks.filter(t => {
-        if (t.isPaused || (!t.isShared && t.type === 'general') || t.type === 'weekly' || t.type === 'x-times') return false;
+        if ((!t.isShared && t.type === 'general') || t.type === 'weekly' || t.type === 'x-times') return false;
         if (t.createdAt && dateStr < format(new Date(t.createdAt), 'yyyy-MM-dd')) return false;
         if (t.type === 'specific-days' && t.specificDays && !t.specificDays.includes(dow)) return false;
         return true;
@@ -639,7 +639,7 @@ const TaskGrid = () => {
       const dow = d.getDay();
       
       const trackable = tasks.filter(t => {
-          if (t.isPaused || (!t.isShared && t.type === 'general') || t.type === 'weekly' || t.type === 'x-times') return false;
+          if ((!t.isShared && t.type === 'general') || t.type === 'weekly' || t.type === 'x-times') return false;
         if (t.createdAt && dateStr < format(new Date(t.createdAt), 'yyyy-MM-dd')) return false;
         if (t.type === 'specific-days' && t.specificDays && !t.specificDays.includes(dow)) return false;
         return true;
@@ -694,7 +694,7 @@ const TaskGrid = () => {
         const dow = d.getDay();
         
         const trackable = tasks.filter(t => {
-            if (t.isPaused || (!t.isShared && t.type === 'general') || t.type === 'weekly' || t.type === 'x-times') return false;
+            if ((!t.isShared && t.type === 'general') || t.type === 'weekly' || t.type === 'x-times') return false;
           if (t.createdAt && dateStr < format(new Date(t.createdAt), 'yyyy-MM-dd')) return false;
           if (t.type === 'specific-days' && t.specificDays && !t.specificDays.includes(dow)) return false;
           return true;
