@@ -491,73 +491,82 @@ const ShoppingList = () => {
           elevation={12}
           sx={{
             position: 'fixed',
-            bottom: { xs: 'calc(75px + env(safe-area-inset-bottom))', md: 30 },
+            bottom: { xs: 110, sm: 110, md: 30 },
             left: '50%',
             transform: 'translateX(-50%)',
             width: { xs: 'calc(100% - 32px)', sm: 560 },
             maxWidth: 560,
             borderRadius: 8,
+            display: 'flex',
+            alignItems: 'center',
+            px: 1.5,
+            py: 0.5,
             zIndex: 1200,
+            bgcolor: 'background.paper'
           }}
         >
-          <TextField
-            placeholder="Artikel hinzufügen..."
-            value={newItemText}
-            onChange={(e) => setNewItemText(e.target.value)}
-            fullWidth
-            autoComplete="off"
-            InputProps={{
-              sx: { borderRadius: 8, pr: 0.5, pl: 1.5, py: 0.5, bgcolor: 'background.paper' },
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Tooltip title={newCategory === 'daily' ? 'Täglicher Einkauf' : 'Allgemein'}>
-                    <Box
-                      onClick={() => setNewCategory(c => c === 'daily' ? 'general' : 'daily')}
-                      sx={{
-                        width: 12, height: 12, borderRadius: '50%', cursor: 'pointer',
-                        bgcolor: newCategory === 'daily' ? 'primary.main' : 'secondary.main',
-                        transition: 'background-color 0.2s',
-                        mr: 1
-                      }}
-                    />
-                  </Tooltip>
-                  <InputBase
-                    value={newQuantity}
-                    onChange={(e) => setNewQuantity(e.target.value)}
-                    placeholder="1"
-                    sx={{ width: 32, input: { textAlign: 'center', fontSize: '0.9rem' } }}
-                  />
-                  <Select
-                    value={newUnit}
-                    onChange={(e) => setNewUnit(e.target.value)}
-                    variant="standard"
-                    disableUnderline
-                    sx={{ width: 44, fontSize: '0.85rem' }}
-                  >
-                    {UNITS.map(u => <MenuItem key={u} value={u} sx={{ fontSize: '0.85rem' }}>{u}</MenuItem>)}
-                  </Select>
-                  <Box sx={{ width: 1, bgcolor: 'divider', height: 24, mx: 1 }} />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton 
-                    type="submit" 
-                    disabled={!newItemText.trim()} 
-                    sx={{ 
-                      bgcolor: newItemText.trim() ? 'primary.main' : 'action.disabledBackground', 
-                      color: newItemText.trim() ? 'white' : 'action.disabled', 
-                      '&:hover': { bgcolor: 'primary.dark' }, 
-                      width: 36,
-                      height: 36
-                    }}
-                  >
-                    <AddIcon />
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
+          {/* Category dot toggle */}
+          <Tooltip title={newCategory === 'daily' ? 'Täglicher Einkauf' : 'Allgemein'}>
+            <Box
+              onClick={() => setNewCategory(c => c === 'daily' ? 'general' : 'daily')}
+              sx={{
+                width: 12, height: 12, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+                bgcolor: newCategory === 'daily' ? 'primary.main' : 'secondary.main',
+                transition: 'background-color 0.2s',
+                mr: 1
+              }}
+            />
+          </Tooltip>
+
+          {/* Quantity */}
+          <InputBase
+            value={newQuantity}
+            onChange={(e) => setNewQuantity(e.target.value)}
+            placeholder="1"
+            sx={{ width: 32, flexShrink: 0, input: { textAlign: 'center', fontSize: '0.9rem' } }}
           />
+
+          {/* Unit */}
+          <Select
+            value={newUnit}
+            onChange={(e) => setNewUnit(e.target.value)}
+            variant="standard"
+            disableUnderline
+            sx={{ width: 44, fontSize: '0.85rem', flexShrink: 0, ml: 0.5 }}
+          >
+            {UNITS.map(u => <MenuItem key={u} value={u} sx={{ fontSize: '0.85rem' }}>{u}</MenuItem>)}
+          </Select>
+
+          <Box sx={{ width: 1, bgcolor: 'divider', height: 24, mx: 1, flexShrink: 0 }} />
+
+          {/* Item name wrapped to prevent overflow */}
+          <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex' }}>
+            <InputBase
+              placeholder="Artikel hinzufügen..."
+              value={newItemText}
+              onChange={(e) => setNewItemText(e.target.value)}
+              autoComplete="off"
+              fullWidth
+              sx={{ input: { fontSize: '0.9rem' } }}
+            />
+          </Box>
+
+          {/* Submit */}
+          <IconButton 
+            type="submit" 
+            disabled={!newItemText.trim()} 
+            sx={{ 
+              bgcolor: newItemText.trim() ? 'primary.main' : 'action.disabledBackground', 
+              color: newItemText.trim() ? 'white' : 'action.disabled', 
+              '&:hover': { bgcolor: 'primary.dark' }, 
+              width: 36, 
+              height: 36,
+              flexShrink: 0,
+              ml: 1
+            }}
+          >
+            <AddIcon />
+          </IconButton>
         </Paper>
       )}
 
