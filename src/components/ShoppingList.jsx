@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   Box, Typography, TextField, Button, IconButton, Select, MenuItem,
   CircularProgress, Divider, Checkbox, Dialog, DialogTitle, DialogContent,
-  DialogActions, Chip, Avatar, InputAdornment, Fab, Tooltip, Collapse, Paper
+  DialogActions, Chip, Avatar, InputAdornment, Fab, Tooltip, Collapse, Paper, InputBase
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -520,14 +520,11 @@ const ShoppingList = () => {
           </Tooltip>
 
           {/* Quantity */}
-          <TextField
+          <InputBase
             value={newQuantity}
             onChange={(e) => setNewQuantity(e.target.value)}
-            size="small"
-            variant="standard"
-            disableUnderline
-            sx={{ width: 30, '.MuiInput-input': { textAlign: 'center', py: 0.5, fontSize: '0.85rem' } }}
-            inputProps={{ style: { textAlign: 'center' } }}
+            placeholder="1"
+            sx={{ width: 32, input: { textAlign: 'center', fontSize: '0.85rem' } }}
           />
 
           {/* Unit */}
@@ -536,7 +533,6 @@ const ShoppingList = () => {
             onChange={(e) => setNewUnit(e.target.value)}
             variant="standard"
             disableUnderline
-            size="small"
             sx={{ width: 44, fontSize: '0.8rem', '.MuiSelect-select': { py: 0.5 } }}
           >
             {UNITS.map(u => <MenuItem key={u} value={u} sx={{ fontSize: '0.85rem' }}>{u}</MenuItem>)}
@@ -545,15 +541,12 @@ const ShoppingList = () => {
           <Box sx={{ width: 1, bgcolor: 'divider', height: 20, mx: 0.5, flexShrink: 0 }} />
 
           {/* Item name */}
-          <TextField
+          <InputBase
             placeholder="Artikel hinzufügen..."
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
-            size="small"
-            variant="standard"
-            disableUnderline
             autoComplete="off"
-            sx={{ flex: 1, minWidth: 0, '.MuiInput-input': { py: 0.5, fontSize: '0.9rem', minWidth: 0 } }}
+            sx={{ flex: 1, minWidth: 0, input: { fontSize: '0.9rem' } }}
           />
 
           {/* Submit */}
