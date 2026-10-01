@@ -496,87 +496,68 @@ const ShoppingList = () => {
             transform: 'translateX(-50%)',
             width: { xs: 'calc(100% - 32px)', sm: 560 },
             maxWidth: 560,
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 3,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            px: 1.5,
-            py: 0.75,
+            borderRadius: 8,
             zIndex: 1200,
           }}
         >
-          {/* Category dot toggle */}
-          <Tooltip title={newCategory === 'daily' ? 'Täglicher Einkauf' : 'Allgemein'}>
-            <Box
-              onClick={() => setNewCategory(c => c === 'daily' ? 'general' : 'daily')}
-              sx={{
-                width: 10, height: 10, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
-                bgcolor: newCategory === 'daily' ? 'primary.main' : 'secondary.main',
-                transition: 'background-color 0.2s',
-              }}
-            />
-          </Tooltip>
-
-          {/* Quantity */}
-          <InputBase
-            value={newQuantity}
-            onChange={(e) => setNewQuantity(e.target.value)}
-            placeholder="1"
-            sx={{ width: 32, input: { textAlign: 'center', fontSize: '0.85rem' } }}
-          />
-
-          {/* Unit */}
-          <Select
-            value={newUnit}
-            onChange={(e) => setNewUnit(e.target.value)}
-            variant="standard"
-            disableUnderline
-            sx={{ width: 44, fontSize: '0.8rem', '.MuiSelect-select': { py: 0.5 } }}
-          >
-            {UNITS.map(u => <MenuItem key={u} value={u} sx={{ fontSize: '0.85rem' }}>{u}</MenuItem>)}
-          </Select>
-
-          <Box sx={{ width: 1, bgcolor: 'divider', height: 20, mx: 0.5, flexShrink: 0 }} />
-
-          {/* Item name */}
-          <input
+          <TextField
             placeholder="Artikel hinzufügen..."
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
+            fullWidth
             autoComplete="off"
-            style={{ 
-              flex: 1, 
-              minWidth: 0, 
-              fontSize: '0.9rem', 
-              width: '100%', 
-              background: 'transparent', 
-              border: 'none', 
-              outline: 'none',
-              color: 'inherit',
-              padding: '4px 0'
+            InputProps={{
+              sx: { borderRadius: 8, pr: 0.5, pl: 1.5, py: 0.5, bgcolor: 'background.paper' },
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Tooltip title={newCategory === 'daily' ? 'Täglicher Einkauf' : 'Allgemein'}>
+                    <Box
+                      onClick={() => setNewCategory(c => c === 'daily' ? 'general' : 'daily')}
+                      sx={{
+                        width: 12, height: 12, borderRadius: '50%', cursor: 'pointer',
+                        bgcolor: newCategory === 'daily' ? 'primary.main' : 'secondary.main',
+                        transition: 'background-color 0.2s',
+                        mr: 1
+                      }}
+                    />
+                  </Tooltip>
+                  <InputBase
+                    value={newQuantity}
+                    onChange={(e) => setNewQuantity(e.target.value)}
+                    placeholder="1"
+                    sx={{ width: 32, input: { textAlign: 'center', fontSize: '0.9rem' } }}
+                  />
+                  <Select
+                    value={newUnit}
+                    onChange={(e) => setNewUnit(e.target.value)}
+                    variant="standard"
+                    disableUnderline
+                    sx={{ width: 44, fontSize: '0.85rem' }}
+                  >
+                    {UNITS.map(u => <MenuItem key={u} value={u} sx={{ fontSize: '0.85rem' }}>{u}</MenuItem>)}
+                  </Select>
+                  <Box sx={{ width: 1, bgcolor: 'divider', height: 24, mx: 1 }} />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton 
+                    type="submit" 
+                    disabled={!newItemText.trim()} 
+                    sx={{ 
+                      bgcolor: newItemText.trim() ? 'primary.main' : 'action.disabledBackground', 
+                      color: newItemText.trim() ? 'white' : 'action.disabled', 
+                      '&:hover': { bgcolor: 'primary.dark' }, 
+                      width: 36,
+                      height: 36
+                    }}
+                  >
+                    <AddIcon />
+                  </IconButton>
+                </InputAdornment>
+              )
             }}
           />
-
-          {/* Submit */}
-          <IconButton 
-            type="submit" 
-            size="small" 
-            color="primary" 
-            disabled={!newItemText.trim()} 
-            sx={{ 
-              bgcolor: newItemText.trim() ? 'primary.main' : 'action.disabledBackground', 
-              color: newItemText.trim() ? 'white' : 'action.disabled', 
-              '&:hover': { bgcolor: 'primary.dark' }, 
-              width: 32, 
-              height: 32,
-              borderRadius: '50%',
-              flexShrink: 0
-            }}
-          >
-            <AddIcon sx={{ fontSize: 18 }} />
-          </IconButton>
         </Paper>
       )}
 
