@@ -497,61 +497,62 @@ const ShoppingList = () => {
             width: { xs: 'calc(100% - 32px)', sm: 560 },
             maxWidth: 560,
             borderRadius: 8,
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: 'auto auto auto auto 1fr auto',
             alignItems: 'center',
-            px: 1.5,
+            gap: 1,
+            px: 2,
             py: 0.5,
             zIndex: 1200,
-            bgcolor: 'background.paper'
+            bgcolor: 'background.paper',
+            overflow: 'hidden'
           }}
         >
-          {/* Category dot toggle */}
+          {/* 1. Category dot toggle */}
           <Tooltip title={newCategory === 'daily' ? 'Täglicher Einkauf' : 'Allgemein'}>
             <Box
               onClick={() => setNewCategory(c => c === 'daily' ? 'general' : 'daily')}
               sx={{
-                width: 12, height: 12, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+                width: 12, height: 12, borderRadius: '50%', cursor: 'pointer',
                 bgcolor: newCategory === 'daily' ? 'primary.main' : 'secondary.main',
                 transition: 'background-color 0.2s',
-                mr: 1
               }}
             />
           </Tooltip>
 
-          {/* Quantity */}
+          {/* 2. Quantity */}
           <InputBase
             value={newQuantity}
             onChange={(e) => setNewQuantity(e.target.value)}
             placeholder="1"
-            sx={{ width: 32, flexShrink: 0, input: { textAlign: 'center', fontSize: '0.9rem' } }}
+            sx={{ width: 28, input: { textAlign: 'center', fontSize: '0.9rem' } }}
           />
 
-          {/* Unit */}
+          {/* 3. Unit */}
           <Select
             value={newUnit}
             onChange={(e) => setNewUnit(e.target.value)}
             variant="standard"
             disableUnderline
-            sx={{ width: 44, fontSize: '0.85rem', flexShrink: 0, ml: 0.5 }}
+            sx={{ width: 44, fontSize: '0.85rem' }}
           >
             {UNITS.map(u => <MenuItem key={u} value={u} sx={{ fontSize: '0.85rem' }}>{u}</MenuItem>)}
           </Select>
 
-          <Box sx={{ width: 1, bgcolor: 'divider', height: 24, mx: 1, flexShrink: 0 }} />
+          {/* 4. Divider */}
+          <Box sx={{ width: 1, bgcolor: 'divider', height: 24 }} />
 
-          {/* Item name wrapped to prevent overflow */}
-          <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex' }}>
-            <InputBase
-              placeholder="Artikel hinzufügen..."
-              value={newItemText}
-              onChange={(e) => setNewItemText(e.target.value)}
-              autoComplete="off"
-              fullWidth
-              sx={{ input: { fontSize: '0.9rem' } }}
-            />
-          </Box>
+          {/* 5. Item name */}
+          <InputBase
+            placeholder="Artikel..."
+            value={newItemText}
+            onChange={(e) => setNewItemText(e.target.value)}
+            autoComplete="off"
+            fullWidth
+            sx={{ minWidth: 0, input: { fontSize: '0.9rem' } }}
+          />
 
-          {/* Submit */}
+          {/* 6. Submit */}
           <IconButton 
             type="submit" 
             disabled={!newItemText.trim()} 
@@ -561,8 +562,6 @@ const ShoppingList = () => {
               '&:hover': { bgcolor: 'primary.dark' }, 
               width: 36, 
               height: 36,
-              flexShrink: 0,
-              ml: 1
             }}
           >
             <AddIcon />
