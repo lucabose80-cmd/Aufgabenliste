@@ -530,20 +530,33 @@ export const TaskProvider = ({ children }) => {
 
   const playDing = () => {
     try {
-      if (navigator.vibrate) navigator.vibrate(100);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        // Double pulse vibration for better tactile feedback
+        navigator.vibrate([60, 40, 60]);
+      }
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.1);
-    } catch(e) {}
+      
+      const playTone = (freq, startTime, duration, vol) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(vol, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      const now = ctx.currentTime;
+      // Play a rewarding B5 -> E6 chime (like a coin/success sound)
+      playTone(987.77, now, 0.15, 0.3);
+      playTone(1318.51, now + 0.1, 0.4, 0.4);
+    } catch(e) {
+      console.warn('Audio/Vibration feedback failed', e);
+    }
   };
 
   const toggleTaskCompletion = async (taskId, date = null) => {
