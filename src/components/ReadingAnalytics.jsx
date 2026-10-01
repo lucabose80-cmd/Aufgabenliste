@@ -96,7 +96,8 @@ const ReadingAnalytics = () => {
         name: `Session ${index + 1}`,
         date: format(new Date(s.date), 'dd.MM.'),
         speed: Math.round(speed),
-        wpm: wpm ? Math.round(wpm) : null
+        wpm: wpm ? Math.round(wpm) : null,
+        pages: s.amount
       });
 
       // Trend (Months)
@@ -105,11 +106,13 @@ const ReadingAnalytics = () => {
         monthlyBuckets[monthKey] = {
           monthName: format(new Date(s.date), 'MMMM yy', { locale: de }),
           totalSpeed: 0, countSpeed: 0,
-          totalWpm: 0, countWpm: 0
+          totalWpm: 0, countWpm: 0,
+          totalPages: 0
         };
       }
       monthlyBuckets[monthKey].totalSpeed += speed;
       monthlyBuckets[monthKey].countSpeed++;
+      monthlyBuckets[monthKey].totalPages += s.amount;
       if (wpm) {
         monthlyBuckets[monthKey].totalWpm += wpm;
         monthlyBuckets[monthKey].countWpm++;
@@ -153,7 +156,8 @@ const ReadingAnalytics = () => {
     const mTrend = Object.values(monthlyBuckets).map(b => ({
       date: b.monthName,
       speed: b.countSpeed > 0 ? Math.round(b.totalSpeed / b.countSpeed) : 0,
-      wpm: b.countWpm > 0 ? Math.round(b.totalWpm / b.countWpm) : null
+      wpm: b.countWpm > 0 ? Math.round(b.totalWpm / b.countWpm) : null,
+      pages: b.totalPages
     }));
 
     const dData = Object.keys(durationBuckets).map(key => ({
@@ -202,12 +206,16 @@ const ReadingAnalytics = () => {
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const isWpm = payload[0].dataKey === 'wpm';
+      const dataKey = payload[0].dataKey;
+      let unit = 'Seiten/h';
+      if (dataKey === 'wpm') unit = 'WPM';
+      if (dataKey === 'pages') unit = 'Seiten';
+      
       return (
         <Box sx={{ bgcolor: 'background.paper', p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1, boxShadow: 1 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>{label}</Typography>
           <Typography variant="body1" fontWeight="bold" color="primary.main">
-            {payload[0].value} {isWpm ? 'WPM' : 'Seiten/h'}
+            {payload[0].value} {unit}
           </Typography>
         </Box>
       );
@@ -253,7 +261,7 @@ const ReadingAnalytics = () => {
       </Card>
 
       <Grid container spacing={2}>
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6}>
           <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
             <Box sx={{ p: 1, bgcolor: 'primary.light', borderRadius: 2, color: 'primary.main', display: 'flex' }}>
               <MenuBookIcon fontSize="small" />
@@ -264,7 +272,7 @@ const ReadingAnalytics = () => {
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6}>
           <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
             <Box sx={{ p: 1, bgcolor: 'success.light', borderRadius: 2, color: 'success.main', display: 'flex' }}>
               <TimerIcon fontSize="small" />
@@ -275,7 +283,7 @@ const ReadingAnalytics = () => {
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6}>
           <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
             <Box sx={{ p: 1, bgcolor: 'warning.light', borderRadius: 2, color: 'warning.main', display: 'flex' }}>
               <SpeedIcon fontSize="small" />
@@ -286,7 +294,7 @@ const ReadingAnalytics = () => {
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6}>
           <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
             <Box sx={{ p: 1, bgcolor: 'info.light', borderRadius: 2, color: 'info.main', display: 'flex' }}>
               <AutoGraphIcon fontSize="small" />
@@ -299,63 +307,78 @@ const ReadingAnalytics = () => {
         </Grid>
       </Grid>
 
-      {/* Trend Chart */}
-      <Card sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2 }}>
-          <Box>
-            <Typography variant="h6">Geschwindigkeits-Verlauf</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Dein Lesetempo über die Zeit
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Select
-              size="small"
-              value={trendMetric}
-              onChange={(e) => setTrendMetric(e.target.value)}
-              sx={{ minWidth: 120 }}
-            >
-              <MenuItem value="speed">Seiten / Std</MenuItem>
-              <MenuItem value="wpm">Wörter / Min</MenuItem>
-            </Select>
-            <Select
-              size="small"
-              value={trendView}
-              onChange={(e) => setTrendView(e.target.value)}
-              sx={{ minWidth: 120 }}
-            >
-              <MenuItem value="months">Monate</MenuItem>
-              <MenuItem value="sessions">Sitzungen</MenuItem>
-            </Select>
-          </Box>
-        </Box>
-        <Box sx={{ height: 300, width: '100%' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendView === 'months' ? monthlyTrendData : trendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-              <XAxis dataKey="date" stroke={theme.palette.text.secondary} fontSize={12} />
-              <YAxis stroke={theme.palette.text.secondary} fontSize={12} />
-              <RechartsTooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey={trendMetric} stroke={theme.palette.primary.main} strokeWidth={3} dot={{ r: 4, fill: theme.palette.primary.main }} activeDot={{ r: 6 }} connectNulls />
-            </LineChart>
-          </ResponsiveContainer>
-        </Box>
-      </Card>
-
-      {/* Bar Charts Row */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>Sitzungsdauer vs. Geschwindigkeit</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Liest du schneller, wenn du am Stück liest?
-            </Typography>
-            <Box sx={{ height: 250, width: '100%' }}>
+      <Grid container spacing={2}>
+        <Grid item xs={6}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ lineHeight: 1.2 }}>Geschwindigkeit</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Select
+                  size="small"
+                  value={trendMetric}
+                  onChange={(e) => setTrendMetric(e.target.value)}
+                  sx={{ minWidth: 80, fontSize: '0.75rem', height: 24 }}
+                >
+                  <MenuItem value="speed" sx={{ fontSize: '0.75rem' }}>S / h</MenuItem>
+                  <MenuItem value="wpm" sx={{ fontSize: '0.75rem' }}>WPM</MenuItem>
+                </Select>
+                <Select
+                  size="small"
+                  value={trendView}
+                  onChange={(e) => setTrendView(e.target.value)}
+                  sx={{ minWidth: 80, fontSize: '0.75rem', height: 24 }}
+                >
+                  <MenuItem value="months" sx={{ fontSize: '0.75rem' }}>Monate</MenuItem>
+                  <MenuItem value="sessions" sx={{ fontSize: '0.75rem' }}>Sitzung</MenuItem>
+                </Select>
+              </Box>
+            </Box>
+            <Box sx={{ height: 180, width: '100%', mt: 'auto' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={durationData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                <LineChart data={trendView === 'months' ? monthlyTrendData : trendData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="date" stroke={theme.palette.text.secondary} fontSize={10} tick={{fontSize: 10}} />
+                  <YAxis stroke={theme.palette.text.secondary} fontSize={10} tick={{fontSize: 10}} />
+                  <RechartsTooltip content={<CustomTooltip />} />
+                  <Line type="monotone" dataKey={trendMetric} stroke={theme.palette.primary.main} strokeWidth={2} dot={{ r: 3, fill: theme.palette.primary.main }} activeDot={{ r: 5 }} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </Box>
+          </Card>
+        </Grid>
+
+        <Grid item xs={6}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ lineHeight: 1.2 }}>Seiten gelesen</Typography>
+              </Box>
+            </Box>
+            <Box sx={{ height: 180, width: '100%', mt: 'auto' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendView === 'months' ? monthlyTrendData : trendData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="date" stroke={theme.palette.text.secondary} fontSize={10} tick={{fontSize: 10}} />
+                  <YAxis stroke={theme.palette.text.secondary} fontSize={10} tick={{fontSize: 10}} />
+                  <RechartsTooltip content={<CustomTooltip />} />
+                  <Line type="monotone" dataKey="pages" stroke={theme.palette.info.main} strokeWidth={2} dot={{ r: 3, fill: theme.palette.info.main }} activeDot={{ r: 5 }} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </Box>
+          </Card>
+        </Grid>
+
+        <Grid item xs={6}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="subtitle2" sx={{ lineHeight: 1.2, mb: 2 }}>Dauer vs. Tempo</Typography>
+            <Box sx={{ height: 180, width: '100%', mt: 'auto' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={durationData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} vertical={false} />
-                  <XAxis dataKey="name" stroke={theme.palette.text.secondary} fontSize={11} />
-                  <YAxis stroke={theme.palette.text.secondary} fontSize={12} />
+                  <XAxis dataKey="name" stroke={theme.palette.text.secondary} fontSize={9} tick={{fontSize: 9}} />
+                  <YAxis stroke={theme.palette.text.secondary} fontSize={10} tick={{fontSize: 10}} />
                   <RechartsTooltip content={<CustomTooltip />} />
                   <Bar dataKey="speed" radius={[4, 4, 0, 0]}>
                     {durationData.map((entry, index) => (
@@ -368,18 +391,15 @@ const ReadingAnalytics = () => {
           </Card>
         </Grid>
         
-        <Grid item xs={12} md={6}>
-          <Card sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>Tageszeit vs. Geschwindigkeit</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Zu welcher Uhrzeit bist du am konzentriertesten? (Neuere Einträge)
-            </Typography>
-            <Box sx={{ height: 250, width: '100%' }}>
+        <Grid item xs={6}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="subtitle2" sx={{ lineHeight: 1.2, mb: 2 }}>Zeit vs. Tempo</Typography>
+            <Box sx={{ height: 180, width: '100%', mt: 'auto' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={timeOfDayData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                <BarChart data={timeOfDayData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} vertical={false} />
-                  <XAxis dataKey="name" stroke={theme.palette.text.secondary} fontSize={11} />
-                  <YAxis stroke={theme.palette.text.secondary} fontSize={12} />
+                  <XAxis dataKey="name" stroke={theme.palette.text.secondary} fontSize={9} tick={{fontSize: 9}} />
+                  <YAxis stroke={theme.palette.text.secondary} fontSize={10} tick={{fontSize: 10}} />
                   <RechartsTooltip content={<CustomTooltip />} />
                   <Bar dataKey="speed" radius={[4, 4, 0, 0]}>
                     {timeOfDayData.map((entry, index) => (
