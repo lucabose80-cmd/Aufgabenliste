@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse, Select, MenuItem, Dialog, DialogContent, Fab, TextField } from '@mui/material';
+import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse, Select, MenuItem, Dialog, DialogContent, Fab, TextField, Chip } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
@@ -618,6 +618,43 @@ const TaskGrid = () => {
   const perfectDays = getPerfectDays();
   const allPerfect = perfectDays.every(d => d.perfect);
 
+  const getMonthlyScore = () => {
+    let possibleCompletions = 0;
+    let actualCompletions = 0;
+    const baseDate = subHours(new Date(), resetHour || 3);
+    
+    for (let i = 0; i < 30; i++) {
+      const d = subDays(baseDate, i);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const dow = d.getDay();
+      
+      const trackable = tasks.filter(t => {
+        if (t.isPaused || t.type === 'general' || t.type === 'weekly' || t.type === 'x-times') return false;
+        if (t.createdAt && dateStr < format(new Date(t.createdAt), 'yyyy-MM-dd')) return false;
+        if (t.type === 'specific-days' && t.specificDays && !t.specificDays.includes(dow)) return false;
+        return true;
+      });
+
+      possibleCompletions += trackable.length;
+      trackable.forEach(t => {
+        if ((t.completedDates || []).includes(dateStr) || (t.isShared && t.completedByMap && t.completedByMap[dateStr])) {
+          actualCompletions++;
+        }
+      });
+    }
+
+    if (possibleCompletions === 0) return null;
+    return Math.round((actualCompletions / possibleCompletions) * 100);
+  };
+
+  const monthScore = getMonthlyScore();
+  let badgeInfo = null;
+  if (monthScore !== null) {
+    if (monthScore >= 90) badgeInfo = { label: 'S-Tier', color: '#ffd700', icon: '🌟' };
+    else if (monthScore >= 75) badgeInfo = { label: 'Gold', color: '#ffb347', icon: '🏆' };
+    else if (monthScore >= 50) badgeInfo = { label: 'Silber', color: '#c0c0c0', icon: '🥈' };
+    else badgeInfo = { label: 'Bronze', color: '#cd7f32', icon: '🥉' };
+  }
   const [quickAddText, setQuickAddText] = useState('');
   const { addTask } = useTaskContext();
   const handleQuickAdd = async (e) => {
@@ -682,6 +719,23 @@ const TaskGrid = () => {
                   ))}
                 </Box>
               </MuiTooltip>
+              {badgeInfo && (
+                <MuiTooltip title={`Deine Konstanz der letzten 30 Tage liegt bei ${monthScore}%.`}>
+                  <Chip 
+                    size="small" 
+                    icon={<span style={{ fontSize: '12px', marginLeft: 6 }}>{badgeInfo.icon}</span>} 
+                    label={`${monthScore}% ${badgeInfo.label}`} 
+                    sx={{ 
+                      height: 20, 
+                      fontSize: '0.65rem', 
+                      bgcolor: `${badgeInfo.color}22`, 
+                      color: badgeInfo.color, 
+                      fontWeight: 'bold',
+                      ml: 1
+                    }} 
+                  />
+                </MuiTooltip>
+              )}
             </Box>
             <Typography variant="body2" color="text.secondary" fontWeight="bold">{completedTasks} / {totalTasks} ({progressPercent}%)</Typography>
           </Box>
