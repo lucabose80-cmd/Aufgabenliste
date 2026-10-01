@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { format, subDays, subHours, isSameWeek } from 'date-fns';
+import { de } from 'date-fns/locale';
 import {
   DndContext,
   closestCenter,
@@ -316,7 +317,7 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
           />
         )}
         
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
           <Typography 
             variant="h6" 
             sx={{ 
@@ -372,6 +373,7 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
                     updateTask(task.id, { categoryId: e.target.value });
                   }
                 }}
+                onClick={(e) => e.stopPropagation()}
                 sx={{ 
                   minWidth: 150, 
                   fontSize: '0.75rem', 
@@ -401,43 +403,95 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
           )}
         </Box>
         
-        {task.subTasks.length > 0 && (
+        {(task.subTasks.length > 0 || task.type !== 'general') && (
           <IconButton onClick={() => setExpanded(!expanded)} size="small" sx={{ mt: 0.5 }}>
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
         )}
       </Box>
 
-      {task.subTasks.length > 0 && (
-        <Collapse in={expanded}>
-          <Box sx={{ ml: 6, mt: 1, mb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
-              <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Checkbox
-                  checked={st.completed}
-                  onChange={() => toggleSubTask(task.id, st.id)}
-                  size="small"
-                  sx={{ p: 0.5 }}
-                />
-                <Typography 
-                  variant="body2"
-                  sx={{ 
-                    textDecoration: st.completed ? 'line-through' : 'none',
-                    color: st.completed ? 'text.secondary' : 'text.primary',
-                  }}
-                >
-                  {st.title}
-                  {st.completed && task.isShared && st.completedBy && (
-                    <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic' }}>
-                      (von {st.completedBy})
-                    </Typography>
-                  )}
-                </Typography>
+      <Collapse in={expanded}>
+        <Box sx={{ ml: 6, mr: 2, mt: 0, mb: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {task.subTasks.length > 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
+                <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Checkbox
+                    checked={st.completed}
+                    onChange={() => toggleSubTask(task.id, st.id)}
+                    size="small"
+                    sx={{ p: 0.5 }}
+                  />
+                  <Typography 
+                    variant="body2"
+                    sx={{ 
+                      textDecoration: st.completed ? 'line-through' : 'none',
+                      color: st.completed ? 'text.secondary' : 'text.primary',
+                    }}
+                  >
+                    {st.title}
+                    {st.completed && task.isShared && st.completedBy && (
+                      <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic' }}>
+                        (von {st.completedBy})
+                      </Typography>
+                    )}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          {task.type !== 'general' && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase', fontWeight: 'bold' }}>
+                Verlauf der letzten 7 Tage
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.5, overflowX: 'auto', pb: 1 }}>
+                {[6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
+                  const baseDate = subHours(new Date(), resetHour || 3);
+                  const d = subDays(baseDate, daysAgo);
+                  const dateStr = format(d, 'yyyy-MM-dd');
+                  const isDone = (task.completedDates || []).includes(dateStr);
+                  const shortDay = format(d, 'EE', { locale: de });
+                  const shortDate = format(d, 'dd.MM');
+                  return (
+                    <Box 
+                      key={dateStr}
+                      onClick={() => toggleTaskCompletion(task.id, dateStr)}
+                      sx={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        minWidth: 40,
+                        cursor: 'pointer',
+                        opacity: isDone ? 1 : 0.6,
+                        '&:hover': { opacity: 1 }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{shortDay}</Typography>
+                      <Box 
+                        sx={{ 
+                          width: 28, height: 28, 
+                          borderRadius: '50%', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          bgcolor: isDone ? 'success.main' : 'background.default',
+                          color: isDone ? 'white' : 'text.disabled',
+                          border: 1,
+                          borderColor: isDone ? 'success.main' : 'divider',
+                          my: 0.5
+                        }}
+                      >
+                        {isDone ? <CheckBoxIcon fontSize="small" /> : <CheckBoxOutlineBlankIcon fontSize="small" />}
+                      </Box>
+                      <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{shortDate}</Typography>
+                    </Box>
+                  );
+                })}
               </Box>
-            ))}
-          </Box>
-        </Collapse>
-      )}
+            </Box>
+          )}
+        </Box>
+      </Collapse>
       </Box>
     </Card>
   );
