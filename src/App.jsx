@@ -31,7 +31,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
-const CURRENT_APP_VERSION = '1.0.9';
+const CURRENT_APP_VERSION = '1.1.0';
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
