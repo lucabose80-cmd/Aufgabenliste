@@ -483,7 +483,11 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase', fontWeight: 'bold' }}>
                 Verlauf der letzten 7 Tage
               </Typography>
-              <Box sx={{ display: 'flex', gap: 0.5, overflowX: 'auto', pb: 1 }}>
+              <Box 
+                sx={{ display: 'flex', gap: 0.5, overflowX: 'auto', pb: 1 }}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+              >
                 {[6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
                   const baseDate = subHours(new Date(), resetHour || 3);
                   const d = subDays(baseDate, daysAgo);

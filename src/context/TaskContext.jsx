@@ -530,7 +530,7 @@ export const TaskProvider = ({ children }) => {
 
   const playDing = () => {
     try {
-      if (navigator.vibrate) navigator.vibrate(50);
+      if (navigator.vibrate) navigator.vibrate(100);
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
