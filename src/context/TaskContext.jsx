@@ -208,8 +208,11 @@ export const TaskProvider = ({ children }) => {
     });
 
     const readingRef = collection(db, 'users', user.uid, 'readingSessions');
-    const unsubscribeReading = onSnapshot(readingRef, (snapshot) => {
-      setReadingSessions(snapshot.docs.map(doc => doc.data()));
+    const unsubscribeReading = onSnapshot(readingRef, { includeMetadataChanges: true }, (snapshot) => {
+      setReadingSessions(snapshot.docs.map(doc => ({
+        ...doc.data(),
+        _hasPendingWrites: doc.metadata.hasPendingWrites
+      })));
     });
 
     const booksRef = collection(db, 'users', user.uid, 'books');

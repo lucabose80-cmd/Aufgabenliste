@@ -18,6 +18,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/Check';
 import ClearIcon from '@mui/icons-material/Clear';
+import CloudOffIcon from '@mui/icons-material/CloudOff';
 
 const ReadingSpeed = () => {
   const { 
@@ -472,6 +473,11 @@ const ReadingSpeed = () => {
                           {session.bookId && books.find(b => b.id === session.bookId) && (
                             <Typography component="span" variant="body2" sx={{ display: 'block', color: 'primary.main', mt: 0.5 }}>
                               Buch: {books.find(b => b.id === session.bookId).name}
+                            </Typography>
+                          )}
+                          {session._hasPendingWrites && (
+                            <Typography component="span" variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'warning.main', mt: 0.5, fontWeight: 'bold' }}>
+                              <CloudOffIcon fontSize="inherit" /> Lokal gespeichert (Wartet auf Sync)
                             </Typography>
                           )}
                         </React.Fragment>
