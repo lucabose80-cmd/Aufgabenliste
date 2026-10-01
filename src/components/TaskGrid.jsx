@@ -655,6 +655,67 @@ const TaskGrid = () => {
     else if (monthScore >= 50) badgeInfo = { label: 'Silber', color: '#c0c0c0', icon: '🥈' };
     else badgeInfo = { label: 'Bronze', color: '#cd7f32', icon: '🥉' };
   }
+
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+
+  const getHistoricalMonths = () => {
+    const history = [];
+    const baseDate = subHours(new Date(), resetHour || 3);
+    const currentYear = baseDate.getFullYear();
+    const currentMonth = baseDate.getMonth();
+
+    for (let i = 0; i < 12; i++) {
+      let m = currentMonth - i;
+      let y = currentYear;
+      if (m < 0) {
+        m += 12;
+        y -= 1;
+      }
+      
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      let possibleCompletions = 0;
+      let actualCompletions = 0;
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(y, m, day);
+        if (d > baseDate) continue;
+
+        const dateStr = format(d, 'yyyy-MM-dd');
+        const dow = d.getDay();
+        
+        const trackable = tasks.filter(t => {
+          if (t.isPaused || t.type === 'general' || t.type === 'weekly' || t.type === 'x-times') return false;
+          if (t.createdAt && dateStr < format(new Date(t.createdAt), 'yyyy-MM-dd')) return false;
+          if (t.type === 'specific-days' && t.specificDays && !t.specificDays.includes(dow)) return false;
+          return true;
+        });
+
+        possibleCompletions += trackable.length;
+        trackable.forEach(t => {
+          if ((t.completedDates || []).includes(dateStr) || (t.isShared && t.completedByMap && t.completedByMap[dateStr])) {
+            actualCompletions++;
+          }
+        });
+      }
+
+      if (possibleCompletions > 0) {
+        const score = Math.round((actualCompletions / possibleCompletions) * 100);
+        let badge = { label: 'Bronze', color: '#cd7f32', icon: '🥉' };
+        if (score >= 90) badge = { label: 'S-Tier', color: '#ffd700', icon: '🌟' };
+        else if (score >= 75) badge = { label: 'Gold', color: '#ffb347', icon: '🏆' };
+        else if (score >= 50) badge = { label: 'Silber', color: '#c0c0c0', icon: '🥈' };
+        
+        history.push({
+          id: `${y}-${m}`,
+          monthName: format(new Date(y, m, 1), 'MMMM yyyy', { locale: de }),
+          score,
+          badge
+        });
+      }
+    }
+    return history;
+  };
+
   const [quickAddText, setQuickAddText] = useState('');
   const { addTask } = useTaskContext();
   const handleQuickAdd = async (e) => {
@@ -722,6 +783,7 @@ const TaskGrid = () => {
               {badgeInfo && (
                 <MuiTooltip title={`Deine Konstanz der letzten 30 Tage liegt bei ${monthScore}%.`}>
                   <Chip 
+                    onClick={() => setHistoryModalOpen(true)}
                     size="small" 
                     icon={<span style={{ fontSize: '12px', marginLeft: 6 }}>{badgeInfo.icon}</span>} 
                     label={`${monthScore}% ${badgeInfo.label}`} 
@@ -731,7 +793,9 @@ const TaskGrid = () => {
                       bgcolor: `${badgeInfo.color}22`, 
                       color: badgeInfo.color, 
                       fontWeight: 'bold',
-                      ml: 1
+                      ml: 1,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: `${badgeInfo.color}44` }
                     }} 
                   />
                 </MuiTooltip>
@@ -948,6 +1012,40 @@ const TaskGrid = () => {
               isOverlay={true}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historyModalOpen} onClose={() => setHistoryModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogContent>
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Typography variant="h5" fontWeight="bold">Trophäen-Wand</Typography>
+            <Typography variant="body2" color="text.secondary">Deine Leistung der vergangenen Kalendermonate</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {getHistoricalMonths().map(m => (
+              <Box key={m.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, borderRadius: 2, bgcolor: 'background.default', border: 1, borderColor: 'divider' }}>
+                <Typography fontWeight="bold">{m.monthName}</Typography>
+                <Chip 
+                  size="small" 
+                  icon={<span style={{ fontSize: '14px', marginLeft: 6 }}>{m.badge.icon}</span>} 
+                  label={`${m.score}% ${m.badge.label}`} 
+                  sx={{ 
+                    bgcolor: `${m.badge.color}22`, 
+                    color: m.badge.color, 
+                    fontWeight: 'bold'
+                  }} 
+                />
+              </Box>
+            ))}
+            {getHistoricalMonths().length === 0 && (
+              <Typography textAlign="center" color="text.secondary" sx={{ py: 4 }}>
+                Noch keine abgeschlossenen Monate vorhanden.
+              </Typography>
+            )}
+          </Box>
+          <Button fullWidth variant="outlined" sx={{ mt: 3, borderRadius: 8 }} onClick={() => setHistoryModalOpen(false)}>
+            Schließen
+          </Button>
         </DialogContent>
       </Dialog>
     </Box>
