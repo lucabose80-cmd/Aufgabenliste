@@ -38,6 +38,7 @@ export const TaskProvider = ({ children }) => {
   const [pastReviewOrder, setPastReviewOrder] = useState(['tasks', 'perfectDays', 'reading', 'speed', 'calories']);
   const [resetHour, setResetHour] = useState(3);
   const [vacationMode, setVacationMode] = useState(false);
+  const [enableReadingFeature, setEnableReadingFeature] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   // Global Reading Timer
@@ -233,6 +234,7 @@ export const TaskProvider = ({ children }) => {
         if (data.dashboardOrder) setDashboardOrder(data.dashboardOrder);
         if (data.pastReviewOrder) setPastReviewOrder(data.pastReviewOrder);
         if (data.vacationMode !== undefined) setVacationMode(data.vacationMode);
+        if (data.enableReadingFeature !== undefined) setEnableReadingFeature(data.enableReadingFeature);
       }
       setIsLoading(false);
     });
@@ -551,12 +553,12 @@ export const TaskProvider = ({ children }) => {
       };
 
       const now = ctx.currentTime;
-      // Duolingo-style warm satisfying chime (D5 -> B5 with some triangle texture for a "marimba" feel)
-      playTone(587.33, now, 0.12, 0.4, 'sine');
-      playTone(587.33, now, 0.12, 0.15, 'triangle');
+      // Duolingo-style warm satisfying chime (G4 -> C5 with some triangle texture for a "marimba" feel)
+      playTone(392.00, now, 0.12, 0.5, 'sine');
+      playTone(392.00, now, 0.12, 0.2, 'triangle');
       
-      playTone(987.77, now + 0.1, 0.5, 0.4, 'sine');
-      playTone(987.77, now + 0.1, 0.5, 0.15, 'triangle');
+      playTone(523.25, now + 0.1, 0.5, 0.5, 'sine');
+      playTone(523.25, now + 0.1, 0.5, 0.2, 'triangle');
     } catch(e) {
       console.warn('Audio/Vibration feedback failed', e);
     }
@@ -819,7 +821,7 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { calorieGoal: goal }, { merge: true });
   };
 
-  const saveSettings = async (newTheme, newAccentColor, newShoppingListId, newPinned, newDashboardOrder, newPastReviewOrder, newResetHour) => {
+  const saveSettings = async (newTheme, newAccentColor, newShoppingListId, newPinned, newDashboardOrder, newPastReviewOrder, newResetHour, newEnableReadingFeature) => {
     if (newTheme) setTheme(newTheme);
     if (newAccentColor) setAccentColor(newAccentColor);
     if (newShoppingListId !== undefined) setShoppingListId(newShoppingListId);
@@ -832,6 +834,9 @@ export const TaskProvider = ({ children }) => {
         await setDoc(doc(db, 'users', user.uid), { resetHour: newResetHour }, { merge: true });
       }
     }
+    if (newEnableReadingFeature !== undefined) {
+      setEnableReadingFeature(newEnableReadingFeature);
+    }
 
     const payload = {
       theme: newTheme || theme,
@@ -840,6 +845,7 @@ export const TaskProvider = ({ children }) => {
       pinnedNavItems: newPinned || pinnedNavItems,
       dashboardOrder: newDashboardOrder || dashboardOrder,
       pastReviewOrder: newPastReviewOrder || pastReviewOrder,
+      enableReadingFeature: newEnableReadingFeature !== undefined ? newEnableReadingFeature : enableReadingFeature,
       calorieGoal
     };
 
@@ -976,7 +982,8 @@ export const TaskProvider = ({ children }) => {
       rejectTaskInvitation,
       acceptListInvitation,
       rejectListInvitation,
-      assignBookToUnassignedSessions
+      assignBookToUnassignedSessions,
+      enableReadingFeature
     }}>
       {children}
     </TaskContext.Provider>

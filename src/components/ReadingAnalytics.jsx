@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { format, parseISO, getHours } from 'date-fns';
+import { de } from 'date-fns/locale';
 import { 
   Box, Card, Typography, Grid, useTheme, Tooltip as MuiTooltip,
   Select, MenuItem
@@ -20,6 +21,8 @@ const ReadingAnalytics = () => {
 
   const [filterType, setFilterType] = React.useState('all'); // 'all', 'book', 'author'
   const [filterValue, setFilterValue] = React.useState('');
+  const [trendView, setTrendView] = React.useState('months');
+  const [trendMetric, setTrendMetric] = React.useState('speed');
 
   const {
     totalPages,
@@ -51,8 +54,11 @@ const ReadingAnalytics = () => {
         return 0;
       });
 
-    // For Trend Chart
+    // For Trend Chart (Sessions)
     const trend = [];
+    
+    // For Trend Chart (Months)
+    const monthlyBuckets = {};
     
     // For Duration Chart
     const durationBuckets = {
@@ -77,17 +83,36 @@ const ReadingAnalytics = () => {
       const speed = (s.amount / (s.timeSpent / 3600)); // pages per hour
 
       const book = books.find(b => b.id === s.bookId);
+      let wpm = null;
       if (book && book.wordsPerPage) {
+        wpm = (s.amount * book.wordsPerPage) / (s.timeSpent / 60);
         totalWords += s.amount * book.wordsPerPage;
         secondsForWpm += s.timeSpent;
       }
 
-      // Trend
+      // Trend (Sessions)
       trend.push({
         name: `Session ${index + 1}`,
         date: format(new Date(s.date), 'dd.MM.'),
-        speed: Math.round(speed)
+        speed: Math.round(speed),
+        wpm: wpm ? Math.round(wpm) : null
       });
+
+      // Trend (Months)
+      const monthKey = format(new Date(s.date), 'yyyy-MM');
+      if (!monthlyBuckets[monthKey]) {
+        monthlyBuckets[monthKey] = {
+          monthName: format(new Date(s.date), 'MMMM yy', { locale: de }),
+          totalSpeed: 0, countSpeed: 0,
+          totalWpm: 0, countWpm: 0
+        };
+      }
+      monthlyBuckets[monthKey].totalSpeed += speed;
+      monthlyBuckets[monthKey].countSpeed++;
+      if (wpm) {
+        monthlyBuckets[monthKey].totalWpm += wpm;
+        monthlyBuckets[monthKey].countWpm++;
+      }
 
       // Duration
       const minutes = s.timeSpent / 60;
@@ -124,6 +149,12 @@ const ReadingAnalytics = () => {
       }
     });
 
+    const mTrend = Object.values(monthlyBuckets).map(b => ({
+      date: b.monthName,
+      speed: b.countSpeed > 0 ? Math.round(b.totalSpeed / b.countSpeed) : 0,
+      wpm: b.countWpm > 0 ? Math.round(b.totalWpm / b.countWpm) : null
+    }));
+
     const dData = Object.keys(durationBuckets).map(key => ({
       name: key,
       speed: durationBuckets[key].count > 0 ? Math.round(durationBuckets[key].totalSpeed / durationBuckets[key].count) : 0
@@ -139,7 +170,8 @@ const ReadingAnalytics = () => {
       totalSeconds: seconds,
       avgSpeedAllTime: seconds > 0 ? Math.round(pages / (seconds / 3600)) : 0,
       avgWpmAllTime: secondsForWpm > 0 ? Math.round(totalWords / (secondsForWpm / 60)) : 0,
-      trendData: trend,
+      trendData: trend.slice(-30), // Only show last 30 sessions to avoid clutter
+      monthlyTrendData: mTrend,
       durationData: dData,
       timeOfDayData: tData
     };
@@ -169,11 +201,12 @@ const ReadingAnalytics = () => {
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const isWpm = payload[0].dataKey === 'wpm';
       return (
         <Box sx={{ bgcolor: 'background.paper', p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1, boxShadow: 1 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>{label}</Typography>
           <Typography variant="body1" fontWeight="bold" color="primary.main">
-            {payload[0].value} Seiten/h
+            {payload[0].value} {isWpm ? 'WPM' : 'Seiten/h'}
           </Typography>
         </Box>
       );
@@ -218,48 +251,48 @@ const ReadingAnalytics = () => {
         )}
       </Card>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
-            <Box sx={{ p: 1.5, bgcolor: 'primary.light', borderRadius: 2, color: 'primary.main', display: 'flex' }}>
-              <MenuBookIcon />
+      <Grid container spacing={2}>
+        <Grid item xs={6} md={3}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
+            <Box sx={{ p: 1, bgcolor: 'primary.light', borderRadius: 2, color: 'primary.main', display: 'flex' }}>
+              <MenuBookIcon fontSize="small" />
             </Box>
             <Box>
-              <Typography variant="body2" color="text.secondary">Gesamt gelesen</Typography>
-              <Typography variant="h5" fontWeight="bold">{totalPages} Seiten</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Gesamt gelesen</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ mt: 0.5 }}>{totalPages} S.</Typography>
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
-            <Box sx={{ p: 1.5, bgcolor: 'success.light', borderRadius: 2, color: 'success.main', display: 'flex' }}>
-              <TimerIcon />
+        <Grid item xs={6} md={3}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
+            <Box sx={{ p: 1, bgcolor: 'success.light', borderRadius: 2, color: 'success.main', display: 'flex' }}>
+              <TimerIcon fontSize="small" />
             </Box>
             <Box>
-              <Typography variant="body2" color="text.secondary">Gesamtzeit</Typography>
-              <Typography variant="h5" fontWeight="bold">{formatTime(totalSeconds)}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Gesamtzeit</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ mt: 0.5 }}>{formatTime(totalSeconds)}</Typography>
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
-            <Box sx={{ p: 1.5, bgcolor: 'warning.light', borderRadius: 2, color: 'warning.main', display: 'flex' }}>
-              <SpeedIcon />
+        <Grid item xs={6} md={3}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
+            <Box sx={{ p: 1, bgcolor: 'warning.light', borderRadius: 2, color: 'warning.main', display: 'flex' }}>
+              <SpeedIcon fontSize="small" />
             </Box>
             <Box>
-              <Typography variant="body2" color="text.secondary">Ø Geschwindigkeit</Typography>
-              <Typography variant="h5" fontWeight="bold">{avgSpeedAllTime} S/h</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Ø Tempo (S/h)</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ mt: 0.5 }}>{avgSpeedAllTime}</Typography>
             </Box>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
-            <Box sx={{ p: 1.5, bgcolor: 'info.light', borderRadius: 2, color: 'info.main', display: 'flex' }}>
-              <AutoGraphIcon />
+        <Grid item xs={6} md={3}>
+          <Card sx={{ p: {xs: 1.5, sm: 3}, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, height: '100%' }}>
+            <Box sx={{ p: 1, bgcolor: 'info.light', borderRadius: 2, color: 'info.main', display: 'flex' }}>
+              <AutoGraphIcon fontSize="small" />
             </Box>
             <Box>
-              <Typography variant="body2" color="text.secondary">Ø Wörter / Min.</Typography>
-              <Typography variant="h5" fontWeight="bold">{avgWpmAllTime > 0 ? avgWpmAllTime : '-'} WPM</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Ø WPM</Typography>
+              <Typography variant="h6" fontWeight="bold" sx={{ mt: 0.5 }}>{avgWpmAllTime > 0 ? avgWpmAllTime : '-'}</Typography>
             </Box>
           </Card>
         </Grid>
@@ -267,18 +300,42 @@ const ReadingAnalytics = () => {
 
       {/* Trend Chart */}
       <Card sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>Geschwindigkeits-Trend</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Seiten pro Stunde im zeitlichen Verlauf
-        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2 }}>
+          <Box>
+            <Typography variant="h6">Geschwindigkeits-Verlauf</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Dein Lesetempo über die Zeit
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Select
+              size="small"
+              value={trendMetric}
+              onChange={(e) => setTrendMetric(e.target.value)}
+              sx={{ minWidth: 120 }}
+            >
+              <MenuItem value="speed">Seiten / Std</MenuItem>
+              <MenuItem value="wpm">Wörter / Min</MenuItem>
+            </Select>
+            <Select
+              size="small"
+              value={trendView}
+              onChange={(e) => setTrendView(e.target.value)}
+              sx={{ minWidth: 120 }}
+            >
+              <MenuItem value="months">Monate</MenuItem>
+              <MenuItem value="sessions">Sitzungen</MenuItem>
+            </Select>
+          </Box>
+        </Box>
         <Box sx={{ height: 300, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={trendView === 'months' ? monthlyTrendData : trendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
               <XAxis dataKey="date" stroke={theme.palette.text.secondary} fontSize={12} />
               <YAxis stroke={theme.palette.text.secondary} fontSize={12} />
               <RechartsTooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="speed" stroke={theme.palette.primary.main} strokeWidth={3} dot={{ r: 4, fill: theme.palette.primary.main }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey={trendMetric} stroke={theme.palette.primary.main} strokeWidth={3} dot={{ r: 4, fill: theme.palette.primary.main }} activeDot={{ r: 6 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </Box>

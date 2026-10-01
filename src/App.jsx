@@ -40,7 +40,7 @@ function MainApp() {
   const [userDisplayName, setUserDisplayName] = useState('');
   
   const { user, logout } = useAuth();
-  const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar, pendingTasks, pendingLists } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar, pendingTasks, pendingLists, enableReadingFeature } = useTaskContext();
   
   const pendingCount = (pendingTasks?.length || 0) + (pendingLists?.length || 0);
 
@@ -60,9 +60,15 @@ function MainApp() {
   const NAV_CONFIG = {
     'home': { label: 'Aufgaben', icon: <AssignmentIcon /> },
     'shopping': { label: 'Shopping', icon: <ShoppingCartIcon /> },
-    'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> },
+    ...(enableReadingFeature !== false ? { 'reading-speed': { label: 'Lesen', icon: <MenuBookIcon /> } } : {}),
     'settings': { label: 'Settings', icon: <SettingsIcon /> },
   };
+
+  useEffect(() => {
+    if (enableReadingFeature === false && currentView === 'reading-speed') {
+      setCurrentView('home');
+    }
+  }, [enableReadingFeature, currentView]);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 

@@ -29,7 +29,7 @@ const NAV_ITEMS = [
 ];
 
 const Settings = () => {
-  const { theme, accentColor, pinnedNavItems, saveSettings, resetHour, vacationMode, saveVacationMode, resetTaskStatistics } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, saveSettings, resetHour, vacationMode, saveVacationMode, resetTaskStatistics, enableReadingFeature } = useTaskContext();
 
   const handleThemeChange = (newTheme) => {
     saveSettings(newTheme, accentColor, undefined, pinnedNavItems);
@@ -229,6 +229,18 @@ const Settings = () => {
           <FormControlLabel
             control={<Switch checked={vacationMode} onChange={(e) => saveVacationMode(e.target.checked)} color="primary" />}
             label={<Typography fontWeight="bold">Urlaubsmodus aktivieren</Typography>}
+          />
+        </Box>
+
+        {/* Lesestatistiken Feature */}
+        <Box sx={{ mt: 5 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>Lesestatistiken</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Schalte den separaten "Lesen"-Tab ein oder aus, wenn du die Lesestatistiken nicht brauchst.
+          </Typography>
+          <FormControlLabel
+            control={<Switch checked={enableReadingFeature} onChange={(e) => saveSettings(undefined, undefined, undefined, undefined, undefined, undefined, undefined, e.target.checked)} color="primary" />}
+            label={<Typography fontWeight="bold">Lesen-Tab anzeigen</Typography>}
           />
         </Box>
 

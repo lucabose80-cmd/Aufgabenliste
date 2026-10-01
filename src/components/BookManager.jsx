@@ -3,7 +3,7 @@ import { useTaskContext } from '../context/TaskContext';
 import { 
   Box, Card, Typography, TextField, Button, IconButton, 
   List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
-  Autocomplete, Checkbox, FormControlLabel, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions
+  Autocomplete, Checkbox, FormControlLabel, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Collapse
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -14,6 +14,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 const BookManager = () => {
   const { books, addBook, updateBook, deleteBook, assignBookToUnassignedSessions, readingSessions, renameAuthor, renameSeries } = useTaskContext();
@@ -23,6 +25,7 @@ const BookManager = () => {
   const [newBookSeries, setNewBookSeries] = useState('');
   const [newBookWordsPerPage, setNewBookWordsPerPage] = useState('');
   const [newBookSeriesNumber, setNewBookSeriesNumber] = useState('');
+  const [expandedCompleted, setExpandedCompleted] = useState(false);
   const [newBookUniverse, setNewBookUniverse] = useState('');
   const [newBookTotalPages, setNewBookTotalPages] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -301,10 +304,10 @@ const BookManager = () => {
       )}
 
       <List sx={{ p: 0 }}>
-        {sortedBooks.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">Noch keine Bücher angelegt.</Typography>
+        {sortedBooks.filter(b => !b.completed).length === 0 ? (
+          <Typography variant="body2" color="text.secondary">Keine aktiven Bücher.</Typography>
         ) : (
-          sortedBooks.map(book => (
+          sortedBooks.filter(b => !b.completed).map(book => (
             <React.Fragment key={book.id}>
               <ListItem sx={{ py: 2 }}>
                 {editingId === book.id ? (
@@ -433,6 +436,52 @@ const BookManager = () => {
           ))
         )}
       </List>
+
+      {sortedBooks.filter(b => b.completed).length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography 
+            variant="h6" 
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', mb: 1 }}
+            onClick={() => setExpandedCompleted(!expandedCompleted)}
+          >
+            Abgeschlossene Bücher ({sortedBooks.filter(b => b.completed).length})
+            {expandedCompleted ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </Typography>
+          <Collapse in={expandedCompleted}>
+            <List sx={{ p: 0 }}>
+              {sortedBooks.filter(b => b.completed).map(book => (
+                <React.Fragment key={book.id}>
+                  <ListItem sx={{ py: 1, opacity: 0.7 }}>
+                    <Tooltip title="Buch wieder öffnen">
+                      <Checkbox
+                        icon={<CheckCircleOutlinedIcon />}
+                        checkedIcon={<CheckCircleIcon color="success" />}
+                        checked={!!book.completed}
+                        onChange={() => handleToggleCompleted(book)}
+                        sx={{ mr: 1 }}
+                      />
+                    </Tooltip>
+                    <ListItemText 
+                      primary={<Typography sx={{ textDecoration: 'line-through' }}>{book.name}</Typography>}
+                      secondary={
+                        <React.Fragment>
+                          {book.author && <Typography component="span" variant="body2">{book.author}</Typography>}
+                          {book.author && book.series && ' | '}
+                          {book.series && <Typography component="span" variant="body2">{book.series} {book.seriesNumber ? `(Bd. ${book.seriesNumber})` : ''}</Typography>}
+                        </React.Fragment>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton onClick={() => deleteBook(book.id)} color="error" size="small"><DeleteIcon /></IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                  <Divider />
+                </React.Fragment>
+              ))}
+            </List>
+          </Collapse>
+        </Box>
+      )}
 
       <Dialog open={isManageModalOpen} onClose={() => setIsManageModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Autoren / Reihen verwalten</DialogTitle>
