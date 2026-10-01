@@ -104,7 +104,7 @@ const ReadingAnalytics = () => {
       const monthKey = format(new Date(s.date), 'yyyy-MM');
       if (!monthlyBuckets[monthKey]) {
         monthlyBuckets[monthKey] = {
-          monthName: format(new Date(s.date), 'MMMM yy', { locale: de }),
+          monthName: format(new Date(s.date), 'MMM yyyy', { locale: de }),
           totalSpeed: 0, countSpeed: 0,
           totalWpm: 0, countWpm: 0,
           totalPages: 0
