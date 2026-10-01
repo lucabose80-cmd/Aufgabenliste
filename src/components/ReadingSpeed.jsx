@@ -25,6 +25,19 @@ const ReadingSpeed = () => {
     timerRunning, setTimerRunning, timerSeconds, setTimerSeconds,
     books
   } = useTaskContext();
+
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   
   const [amount, setAmount] = useState('');
   const [endedOnPage, setEndedOnPage] = useState('');
@@ -187,6 +200,14 @@ const ReadingSpeed = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
+      {!isOnline && (
+        <Box sx={{ p: 2, bgcolor: 'warning.main', color: 'warning.contrastText', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" fontWeight="bold">
+            Du bist offline. Du kannst die Zeit stoppen, aber Speichern funktioniert erst wieder mit Internetverbindung.
+          </Typography>
+        </Box>
+      )}
+
       <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mb: -2 }}>
         <MenuBookIcon color="primary" fontSize="large" /> Lesegeschwindigkeit
       </Typography>
@@ -337,7 +358,7 @@ const ReadingSpeed = () => {
                 />
               </Box>
 
-              <Button variant="contained" color="primary" onClick={handleSaveInfo} startIcon={<SaveIcon />} sx={{ mt: 2 }}>
+              <Button variant="contained" color="primary" onClick={handleSaveInfo} disabled={!isOnline} startIcon={<SaveIcon />} sx={{ mt: 2 }}>
                 Speichern
               </Button>
             </Box>
