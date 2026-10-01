@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   Box, Typography, TextField, Button, IconButton, Select, MenuItem,
   CircularProgress, Divider, Checkbox, Dialog, DialogTitle, DialogContent,
-  DialogActions, Chip, Avatar, InputAdornment, Fab, Tooltip, Collapse
+  DialogActions, Chip, Avatar, InputAdornment, Fab, Tooltip, Collapse, Paper
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -485,21 +485,20 @@ const ShoppingList = () => {
 
       {/* ── Floating add bar ── */}
       {activeList && (
-        <Box
+        <Paper
           component="form"
           onSubmit={handleAddItem}
+          elevation={12}
           sx={{
             position: 'fixed',
-            bottom: { xs: 70, sm: 80 },
+            bottom: { xs: 'calc(75px + env(safe-area-inset-bottom))', md: 30 },
             left: '50%',
             transform: 'translateX(-50%)',
             width: { xs: 'calc(100% - 32px)', sm: 560 },
             maxWidth: 560,
-            bgcolor: 'background.paper',
-            border: '1px solid',
+            border: 1,
             borderColor: 'divider',
             borderRadius: 3,
-            boxShadow: 8,
             display: 'flex',
             alignItems: 'center',
             gap: 0.5,
@@ -561,7 +560,7 @@ const ShoppingList = () => {
           <IconButton type="submit" size="small" color="primary" disabled={!newItemText.trim()} sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, '&:disabled': { bgcolor: 'action.disabledBackground' }, width: 32, height: 32 }}>
             <AddIcon sx={{ fontSize: 18 }} />
           </IconButton>
-        </Box>
+        </Paper>
       )}
 
       {/* New List Dialog */}
