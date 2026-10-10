@@ -226,6 +226,28 @@ const ReadingSpeed = () => {
         <>
           <Card sx={{ p: { xs: 2, sm: 4 } }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', my: { xs: 8, sm: 4 }, minHeight: { xs: '40vh', sm: 'auto' } }}>
+              {books.length > 0 && (
+                <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <Select
+                    value={selectedBookId}
+                    onChange={(e) => handleBookSelect(e.target.value)}
+                    size="small"
+                    displayEmpty
+                    disabled={timerRunning}
+                    sx={{ minWidth: 200, bgcolor: 'background.default', borderRadius: 2 }}
+                  >
+                    <MenuItem value="">Aktuelles Buch wählen...</MenuItem>
+                    {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
+                      <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                    ))}
+                  </Select>
+                  {selectedBookId && endedOnPage && !showAmountField && (
+                    <Typography variant="body2" color="text.secondary">
+                      Zuletzt beendet auf Seite: <strong>{endedOnPage}</strong>
+                    </Typography>
+                  )}
+                </Box>
+              )}
           <Typography 
             variant="h2" 
             sx={{ 
