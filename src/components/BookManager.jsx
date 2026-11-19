@@ -1,44 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { 
-  Box, Card, Typography, TextField, Button, IconButton, 
-  List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
-  Autocomplete, Checkbox, FormControlLabel, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Collapse
+import {
+  Box, Card, Typography, TextField, Button, IconButton,
+  Autocomplete, Checkbox, Tooltip, Dialog, DialogTitle, DialogContent,
+  DialogActions, Collapse, LinearProgress
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import CloseIcon from '@mui/icons-material/Close';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 
 const BookManager = () => {
-  const { books, addBook, updateBook, deleteBook, assignBookToUnassignedSessions, readingSessions, renameAuthor, renameSeries } = useTaskContext();
-  
-  const [newBookName, setNewBookName] = useState('');
-  const [newBookAuthor, setNewBookAuthor] = useState('');
-  const [newBookSeries, setNewBookSeries] = useState('');
-  const [newBookWordsPerPage, setNewBookWordsPerPage] = useState('');
-  const [newBookSeriesNumber, setNewBookSeriesNumber] = useState('');
+  const {
+    books, addBook, updateBook, deleteBook,
+    assignBookToUnassignedSessions, readingSessions, renameAuthor, renameSeries
+  } = useTaskContext();
+
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   const [expandedCompleted, setExpandedCompleted] = useState(false);
-  const [newBookUniverse, setNewBookUniverse] = useState('');
-  const [newBookTotalPages, setNewBookTotalPages] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
 
-  const [editingId, setEditingId] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [editAuthor, setEditAuthor] = useState('');
-  const [editSeries, setEditSeries] = useState('');
-  const [editWordsPerPage, setEditWordsPerPage] = useState('');
-  const [editSeriesNumber, setEditSeriesNumber] = useState('');
-  const [editUniverse, setEditUniverse] = useState('');
-  const [editTotalPages, setEditTotalPages] = useState('');
+  // Unified Add / Edit Modal state
+  const [bookModalOpen, setBookModalOpen] = useState(false);
+  const [editingBookId, setEditingBookId] = useState(null);
+  const [formName, setFormName] = useState('');
+  const [formAuthor, setFormAuthor] = useState('');
+  const [formSeries, setFormSeries] = useState('');
+  const [formSeriesNumber, setFormSeriesNumber] = useState('');
+  const [formUniverse, setFormUniverse] = useState('');
+  const [formTotalPages, setFormTotalPages] = useState('');
+  const [formWordsPerPage, setFormWordsPerPage] = useState('');
 
+  // Manage Authors / Series Modal
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [manageType, setManageType] = useState('author'); // 'author' | 'series'
   const [manageOldName, setManageOldName] = useState('');
@@ -46,14 +50,76 @@ const BookManager = () => {
 
   const [completedBookStats, setCompletedBookStats] = useState(null);
 
-  const handleAddBook = () => {
-    if (!newBookName.trim()) return;
-    
-    let wordsToSave = newBookWordsPerPage;
-    if (!wordsToSave) {
-      const similarBooks = books.filter(b => 
-        b.wordsPerPage && 
-        ((newBookAuthor && b.author === newBookAuthor) || (newBookSeries && b.series === newBookSeries))
+  const uniqueAuthors = useMemo(() => Array.from(new Set(books.map(b => b.author).filter(Boolean))), [books]);
+  const uniqueSeries = useMemo(() => Array.from(new Set(books.map(b => b.series).filter(Boolean))), [books]);
+  const uniqueUniverses = useMemo(() => Array.from(new Set(books.map(b => b.universe).filter(Boolean))), [books]);
+
+  const seriesAuthorMap = useMemo(() => {
+    return books.reduce((acc, book) => {
+      if (book.series && book.author) acc[book.series] = book.author;
+      return acc;
+    }, {});
+  }, [books]);
+
+  const sortedBooks = useMemo(() => {
+    return [...books].sort((a, b) => {
+      const seriesA = a.series || '';
+      const seriesB = b.series || '';
+      if (seriesA !== seriesB) return seriesA.localeCompare(seriesB);
+      const authorA = a.author || '';
+      const authorB = b.author || '';
+      if (authorA !== authorB) return authorA.localeCompare(authorB);
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [books]);
+
+  const activeBooks = useMemo(() => sortedBooks.filter(b => !b.completed), [sortedBooks]);
+  const completedBooks = useMemo(() => sortedBooks.filter(b => b.completed), [sortedBooks]);
+
+  const unassignedSessionsCount = useMemo(
+    () => readingSessions.filter(s => !s.bookId || !books.some(b => b.id === s.bookId)).length,
+    [readingSessions, books]
+  );
+
+  const openAddModal = () => {
+    setEditingBookId(null);
+    setFormName('');
+    setFormAuthor('');
+    setFormSeries('');
+    setFormSeriesNumber('');
+    setFormUniverse('');
+    setFormTotalPages('');
+    setFormWordsPerPage('');
+    setBookModalOpen(true);
+  };
+
+  const openEditModal = (book) => {
+    setEditingBookId(book.id);
+    setFormName(book.name || '');
+    setFormAuthor(book.author || '');
+    setFormSeries(book.series || '');
+    setFormSeriesNumber(book.seriesNumber ? book.seriesNumber.toString() : '');
+    setFormUniverse(book.universe || '');
+    setFormTotalPages(book.totalPages ? book.totalPages.toString() : '');
+    setFormWordsPerPage(book.wordsPerPage ? book.wordsPerPage.toString() : '');
+    setBookModalOpen(true);
+  };
+
+  const handleSeriesInput = (newValue) => {
+    setFormSeries(newValue);
+    if (seriesAuthorMap[newValue] && !formAuthor) {
+      setFormAuthor(seriesAuthorMap[newValue]);
+    }
+  };
+
+  const handleSaveBook = () => {
+    if (!formName.trim()) return;
+
+    let wordsToSave = formWordsPerPage;
+    if (!editingBookId && !wordsToSave) {
+      const similarBooks = books.filter(b =>
+        b.wordsPerPage &&
+        ((formAuthor && b.author === formAuthor) || (formSeries && b.series === formSeries))
       );
       if (similarBooks.length > 0) {
         const avg = similarBooks.reduce((acc, b) => acc + parseInt(b.wordsPerPage, 10), 0) / similarBooks.length;
@@ -61,39 +127,57 @@ const BookManager = () => {
       }
     }
 
-    addBook(newBookName, newBookAuthor, newBookSeries, wordsToSave, newBookSeriesNumber, newBookUniverse, newBookTotalPages);
-    setNewBookName('');
-    setNewBookAuthor('');
-    setNewBookSeries('');
-    setNewBookWordsPerPage('');
-    setNewBookSeriesNumber('');
-    setNewBookUniverse('');
-    setNewBookTotalPages('');
-    setIsAdding(false);
+    if (editingBookId) {
+      updateBook(
+        editingBookId,
+        formName,
+        formAuthor,
+        formSeries,
+        undefined,
+        wordsToSave,
+        formSeriesNumber,
+        formUniverse,
+        formTotalPages
+      );
+    } else {
+      addBook(
+        formName,
+        formAuthor,
+        formSeries,
+        wordsToSave,
+        formSeriesNumber,
+        formUniverse,
+        formTotalPages
+      );
+    }
+    setBookModalOpen(false);
   };
 
   const handleToggleCompleted = (book) => {
     const isNowCompleted = !book.completed;
-    updateBook(book.id, book.name, book.author, book.series, isNowCompleted, book.wordsPerPage, book.seriesNumber, book.universe, book.totalPages);
+    updateBook(
+      book.id,
+      book.name,
+      book.author,
+      book.series,
+      isNowCompleted,
+      book.wordsPerPage,
+      book.seriesNumber,
+      book.universe,
+      book.totalPages
+    );
 
     if (isNowCompleted) {
-      // Calculate stats for completed book
       const sessions = readingSessions.filter(s => s.bookId === book.id);
       if (sessions.length > 0) {
         const bookSeconds = sessions.reduce((acc, s) => acc + s.timeSpent, 0);
         const bookAmount = sessions.reduce((acc, s) => acc + s.amount, 0);
-        
-        let pagesRead = 0;
-        let maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
-        if (maxEndedOnPage > 0) {
-          pagesRead = maxEndedOnPage;
-        } else {
-          pagesRead = bookAmount;
-        }
+
+        const maxEndedOnPage = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
+        const pagesRead = maxEndedOnPage > 0 ? maxEndedOnPage : bookAmount;
 
         const bookSpeed = bookSeconds > 0 ? bookAmount / (bookSeconds / 3600) : 0;
-        
-        // Calculate global speed for comparison
+
         const globalSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0);
         const globalAmount = readingSessions.reduce((acc, s) => acc + s.amount, 0);
         const globalSpeed = globalSeconds > 0 ? globalAmount / (globalSeconds / 3600) : 0;
@@ -107,7 +191,7 @@ const BookManager = () => {
           } else if (diff < 0) {
             precisionStr = `Du warst bei diesem Buch ${percentage}% langsamer als dein Durchschnitt.`;
           } else {
-            precisionStr = `Deine Geschwindigkeit lag exakt im Durchschnitt!`;
+            precisionStr = 'Deine Geschwindigkeit lag exakt im Durchschnitt!';
           }
         }
 
@@ -125,84 +209,37 @@ const BookManager = () => {
     }
   };
 
-  const handleEditClick = (book) => {
-    setEditingId(book.id);
-    setEditName(book.name);
-    setEditAuthor(book.author || '');
-    setEditSeries(book.series || '');
-    setEditWordsPerPage(book.wordsPerPage ? book.wordsPerPage.toString() : '');
-    setEditSeriesNumber(book.seriesNumber ? book.seriesNumber.toString() : '');
-    setEditUniverse(book.universe || '');
-    setEditTotalPages(book.totalPages ? book.totalPages.toString() : '');
-  };
-
-  const handleSaveEdit = (id) => {
-    if (!editName.trim()) return;
-    updateBook(id, editName, editAuthor, editSeries, undefined, editWordsPerPage, editSeriesNumber, editUniverse, editTotalPages);
-    setEditingId(null);
-  };
-
-  // Sort books by series first, then author, then name
-  const sortedBooks = [...books].sort((a, b) => {
-    const seriesA = a.series || '';
-    const seriesB = b.series || '';
-    if (seriesA !== seriesB) return seriesA.localeCompare(seriesB);
-    const authorA = a.author || '';
-    const authorB = b.author || '';
-    if (authorA !== authorB) return authorA.localeCompare(authorB);
-    return (a.name || '').localeCompare(b.name || '');
-  });
-
-  const uniqueAuthors = Array.from(new Set(books.map(b => b.author).filter(Boolean)));
-  const uniqueSeries = Array.from(new Set(books.map(b => b.series).filter(Boolean)));
-  const uniqueUniverses = Array.from(new Set(books.map(b => b.universe).filter(Boolean)));
-
-  const seriesAuthorMap = books.reduce((acc, book) => {
-    if (book.series && book.author) acc[book.series] = book.author;
-    return acc;
-  }, {});
-
-  const handleSeriesChange = (newValue, isEdit = false) => {
-    if (isEdit) {
-      setEditSeries(newValue);
-      if (seriesAuthorMap[newValue] && !editAuthor) setEditAuthor(seriesAuthorMap[newValue]);
-    } else {
-      setNewBookSeries(newValue);
-      if (seriesAuthorMap[newValue] && !newBookAuthor) setNewBookAuthor(seriesAuthorMap[newValue]);
-    }
-  };
-  const unassignedSessionsCount = readingSessions.filter(s => !s.bookId || !books.some(b => b.id === s.bookId)).length;
-
-  const getBookForecast = (book) => {
-    if (!book.totalPages) return null;
+  const getBookProgressInfo = (book) => {
     const sessions = readingSessions.filter(s => s.bookId === book.id);
-    if (sessions.length === 0) return null;
+    const maxEndedOnPage = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
+    const pagesRead = maxEndedOnPage > 0
+      ? maxEndedOnPage
+      : sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
 
-    let pagesRead = 0;
-    let maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
-    if (maxEndedOnPage > 0) {
-      pagesRead = maxEndedOnPage;
-    } else {
-      pagesRead = sessions.reduce((acc, s) => acc + s.amount, 0);
+    const total = Number(book.totalPages) || 0;
+    const pct = total > 0 ? Math.min(100, Math.round((pagesRead / total) * 100)) : null;
+
+    let forecast = null;
+    if (total > 0 && sessions.length > 0) {
+      if (pagesRead >= total) {
+        forecast = 'Fertig gelesen';
+      } else {
+        const remainingPages = total - pagesRead;
+        const globalReadingSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0);
+        const globalReadingAmount = readingSessions.reduce((acc, s) => acc + s.amount, 0);
+        if (globalReadingSeconds > 0 && globalReadingAmount > 0) {
+          const globalSpeed = globalReadingAmount / (globalReadingSeconds / 3600);
+          const remainingHours = remainingPages / globalSpeed;
+          const h = Math.floor(remainingHours);
+          const m = Math.round((remainingHours - h) * 60);
+          forecast = h > 0
+            ? `Noch ca. ${h}h ${m}m (${remainingPages} S.)`
+            : `Noch ca. ${m}m (${remainingPages} S.)`;
+        }
+      }
     }
-    
-    if (pagesRead >= book.totalPages) return "Fertig gelesen";
 
-    const remainingPages = book.totalPages - pagesRead;
-
-    const globalReadingSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0);
-    const globalReadingAmount = readingSessions.reduce((acc, s) => acc + s.amount, 0);
-    
-    if (globalReadingSeconds === 0 || globalReadingAmount === 0) return null;
-    
-    const globalSpeedPagesPerHour = globalReadingAmount / (globalReadingSeconds / 3600);
-    const remainingHours = remainingPages / globalSpeedPagesPerHour;
-    
-    const h = Math.floor(remainingHours);
-    const m = Math.round((remainingHours - h) * 60);
-    
-    if (h > 0) return `Noch ca. ${h}h ${m}m (${remainingPages} S. verbleibend)`;
-    return `Noch ca. ${m}m (${remainingPages} S. verbleibend)`;
+    return { pagesRead, total, pct, forecast, sessionCount: sessions.length };
   };
 
   const handleManageRename = () => {
@@ -218,338 +255,549 @@ const BookManager = () => {
   };
 
   return (
-    <Card sx={{ p: { xs: 2, sm: 4 } }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6">Meine Bücher</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button startIcon={<SettingsIcon />} variant="outlined" onClick={() => setIsManageModalOpen(true)} size="small">
-            Autoren/Reihen
-          </Button>
-          {!isAdding && (
-            <Button startIcon={<AddIcon />} variant="contained" onClick={() => setIsAdding(true)} size="small">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      {/* Header Card */}
+      <Card sx={{ p: { xs: 2.25, sm: 3 }, borderRadius: '24px' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: '12px',
+                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
+                color: 'primary.main',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <MenuBookIcon fontSize="small" />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.08rem', lineHeight: 1.2 }}>
+                Meine Bücher
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {activeBooks.length} aktiv · {completedBooks.length} abgeschlossen
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              startIcon={<SettingsIcon fontSize="small" />}
+              variant="outlined"
+              onClick={() => setIsManageModalOpen(true)}
+              size="small"
+              sx={{ borderRadius: 9999, borderColor: 'divider', color: 'text.secondary', px: 1.75 }}
+            >
+              Autoren/Reihen
+            </Button>
+            <Button
+              startIcon={<AddIcon fontSize="small" />}
+              variant="contained"
+              onClick={openAddModal}
+              size="small"
+              sx={{ borderRadius: 9999, px: 2 }}
+            >
               Buch hinzufügen
             </Button>
-          )}
-        </Box>
-      </Box>
-
-      {isAdding && (
-        <Box sx={{ mb: 4, p: 2, bgcolor: 'background.default', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2">Neues Buch</Typography>
-          <TextField 
-            label="Titel" 
-            value={newBookName} 
-            onChange={(e) => setNewBookName(e.target.value)} 
-            size="small" 
-            fullWidth 
-          />
-          <Autocomplete
-            freeSolo
-            options={uniqueAuthors}
-            value={newBookAuthor}
-            onInputChange={(e, newValue) => setNewBookAuthor(newValue)}
-            renderInput={(params) => <TextField {...params} label="Autor" size="small" fullWidth />}
-          />
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Autocomplete
-              freeSolo
-              options={uniqueSeries}
-              value={newBookSeries}
-              onInputChange={(e, newValue) => handleSeriesChange(newValue, false)}
-              renderInput={(params) => <TextField {...params} label="Reihe" size="small" fullWidth />}
-              sx={{ flex: 2 }}
-            />
-            <TextField 
-              label="Nummer (Band)" 
-              type="number"
-              value={newBookSeriesNumber} 
-              onChange={(e) => setNewBookSeriesNumber(e.target.value)} 
-              size="small" 
-              sx={{ flex: 1 }}
-            />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Autocomplete
-              freeSolo
-              options={uniqueUniverses}
-              value={newBookUniverse}
-              onInputChange={(e, newValue) => setNewBookUniverse(newValue)}
-              renderInput={(params) => <TextField {...params} label="Universum" size="small" fullWidth />}
-              sx={{ flex: 1 }}
-            />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField 
-              label="Gesamtseiten" 
-              type="number"
-              value={newBookTotalPages} 
-              onChange={(e) => setNewBookTotalPages(e.target.value)} 
-              size="small" 
-              fullWidth
-            />
-            <TextField 
-              label="Wörter pro Seite (Ø)" 
-              type="number"
-              value={newBookWordsPerPage} 
-              onChange={(e) => setNewBookWordsPerPage(e.target.value)} 
-              size="small" 
-              fullWidth 
-            />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="contained" onClick={handleAddBook} disabled={!newBookName.trim()}>Speichern</Button>
-            <Button variant="text" onClick={() => setIsAdding(false)}>Abbrechen</Button>
           </Box>
         </Box>
-      )}
 
-      <List sx={{ p: 0 }}>
-        {sortedBooks.filter(b => !b.completed).length === 0 ? (
-          <Typography variant="body2" color="text.secondary">Keine aktiven Bücher.</Typography>
+        {/* Active Books Grid */}
+        {activeBooks.length === 0 ? (
+          <Box
+            sx={{
+              p: 4,
+              textAlign: 'center',
+              borderRadius: '18px',
+              bgcolor: 'background.surfaceVariant',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Noch keine aktiven Bücher vorhanden. Füge dein aktuelles Buch hinzu!
+            </Typography>
+          </Box>
         ) : (
-          sortedBooks.filter(b => !b.completed).map(book => (
-            <React.Fragment key={book.id}>
-              <ListItem sx={{ py: 2 }}>
-                {editingId === book.id ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%', mr: 6 }}>
-                    <TextField 
-                      label="Titel" 
-                      value={editName} 
-                      onChange={(e) => setEditName(e.target.value)} 
-                      size="small" 
-                    />
-                    <Autocomplete
-                      freeSolo
-                      options={uniqueAuthors}
-                      value={editAuthor}
-                      onInputChange={(e, newValue) => setEditAuthor(newValue)}
-                      renderInput={(params) => <TextField {...params} label="Autor" size="small" />}
-                    />
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <Autocomplete
-                        freeSolo
-                        options={uniqueSeries}
-                        value={editSeries}
-                        onInputChange={(e, newValue) => handleSeriesChange(newValue, true)}
-                        renderInput={(params) => <TextField {...params} label="Reihe" size="small" fullWidth />}
-                        sx={{ flex: 2 }}
-                      />
-                      <TextField 
-                        label="Band" 
-                        type="number"
-                        value={editSeriesNumber} 
-                        onChange={(e) => setEditSeriesNumber(e.target.value)} 
-                        size="small" 
-                        sx={{ flex: 1 }}
-                      />
-                    </Box>
-                    <Autocomplete
-                      freeSolo
-                      options={uniqueUniverses}
-                      value={editUniverse}
-                      onInputChange={(e, newValue) => setEditUniverse(newValue)}
-                      renderInput={(params) => <TextField {...params} label="Universum" size="small" />}
-                    />
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <TextField 
-                        label="Gesamtseiten" 
-                        type="number"
-                        value={editTotalPages} 
-                        onChange={(e) => setEditTotalPages(e.target.value)} 
-                        size="small" 
-                        fullWidth
-                      />
-                      <TextField 
-                        label="Wörter pro Seite (Ø)" 
-                        type="number"
-                        value={editWordsPerPage} 
-                        onChange={(e) => setEditWordsPerPage(e.target.value)} 
-                        size="small" 
-                        fullWidth
-                      />
-                    </Box>
-                  </Box>
-                ) : (
-                  <>
-                    <Tooltip title={book.completed ? "Buch wieder öffnen" : "Buch abschließen"}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {activeBooks.map(book => {
+              const info = getBookProgressInfo(book);
+              return (
+                <Box
+                  key={book.id}
+                  sx={{
+                    p: { xs: 1.75, sm: 2.25 },
+                    borderRadius: '18px',
+                    bgcolor: 'background.surfaceVariant',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.25,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                    <Tooltip title="Buch abschließen">
                       <Checkbox
-                        icon={<CheckCircleOutlinedIcon />}
-                        checkedIcon={<CheckCircleIcon color="success" />}
+                        icon={<CheckCircleOutlinedIcon sx={{ fontSize: 22, color: 'text.secondary', opacity: 0.7 }} />}
+                        checkedIcon={<CheckCircleIcon sx={{ fontSize: 22, color: 'success.main' }} />}
                         checked={!!book.completed}
                         onChange={() => handleToggleCompleted(book)}
-                        sx={{ mr: 1 }}
+                        sx={{ p: 0.25, mt: 0.1 }}
                       />
                     </Tooltip>
-                    <ListItemText 
-                      primary={
-                        <Typography sx={{ textDecoration: book.completed ? 'line-through' : 'none', color: book.completed ? 'text.secondary' : 'text.primary' }}>
-                          {book.name}
+
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: '0.98rem', lineHeight: 1.3 }}>
+                        {book.name}
+                      </Typography>
+                      {book.author && (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem', mt: 0.25 }}>
+                          {book.author}
                         </Typography>
-                      }
-                      secondary={
-                        <React.Fragment>
-                          {book.author && <Typography component="span" variant="body2" color={book.completed ? 'text.disabled' : 'text.primary'}>Autor: {book.author}</Typography>}
-                          {book.author && book.series && <br />}
-                          {book.series && (
-                            <Typography component="span" variant="body2" color={book.completed ? 'text.disabled' : 'text.secondary'}>
-                              Reihe: {book.series} {book.seriesNumber ? `(Band ${book.seriesNumber})` : ''} 
-                              {book.universe ? ` | Universum: ${book.universe}` : ''}
-                            </Typography>
-                          )}
-                          {!book.completed && getBookForecast(book) && (
-                            <React.Fragment>
-                              <br />
-                              <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                                {getBookForecast(book)}
-                              </Typography>
-                            </React.Fragment>
-                          )}
-                        </React.Fragment>
-                      }
-                    />
-                  </>
-                )}
-                
-                <ListItemSecondaryAction sx={{ top: '50%', transform: 'translateY(-50%)' }}>
-                  {editingId === book.id ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <IconButton onClick={() => handleSaveEdit(book.id)} color="primary" size="small"><SaveIcon /></IconButton>
-                      <IconButton onClick={() => setEditingId(null)} size="small"><ClearIcon /></IconButton>
+                      )}
+
+                      {/* Metadata Pills */}
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+                        {book.series && (
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.2,
+                              borderRadius: 9999,
+                              bgcolor: 'background.paper',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              fontSize: '0.7rem',
+                              fontWeight: 500,
+                              color: 'text.secondary',
+                            }}
+                          >
+                            {book.series}{book.seriesNumber ? ` · Band ${book.seriesNumber}` : ''}
+                          </Box>
+                        )}
+                        {book.universe && (
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.2,
+                              borderRadius: 9999,
+                              bgcolor: alpha(theme.palette.secondary.main, isDark ? 0.16 : 0.1),
+                              color: 'secondary.main',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {book.universe}
+                          </Box>
+                        )}
+                        {info.forecast && (
+                          <Box
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.4,
+                              px: 1,
+                              py: 0.2,
+                              borderRadius: 9999,
+                              bgcolor: alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
+                              color: 'primary.main',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <ScheduleIcon sx={{ fontSize: 12 }} />
+                            {info.forecast}
+                          </Box>
+                        )}
+                      </Box>
                     </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex' }}>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
                       {unassignedSessionsCount > 0 && (
                         <Tooltip title={`Allen ${unassignedSessionsCount} Einträgen ohne Buch dieses Buch zuweisen`}>
-                          <IconButton onClick={() => assignBookToUnassignedSessions(book.id)} color="success" size="small">
-                            <LibraryAddCheckIcon />
+                          <IconButton
+                            onClick={() => assignBookToUnassignedSessions(book.id)}
+                            color="success"
+                            size="small"
+                          >
+                            <LibraryAddCheckIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
-                      <IconButton onClick={() => handleEditClick(book)} size="small"><EditIcon /></IconButton>
-                      <IconButton onClick={() => deleteBook(book.id)} color="error" size="small"><DeleteIcon /></IconButton>
+                      <IconButton onClick={() => openEditModal(book)} size="small" sx={{ color: 'text.secondary' }}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => deleteBook(book.id)}
+                        size="small"
+                        sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Box>
+
+                  {/* Book Progress Bar */}
+                  {info.total > 0 && (
+                    <Box sx={{ pl: { xs: 0, sm: 4 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', fontWeight: 500 }}>
+                          Fortschritt
+                        </Typography>
+                        <Typography variant="caption" color="text.primary" sx={{ fontSize: '0.72rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                          {info.pagesRead} / {info.total} S. · {info.pct}%
+                        </Typography>
+                      </Box>
+                      <LinearProgress variant="determinate" value={info.pct} sx={{ height: 6, borderRadius: 9999 }} />
                     </Box>
                   )}
-                </ListItemSecondaryAction>
-              </ListItem>
-              <Divider />
-            </React.Fragment>
-          ))
+                </Box>
+              );
+            })}
+          </Box>
         )}
-      </List>
+      </Card>
 
-      {sortedBooks.filter(b => b.completed).length > 0 && (
-        <Box sx={{ mt: 4 }}>
-          <Typography 
-            variant="h6" 
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', mb: 1 }}
+      {/* Completed Books Section */}
+      {completedBooks.length > 0 && (
+        <Box>
+          <Box
             onClick={() => setExpandedCompleted(!expandedCompleted)}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              cursor: 'pointer',
+              userSelect: 'none',
+              px: 1.75,
+              py: 0.75,
+              mb: 1.5,
+              borderRadius: 9999,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              color: 'text.secondary',
+              transition: 'color 0.2s ease',
+              '&:hover': { color: 'text.primary' },
+            }}
           >
-            Abgeschlossene Bücher ({sortedBooks.filter(b => b.completed).length})
-            {expandedCompleted ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </Typography>
-          <Collapse in={expandedCompleted}>
-            <List sx={{ p: 0 }}>
-              {sortedBooks.filter(b => b.completed).map(book => (
-                <React.Fragment key={book.id}>
-                  <ListItem sx={{ py: 1, opacity: 0.7 }}>
+            <ExpandMoreIcon
+              fontSize="small"
+              sx={{
+                transform: expandedCompleted ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+            <Typography variant="body2" fontWeight={600}>
+              Abgeschlossene Bücher ({completedBooks.length})
+            </Typography>
+          </Box>
+
+          <Collapse in={expandedCompleted} timeout={220}>
+            <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '24px' }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                {completedBooks.map(book => (
+                  <Box
+                    key={book.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      p: 1.5,
+                      borderRadius: '16px',
+                      bgcolor: 'background.surfaceVariant',
+                      opacity: 0.78,
+                    }}
+                  >
                     <Tooltip title="Buch wieder öffnen">
                       <Checkbox
                         icon={<CheckCircleOutlinedIcon />}
                         checkedIcon={<CheckCircleIcon color="success" />}
                         checked={!!book.completed}
                         onChange={() => handleToggleCompleted(book)}
-                        sx={{ mr: 1 }}
+                        sx={{ p: 0.25 }}
                       />
                     </Tooltip>
-                    <ListItemText 
-                      primary={<Typography sx={{ textDecoration: 'line-through' }}>{book.name}</Typography>}
-                      secondary={
-                        <React.Fragment>
-                          {book.author && <Typography component="span" variant="body2">{book.author}</Typography>}
-                          {book.author && book.series && ' | '}
-                          {book.series && <Typography component="span" variant="body2">{book.series} {book.seriesNumber ? `(Bd. ${book.seriesNumber})` : ''}</Typography>}
-                        </React.Fragment>
-                      }
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton onClick={() => deleteBook(book.id)} color="error" size="small"><DeleteIcon /></IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                  <Divider />
-                </React.Fragment>
-              ))}
-            </List>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
+                        {book.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {[book.author, book.series ? `${book.series}${book.seriesNumber ? ` (Bd. ${book.seriesNumber})` : ''}` : null]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Typography>
+                    </Box>
+                    <IconButton onClick={() => openEditModal(book)} size="small" sx={{ color: 'text.secondary' }}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton onClick={() => deleteBook(book.id)} size="small" sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            </Card>
           </Collapse>
         </Box>
       )}
 
-      <Dialog open={isManageModalOpen} onClose={() => setIsManageModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Autoren / Reihen verwalten</DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Typography variant="body2" color="text.secondary">
-            Hier kannst du Schreibfehler bei Autoren oder Reihen korrigieren. Lasse das Feld "Neuer Name" leer, um es aus allen Büchern zu löschen.
+      {/* Add / Edit Book Dialog */}
+      <Dialog open={bookModalOpen} onClose={() => setBookModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          <span>{editingBookId ? 'Buch bearbeiten' : 'Neues Buch hinzufügen'}</span>
+          <IconButton size="small" onClick={() => setBookModalOpen(false)} sx={{ color: 'text.secondary' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.25, pt: '12px !important' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Basisinfos
+            </Typography>
+            <TextField
+              label="Titel *"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              size="small"
+              fullWidth
+              autoFocus
+            />
+            <Autocomplete
+              freeSolo
+              options={uniqueAuthors}
+              value={formAuthor}
+              onInputChange={(e, newValue) => setFormAuthor(newValue)}
+              renderInput={(params) => <TextField {...params} label="Autor" size="small" fullWidth />}
+            />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <TextField
+                label="Gesamtseiten"
+                type="number"
+                value={formTotalPages}
+                onChange={(e) => setFormTotalPages(e.target.value)}
+                size="small"
+                fullWidth
+              />
+              <TextField
+                label="Wörter / Seite (Ø)"
+                type="number"
+                value={formWordsPerPage}
+                onChange={(e) => setFormWordsPerPage(e.target.value)}
+                size="small"
+                fullWidth
+              />
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Reihe & Universum
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.5 }}>
+              <Autocomplete
+                freeSolo
+                options={uniqueSeries}
+                value={formSeries}
+                onInputChange={(e, newValue) => handleSeriesInput(newValue)}
+                renderInput={(params) => <TextField {...params} label="Reihe" size="small" fullWidth />}
+              />
+              <TextField
+                label="Band"
+                type="number"
+                value={formSeriesNumber}
+                onChange={(e) => setFormSeriesNumber(e.target.value)}
+                size="small"
+                fullWidth
+              />
+            </Box>
+            <Autocomplete
+              freeSolo
+              options={uniqueUniverses}
+              value={formUniverse}
+              onInputChange={(e, newValue) => setFormUniverse(newValue)}
+              renderInput={(params) => <TextField {...params} label="Universum" size="small" fullWidth />}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setBookModalOpen(false)} sx={{ borderRadius: 9999 }}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveBook}
+            disabled={!formName.trim()}
+            startIcon={<SaveIcon />}
+            sx={{ borderRadius: 9999, px: 3 }}
+          >
+            Speichern
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Manage Authors / Series Dialog */}
+      <Dialog open={isManageModalOpen} onClose={() => setIsManageModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          <span>Autoren & Reihen</span>
+          <IconButton size="small" onClick={() => setIsManageModalOpen(false)} sx={{ color: 'text.secondary' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.84rem' }}>
+            Korrigiere Schreibfehler bei Autoren oder Reihen. Lass „Neuer Name“ leer, um den Eintrag aus allen Büchern zu entfernen.
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button variant={manageType === 'author' ? 'contained' : 'outlined'} onClick={() => setManageType('author')}>Autor umbenennen</Button>
-            <Button variant={manageType === 'series' ? 'contained' : 'outlined'} onClick={() => setManageType('series')}>Reihe umbenennen</Button>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 0.75,
+              p: 0.5,
+              borderRadius: '14px',
+              bgcolor: 'background.surfaceVariant',
+            }}
+          >
+            {[
+              { id: 'author', label: 'Autor' },
+              { id: 'series', label: 'Reihe' },
+            ].map(opt => {
+              const active = manageType === opt.id;
+              return (
+                <Box
+                  key={opt.id}
+                  onClick={() => {
+                    setManageType(opt.id);
+                    setManageOldName('');
+                  }}
+                  sx={{
+                    py: 0.85,
+                    textAlign: 'center',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '0.84rem',
+                    fontWeight: active ? 700 : 500,
+                    bgcolor: active ? 'background.paper' : 'transparent',
+                    color: active ? 'primary.main' : 'text.secondary',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {opt.label}
+                </Box>
+              );
+            })}
           </Box>
           <Autocomplete
             options={manageType === 'author' ? uniqueAuthors : uniqueSeries}
             value={manageOldName}
-            onChange={(e, newValue) => setManageOldName(newValue)}
-            renderInput={(params) => <TextField {...params} label={`Zu ändernde${manageType === 'author' ? 'r Autor' : ' Reihe'} auswählen`} size="small" />}
+            onChange={(e, newValue) => setManageOldName(newValue || '')}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={manageType === 'author' ? 'Autor auswählen' : 'Reihe auswählen'}
+                size="small"
+              />
+            )}
           />
-          <TextField 
-            label="Neuer Name (leer = entfernen)" 
+          <TextField
+            label="Neuer Name (leer = entfernen)"
             value={manageNewName}
             onChange={(e) => setManageNewName(e.target.value)}
             size="small"
           />
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-            <Button onClick={() => setIsManageModalOpen(false)}>Abbrechen</Button>
-            <Button variant="contained" color="primary" onClick={handleManageRename} disabled={!manageOldName}>
-              Anwenden
-            </Button>
-          </Box>
         </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setIsManageModalOpen(false)} sx={{ borderRadius: 9999 }}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleManageRename}
+            disabled={!manageOldName}
+            sx={{ borderRadius: 9999, px: 3 }}
+          >
+            Anwenden
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      <Dialog open={!!completedBookStats} onClose={() => setCompletedBookStats(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>Buch abgeschlossen! 🎉</DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+      {/* Book Completed Stats Dialog */}
+      <Dialog open={!!completedBookStats} onClose={() => setCompletedBookStats(null)} maxWidth="xs" fullWidth>
+        <DialogContent sx={{ p: 3, textAlign: 'center' }}>
+          <Box
+            sx={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              bgcolor: alpha(theme.palette.success.main, isDark ? 0.18 : 0.12),
+              color: 'success.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 1.5,
+            }}
+          >
+            <AutoAwesomeIcon />
+          </Box>
+          <Typography variant="h6" fontWeight={700}>
+            Buch abgeschlossen!
+          </Typography>
           {completedBookStats && (
             <>
-              <Typography variant="h6" color="primary" align="center">{completedBookStats.name}</Typography>
-              
-              <Box sx={{ display: 'flex', gap: 4, mt: 2 }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="h4">{completedBookStats.timeStr}</Typography>
-                  <Typography variant="body2" color="text.secondary">Lesezeit</Typography>
+              <Typography variant="body2" color="primary.main" fontWeight={600} sx={{ mt: 0.5 }}>
+                {completedBookStats.name}
+              </Typography>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.25, mt: 2.5 }}>
+                <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
+                  <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {completedBookStats.timeStr}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">Lesezeit</Typography>
                 </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="h4">{completedBookStats.pages}</Typography>
-                  <Typography variant="body2" color="text.secondary">Seiten</Typography>
+                <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
+                  <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {completedBookStats.pages}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">Seiten</Typography>
                 </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="h4">{completedBookStats.speed}</Typography>
-                  <Typography variant="body2" color="text.secondary">Seiten / h</Typography>
+                <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
+                  <Typography variant="h6" fontWeight={700} color="primary.main" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {completedBookStats.speed}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">Seiten/h</Typography>
                 </Box>
               </Box>
 
               {completedBookStats.precisionStr && (
-                <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 2, width: '100%', textAlign: 'center' }}>
-                  <Typography variant="subtitle2" color="text.secondary">Prognose & Präzision</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>{completedBookStats.precisionStr}</Typography>
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 1.75,
+                    borderRadius: '16px',
+                    bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.08),
+                  }}
+                >
+                  <Typography variant="body2" fontWeight={600} color="text.primary">
+                    {completedBookStats.precisionStr}
+                  </Typography>
                 </Box>
               )}
             </>
           )}
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={() => setCompletedBookStats(null)}
+            sx={{ mt: 3, borderRadius: 9999, py: 1.1 }}
+          >
+            Super!
+          </Button>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', p: 2 }}>
-          <Button variant="contained" onClick={() => setCompletedBookStats(null)} size="large">Super!</Button>
-        </DialogActions>
       </Dialog>
-    </Card>
+    </Box>
   );
 };
 

@@ -1,31 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { format } from 'date-fns';
-import { 
-  Box, Card, Typography, TextField, Button, IconButton, 
-  List, ListItem, ListItemText, ListItemSecondaryAction, Divider,
-  Tabs, Tab, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions
+import {
+  Box, Card, Typography, TextField, Button, IconButton,
+  Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
+  LinearProgress
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import ReadingAnalytics from './ReadingAnalytics';
 import BookManager from './BookManager';
 import BookUniverseMap from './BookUniverseMap';
+import TimerIcon from '@mui/icons-material/Timer';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import PublicIcon from '@mui/icons-material/Public';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import PauseIcon from '@mui/icons-material/Pause';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import CheckIcon from '@mui/icons-material/Check';
-import ClearIcon from '@mui/icons-material/Clear';
+import AddIcon from '@mui/icons-material/Add';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
+import CloseIcon from '@mui/icons-material/Close';
+import SpeedIcon from '@mui/icons-material/Speed';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+
+const SUB_TABS = [
+  { id: 0, label: 'Timer', icon: TimerIcon },
+  { id: 1, label: 'Bücher', icon: MenuBookIcon },
+  { id: 2, label: 'Map', icon: PublicIcon },
+  { id: 3, label: 'Statistik', icon: BarChartIcon },
+];
 
 const ReadingSpeed = () => {
-  const { 
+  const {
     readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession,
     timerRunning, setTimerRunning, timerSeconds, setTimerSeconds,
     books
   } = useTaskContext();
+
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
 
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
@@ -39,25 +55,48 @@ const ReadingSpeed = () => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
-  
+
   const [amount, setAmount] = useState('');
   const [endedOnPage, setEndedOnPage] = useState('');
   const [selectedBookId, setSelectedBookId] = useState('');
   const [sessionDate, setSessionDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [sessionTime, setSessionTime] = useState(format(new Date(), 'HH:mm'));
-  const [showAmountField, setShowAmountField] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [isManualEntry, setIsManualEntry] = useState(false);
+  const [manualMinutes, setManualMinutes] = useState('30');
   const [activeTab, setActiveTab] = useState(0);
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
 
-  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editingSession, setEditingSession] = useState(null);
   const [editMinutes, setEditMinutes] = useState(0);
   const [editAmount, setEditAmount] = useState('');
   const [editEndedOnPage, setEditEndedOnPage] = useState('');
   const [editBookId, setEditBookId] = useState('');
   const [editDate, setEditDate] = useState('');
-  const [editTime, setEditTime] = useState('');
   const [sessionFilter, setSessionFilter] = useState('all');
+
+  const getBookLastPage = (bookId) => {
+    if (!bookId) return 0;
+    const sessions = readingSessions.filter(s => s.bookId === bookId);
+    if (sessions.length === 0) return 0;
+    const maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
+    if (maxEndedOnPage > 0) return maxEndedOnPage;
+    return sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
+  };
+
+  const selectedBook = useMemo(
+    () => books.find(b => b.id === selectedBookId) || null,
+    [books, selectedBookId]
+  );
+
+  const selectedBookProgress = useMemo(() => {
+    if (!selectedBook) return null;
+    const lastPage = getBookLastPage(selectedBook.id);
+    const total = Number(selectedBook.totalPages) || 0;
+    const pct = total > 0 ? Math.min(100, Math.round((lastPage / total) * 100)) : null;
+    return { lastPage, total, pct };
+  }, [selectedBook, readingSessions]);
 
   const handleStartTimer = () => {
     setTimerRunning(true);
@@ -71,46 +110,78 @@ const ReadingSpeed = () => {
     if (timerRunning) {
       handlePauseTimer();
     }
-    setShowAmountField(true);
+    setIsManualEntry(false);
+    setSessionDate(format(new Date(), 'yyyy-MM-dd'));
+    setSessionTime(format(new Date(), 'HH:mm'));
+    setSaveDialogOpen(true);
+  };
+
+  const handleOpenManualEntry = () => {
+    setIsManualEntry(true);
+    setManualMinutes('30');
+    setAmount('');
+    setEndedOnPage(selectedBookId ? (getBookLastPage(selectedBookId) || '').toString() : '');
+    setSessionDate(format(new Date(), 'yyyy-MM-dd'));
+    setSessionTime(format(new Date(), 'HH:mm'));
+    setSaveDialogOpen(true);
   };
 
   const handleBookSelect = (bookId) => {
     setSelectedBookId(bookId);
     if (bookId) {
-      const sessions = readingSessions.filter(s => s.bookId === bookId);
-      if (sessions.length > 0) {
-        let maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
-        if (maxEndedOnPage > 0) {
-          setEndedOnPage(maxEndedOnPage.toString());
-        } else {
-          setEndedOnPage(sessions.reduce((acc, s) => acc + s.amount, 0).toString());
-        }
-      } else {
-        setEndedOnPage('');
+      const lastPage = getBookLastPage(bookId);
+      setEndedOnPage(lastPage > 0 ? lastPage.toString() : '');
+    } else {
+      setEndedOnPage('');
+    }
+  };
+
+  const handleAmountChange = (val) => {
+    setAmount(val);
+    if (selectedBookId) {
+      const prevPage = getBookLastPage(selectedBookId);
+      const parsed = parseFloat(val);
+      if (prevPage > 0 && !isNaN(parsed) && parsed > 0) {
+        setEndedOnPage(Math.round(prevPage + parsed).toString());
+      }
+    }
+  };
+
+  const handleEndedOnPageChange = (val) => {
+    setEndedOnPage(val);
+    if (selectedBookId) {
+      const prevPage = getBookLastPage(selectedBookId);
+      const parsedEnd = parseInt(val, 10);
+      if (prevPage > 0 && !isNaN(parsedEnd) && parsedEnd > prevPage) {
+        setAmount((parsedEnd - prevPage).toString());
       }
     }
   };
 
   const handleSaveInfo = () => {
-    let finalDate = sessionDate;
+    const effectiveSeconds = isManualEntry
+      ? Math.max(60, (parseInt(manualMinutes, 10) || 0) * 60)
+      : timerSeconds;
+
+    const finalDate = sessionDate;
     let overrideCreatedAt = null;
     const isToday = sessionDate === format(new Date(), 'yyyy-MM-dd');
     if (!isToday) {
       overrideCreatedAt = `${sessionDate}T${sessionTime || '12:00'}:00.000Z`;
     }
-    
+
     const parsedAmount = parseFloat(amount) || 0;
-    const timeInHours = timerSeconds / 3600;
+    const timeInHours = effectiveSeconds / 3600;
     const pagesPerHour = timeInHours > 0 ? parsedAmount / timeInHours : 0;
-    
+
     let forecast = null;
     if (selectedBookId) {
       const book = books.find(b => b.id === selectedBookId);
       if (book && book.totalPages) {
         const sessions = readingSessions.filter(s => s.bookId === book.id);
         let pagesRead = 0;
-        let maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
-        
+        const maxEndedOnPage = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
+
         const currentEndedOnPage = parseInt(endedOnPage, 10);
         if (currentEndedOnPage && currentEndedOnPage > maxEndedOnPage) {
           pagesRead = currentEndedOnPage;
@@ -119,13 +190,13 @@ const ReadingSpeed = () => {
         } else {
           pagesRead = sessions.reduce((acc, s) => acc + s.amount, 0) + parsedAmount;
         }
-        
+
         if (pagesRead < book.totalPages) {
           const remainingPages = book.totalPages - pagesRead;
-          const globalReadingSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0) + timerSeconds;
+          const globalReadingSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0) + effectiveSeconds;
           const globalReadingAmount = readingSessions.reduce((acc, s) => acc + s.amount, 0) + parsedAmount;
-          const globalSpeed = globalReadingAmount / (globalReadingSeconds / 3600);
-          
+          const globalSpeed = globalReadingSeconds > 0 ? globalReadingAmount / (globalReadingSeconds / 3600) : 0;
+
           if (globalSpeed > 0) {
             const remainingHours = remainingPages / globalSpeed;
             const h = Math.floor(remainingHours);
@@ -133,27 +204,41 @@ const ReadingSpeed = () => {
             forecast = `Noch ca. ${h}h ${m}m (${remainingPages} Seiten verbleibend)`;
           }
         } else {
-          forecast = "Du hast das Buch scheinbar beendet!";
+          forecast = 'Du hast das Buch scheinbar beendet!';
         }
       }
     }
 
     setSummaryData({
-      timeStr: formatTime(timerSeconds),
+      timeStr: formatTime(effectiveSeconds),
       amount: parsedAmount,
       endedOnPage,
       pagesPerHour: Math.round(pagesPerHour),
-      forecast
+      forecast,
+      bookName: selectedBook?.name || null,
     });
     setSummaryModalOpen(true);
 
-    saveReadingSession(timerSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt);
-    setTimerSeconds(0);
-    setShowAmountField(false);
+    saveReadingSession(effectiveSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt);
+    if (!isManualEntry) {
+      setTimerSeconds(0);
+    }
+    setSaveDialogOpen(false);
+    setIsManualEntry(false);
     setAmount('');
     setEndedOnPage('');
     setSelectedBookId('');
     setSessionDate(format(new Date(), 'yyyy-MM-dd'));
+  };
+
+  const handleDiscardTimer = () => {
+    if (!isManualEntry) {
+      setTimerSeconds(0);
+    }
+    setSaveDialogOpen(false);
+    setIsManualEntry(false);
+    setAmount('');
+    setEndedOnPage('');
   };
 
   const formatTime = (totalSeconds) => {
@@ -165,382 +250,478 @@ const ReadingSpeed = () => {
   };
 
   const handleEditClick = (session) => {
-    setEditingSessionId(session.id);
+    setEditingSession(session);
     setEditMinutes(Math.round(session.timeSpent / 60));
     setEditAmount(session.amount);
     setEditEndedOnPage(session.endedOnPage || '');
     setEditBookId(session.bookId || '');
-    setEditDate(session.date || '');
-    if (session.createdAt) {
-      try { setEditTime(format(new Date(session.createdAt), 'HH:mm')); } catch(e) { setEditTime('12:00'); }
-    } else {
-      setEditTime('12:00');
-    }
+    setEditDate(session.date ? session.date.slice(0, 10) : '');
   };
 
-  const handleSaveEdit = (id) => {
-    updateReadingSession(id, parseInt(editMinutes, 10) * 60, parseFloat(editAmount), editEndedOnPage, editBookId, editDate);
-    setEditingSessionId(null);
+  const handleSaveEdit = () => {
+    if (!editingSession) return;
+    updateReadingSession(
+      editingSession.id,
+      (parseInt(editMinutes, 10) || 0) * 60,
+      parseFloat(editAmount) || 0,
+      editEndedOnPage,
+      editBookId,
+      editDate
+    );
+    setEditingSession(null);
   };
 
-  const recentSessions = [...readingSessions]
-    .filter(s => {
-      if (sessionFilter === 'active') {
-        const book = books.find(b => b.id === s.bookId);
-        return book && !book.completed;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      const dateDiff = new Date(b.date) - new Date(a.date);
-      if (dateDiff !== 0) return dateDiff;
-      if (b.createdAt && a.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
-      return 0;
-    })
-    .slice(0, 10);
+  const recentSessions = useMemo(() => {
+    return [...readingSessions]
+      .filter(s => {
+        if (sessionFilter === 'active') {
+          const book = books.find(b => b.id === s.bookId);
+          return book && !book.completed;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const dateDiff = new Date(b.date) - new Date(a.date);
+        if (dateDiff !== 0) return dateDiff;
+        if (b.createdAt && a.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+        return 0;
+      })
+      .slice(0, 12);
+  }, [readingSessions, sessionFilter, books]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pb: 10, maxWidth: 840, mx: 'auto' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pb: 10, maxWidth: 880, mx: 'auto' }}>
       {!isOnline && (
         <Box
           sx={{
-            px: 2.5,
-            py: 1.5,
-            bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(253, 214, 99, 0.14)' : 'rgba(227, 116, 0, 0.1)',
+            px: 2.25,
+            py: 1.25,
+            bgcolor: alpha(theme.palette.warning.main, isDark ? 0.14 : 0.1),
             color: 'warning.main',
             border: '1px solid',
-            borderColor: 'warning.main',
+            borderColor: alpha(theme.palette.warning.main, 0.35),
             borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
-            gap: 1.5,
+            gap: 1.25,
           }}
         >
           <CloudOffIcon fontSize="small" />
-          <Typography variant="body2" fontWeight={600}>
-            Du bist offline. Deine Lesezeiten werden lokal gespeichert und hochgeladen, sobald du wieder Internet hast.
+          <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.84rem' }}>
+            Offline-Modus aktiv — Lesezeiten werden lokal gespeichert und später synchronisiert.
           </Typography>
         </Box>
       )}
 
+      {/* Google One Segmented Pill Sub-Navigation */}
       <Box
         sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: 0.75,
+          p: 0.65,
           bgcolor: 'background.paper',
           borderRadius: '20px',
           border: '1px solid',
           borderColor: 'divider',
-          px: 1,
         }}
       >
-        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
-          <Tab label="Eingabe & Historie" />
-          <Tab label="Bücher" />
-          <Tab label="Universum & Reihen" />
-          <Tab label="Statistiken" />
-        </Tabs>
+        {SUB_TABS.map(({ id, label, icon: IconComp }) => {
+          const isActive = activeTab === id;
+          return (
+            <Box
+              key={id}
+              onClick={() => setActiveTab(id)}
+              role="tab"
+              aria-selected={isActive}
+              sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: { xs: 0.35, sm: 0.85 },
+                py: { xs: 1, sm: 1.1 },
+                px: 1,
+                borderRadius: '14px',
+                cursor: 'pointer',
+                userSelect: 'none',
+                bgcolor: isActive
+                  ? alpha(theme.palette.primary.main, isDark ? 0.2 : 0.12)
+                  : 'transparent',
+                color: isActive ? 'primary.main' : 'text.secondary',
+                transition: 'background-color 0.2s ease, color 0.2s ease',
+                '&:hover': {
+                  bgcolor: isActive
+                    ? alpha(theme.palette.primary.main, isDark ? 0.24 : 0.16)
+                    : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+                  color: isActive ? 'primary.main' : 'text.primary',
+                },
+              }}
+            >
+              <IconComp sx={{ fontSize: { xs: 19, sm: 18 } }} />
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: { xs: '0.7rem', sm: '0.84rem' },
+                  lineHeight: 1.1,
+                }}
+              >
+                {label}
+              </Typography>
+            </Box>
+          );
+        })}
       </Box>
 
       {activeTab === 0 ? (
         <>
+          {/* Focused Timer Hero Card */}
           <Card sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: '24px' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', my: { xs: 5, sm: 3 }, minHeight: { xs: '34vh', sm: 'auto' } }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: { xs: 2, sm: 2.5 },
+              }}
+            >
+              {/* Book Selector Pill + Live Progress */}
               {books.length > 0 && (
-                <Box sx={{ mb: 3.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: '100%', maxWidth: 360, mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.25 }}>
                   <Select
                     value={selectedBookId}
                     onChange={(e) => handleBookSelect(e.target.value)}
                     size="small"
                     displayEmpty
                     disabled={timerRunning}
-                    sx={{ minWidth: 220, bgcolor: 'background.surfaceVariant', borderRadius: 9999, '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }}
+                    fullWidth
+                    sx={{
+                      bgcolor: 'background.surfaceVariant',
+                      borderRadius: 9999,
+                      px: 0.75,
+                      fontWeight: 500,
+                      '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                    }}
                   >
                     <MenuItem value="">Aktuelles Buch wählen...</MenuItem>
                     {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
                       <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
                     ))}
                   </Select>
-                  {selectedBookId && endedOnPage && !showAmountField && (
-                    <Typography variant="body2" color="text.secondary">
-                      Zuletzt beendet auf Seite: <strong>{endedOnPage}</strong>
-                    </Typography>
+
+                  {selectedBook && selectedBookProgress && (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        px: 2,
+                        py: 1.1,
+                        borderRadius: '14px',
+                        bgcolor: 'background.surfaceVariant',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: selectedBookProgress.pct !== null ? 0.65 : 0 }}>
+                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                          {selectedBookProgress.lastPage > 0
+                            ? `Zuletzt auf Seite ${selectedBookProgress.lastPage}`
+                            : 'Noch keine Seiten erfasst'}
+                        </Typography>
+                        {selectedBookProgress.total > 0 && (
+                          <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {selectedBookProgress.lastPage}/{selectedBookProgress.total} · {selectedBookProgress.pct}%
+                          </Typography>
+                        )}
+                      </Box>
+                      {selectedBookProgress.pct !== null && (
+                        <LinearProgress
+                          variant="determinate"
+                          value={selectedBookProgress.pct}
+                          sx={{ height: 5, borderRadius: 9999 }}
+                        />
+                      )}
+                    </Box>
                   )}
                 </Box>
               )}
-          <Typography 
-            variant="h2" 
-            sx={{ 
-              fontFamily: '"Plus Jakarta Sans", monospace', 
-              fontWeight: 700, 
-              fontVariantNumeric: 'tabular-nums',
-              letterSpacing: '-0.02em',
-              fontSize: { xs: '3.75rem', sm: '4rem' },
-              color: timerRunning ? 'primary.main' : 'text.primary',
-              transition: 'color 0.3s ease'
-            }}
-          >
-            {formatTime(timerSeconds)}
-          </Typography>
-          
-          <Box sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {!showAmountField && (
-              <>
+
+              {/* Timer Status Pill */}
+              {(timerRunning || timerSeconds > 0) && (
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    px: 1.5,
+                    py: 0.35,
+                    mb: 1,
+                    borderRadius: 9999,
+                    bgcolor: timerRunning
+                      ? alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12)
+                      : alpha(theme.palette.warning.main, isDark ? 0.18 : 0.12),
+                    color: timerRunning ? 'primary.main' : 'warning.main',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      bgcolor: 'currentColor',
+                    }}
+                  />
+                  <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: '0.02em' }}>
+                    {timerRunning ? 'Lese-Session läuft' : 'Pausiert'}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Big Tabular Timer Display */}
+              <Typography
+                variant="h2"
+                sx={{
+                  fontFamily: '"Plus Jakarta Sans", monospace',
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
+                  letterSpacing: '-0.03em',
+                  fontSize: { xs: '3.75rem', sm: '4.5rem' },
+                  lineHeight: 1.1,
+                  color: timerRunning ? 'primary.main' : 'text.primary',
+                  transition: 'color 0.25s ease',
+                  my: 1,
+                }}
+              >
+                {formatTime(timerSeconds)}
+              </Typography>
+
+              {/* Controls */}
+              <Box sx={{ mt: 3.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {timerRunning ? (
                   <>
-                    <Button 
-                      variant="contained" 
-                      color="warning" 
+                    <Button
+                      variant="outlined"
+                      color="warning"
                       onClick={handlePauseTimer}
                       startIcon={<PauseIcon />}
                       size="large"
-                      sx={{ borderRadius: 8, px: 4 }}
+                      sx={{ borderRadius: 9999, px: 3.5, py: 1.25 }}
                     >
                       Pausieren
                     </Button>
-                    <Button 
-                      variant="contained" 
-                      color="error" 
+                    <Button
+                      variant="contained"
+                      color="error"
                       onClick={handleStopTimer}
                       startIcon={<StopIcon />}
                       size="large"
-                      sx={{ borderRadius: 8, px: 4 }}
+                      sx={{ borderRadius: 9999, px: 3.5, py: 1.25 }}
                     >
-                      Stoppen & Speichern
+                      Beenden & Speichern
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button 
-                      variant="contained" 
-                      color="success" 
+                    <Button
+                      variant="contained"
+                      color="primary"
                       onClick={handleStartTimer}
                       startIcon={<PlayArrowIcon />}
                       size="large"
-                      sx={{ borderRadius: 8, px: 4 }}
+                      sx={{ borderRadius: 9999, px: 4.5, py: 1.25 }}
                     >
-                      {timerSeconds === 0 ? 'Starten' : 'Fortsetzen'}
+                      {timerSeconds === 0 ? 'Session starten' : 'Fortsetzen'}
                     </Button>
                     {timerSeconds > 0 && (
-                      <Button 
-                        variant="contained" 
-                        color="error" 
+                      <Button
+                        variant="outlined"
+                        color="error"
                         onClick={handleStopTimer}
                         startIcon={<StopIcon />}
                         size="large"
-                        sx={{ borderRadius: 8, px: 4 }}
+                        sx={{ borderRadius: 9999, px: 3.5, py: 1.25 }}
                       >
-                        Stoppen & Speichern
+                        Beenden & Speichern
                       </Button>
                     )}
                   </>
                 )}
-              </>
-            )}
-          </Box>
-        </Box>
-
-        {showAmountField && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 4, p: 3, bgcolor: 'background.surfaceVariant', borderRadius: '18px' }}>
-            <Box>
-              <Typography variant="h6" gutterBottom fontWeight={700}>Lese-Session speichern</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Wie viele Seiten hast du in dieser Zeit ({formatTime(timerSeconds)}) gelesen?
-              </Typography>
-            </Box>
-            
-            <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Datum:</Typography>
-                <TextField 
-                  type="date" 
-                  value={sessionDate} 
-                  onChange={(e) => setSessionDate(e.target.value)} 
-                  size="small"
-                  sx={{ flex: 1, minWidth: 100 }}
-                />
               </Box>
 
-              {books.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Buch:</Typography>
-                  <Select
-                    value={selectedBookId}
-                    onChange={(e) => handleBookSelect(e.target.value)}
-                    size="small"
-                    displayEmpty
-                    sx={{ flex: 1, minWidth: 100 }}
-                  >
-                    <MenuItem value="">Kein Buch zugeordnet</MenuItem>
-                    {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
-                      <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-                    ))}
-                  </Select>
-                </Box>
+              {!timerRunning && timerSeconds === 0 && (
+                <Button
+                  size="small"
+                  startIcon={<AddIcon fontSize="small" />}
+                  onClick={handleOpenManualEntry}
+                  sx={{
+                    mt: 2.5,
+                    borderRadius: 9999,
+                    color: 'text.secondary',
+                    px: 2,
+                    '&:hover': { color: 'text.primary' },
+                  }}
+                >
+                  Session manuell nachtragen
+                </Button>
               )}
-
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Gelesene Seiten:</Typography>
-                <TextField 
-                  type="number" 
-                  value={amount} 
-                  onChange={(e) => setAmount(e.target.value)} 
-                  placeholder="z.B. 15" 
-                  size="small"
-                  sx={{ flex: 1, minWidth: 100 }}
-                />
-              </Box>
-
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Beendet auf Seite (optional):</Typography>
-                <TextField 
-                  type="number" 
-                  value={endedOnPage} 
-                  onChange={(e) => setEndedOnPage(e.target.value)} 
-                  placeholder="z.B. 120" 
-                  size="small"
-                  sx={{ flex: 1, minWidth: 100 }}
-                />
-              </Box>
-
-              <Button variant="contained" color="primary" onClick={handleSaveInfo} startIcon={<SaveIcon />} sx={{ mt: 2 }}>
-                Speichern
-              </Button>
             </Box>
-            <Button 
-              variant="outlined" 
-              color="error"
-              onClick={() => {
-                setTimerSeconds(0);
-                setShowAmountField(false);
-                setAmount('');
-                setEndedOnPage('');
-              }}
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              Verwerfen & Timer zurücksetzen
-            </Button>
-          </Box>
-        )}
-      </Card>
+          </Card>
 
-      {recentSessions.length > 0 && (
-        <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="h6" fontWeight={700}>Letzte Lese-Einträge</Typography>
-            <Select
-              value={sessionFilter}
-              onChange={(e) => setSessionFilter(e.target.value)}
-              size="small"
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="all">Alle Einträge</MenuItem>
-              <MenuItem value="active">Nur aktive Bücher</MenuItem>
-            </Select>
-          </Box>
-          <List disablePadding>
-            {recentSessions.map(session => (
-              <ListItem key={session.id} sx={{ bgcolor: 'background.surfaceVariant', borderRadius: '16px', mb: 1.25, px: 2 }}>
-                {editingSessionId === session.id ? (
-                  <Box sx={{ display: 'flex', gap: 2, flex: 1, alignItems: 'center', flexWrap: 'wrap', py: 1 }}>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <TextField 
-                        type="number" 
-                        value={editMinutes} 
-                        onChange={(e) => setEditMinutes(e.target.value)}
-                        size="small"
-                        sx={{ width: 80 }}
-                      />
-                      <Typography variant="body2">Min.</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <TextField 
-                        type="number" 
-                        value={editAmount} 
-                        onChange={(e) => setEditAmount(e.target.value)}
-                        size="small"
-                        sx={{ width: 80 }}
-                      />
-                      <Typography variant="body2">Seiten</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <TextField 
-                        type="number" 
-                        value={editEndedOnPage} 
-                        onChange={(e) => setEditEndedOnPage(e.target.value)}
-                        size="small"
-                        placeholder="Beendet auf"
-                        sx={{ width: 100 }}
-                      />
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <TextField 
-                        type="date" 
-                        value={editDate} 
-                        onChange={(e) => setEditDate(e.target.value)}
-                        size="small"
-                        sx={{ width: 140 }}
-                      />
-                    </Box>
-                    {books.length > 0 && (
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <Select
-                          value={editBookId}
-                          onChange={(e) => setEditBookId(e.target.value)}
-                          size="small"
-                          displayEmpty
-                          sx={{ width: 140 }}
-                        >
-                          <MenuItem value="">Kein Buch</MenuItem>
-                          {books.filter(b => !b.completed || b.id === editBookId).map(b => (
-                            <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-                          ))}
-                        </Select>
+          {/* Recent Reading Sessions */}
+          {recentSessions.length > 0 && (
+            <Card sx={{ p: { xs: 2.25, sm: 3 }, borderRadius: '24px' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
+                <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.05rem' }}>
+                  Letzte Lese-Einträge
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    p: 0.4,
+                    borderRadius: 9999,
+                    bgcolor: 'background.surfaceVariant',
+                    gap: 0.4,
+                  }}
+                >
+                  {[
+                    { value: 'all', label: 'Alle' },
+                    { value: 'active', label: 'Aktive Bücher' },
+                  ].map(opt => {
+                    const active = sessionFilter === opt.value;
+                    return (
+                      <Box
+                        key={opt.value}
+                        onClick={() => setSessionFilter(opt.value)}
+                        sx={{
+                          px: 1.5,
+                          py: 0.45,
+                          borderRadius: 9999,
+                          cursor: 'pointer',
+                          fontSize: '0.76rem',
+                          fontWeight: active ? 600 : 500,
+                          bgcolor: active ? 'background.paper' : 'transparent',
+                          color: active ? 'text.primary' : 'text.secondary',
+                          boxShadow: active ? (isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.08)') : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {opt.label}
                       </Box>
-                    )}
-                    <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
-                      <IconButton color="success" onClick={() => handleSaveEdit(session.id)}>
-                        <CheckIcon />
-                      </IconButton>
-                      <IconButton color="error" onClick={() => setEditingSessionId(null)}>
-                        <ClearIcon />
-                      </IconButton>
+                    );
+                  })}
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                {recentSessions.map(session => {
+                  const book = session.bookId ? books.find(b => b.id === session.bookId) : null;
+                  const speed = session.timeSpent > 0 && session.amount > 0
+                    ? Math.round(session.amount / (session.timeSpent / 3600))
+                    : null;
+
+                  return (
+                    <Box
+                      key={session.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1.5,
+                        p: { xs: 1.5, sm: 2 },
+                        borderRadius: '18px',
+                        bgcolor: 'background.surfaceVariant',
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {formatTime(session.timeSpent)}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                            · {session.amount} Seiten
+                          </Typography>
+                          {speed && (
+                            <Box
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.35,
+                                px: 0.9,
+                                py: 0.15,
+                                borderRadius: 9999,
+                                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
+                                color: 'primary.main',
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                            >
+                              <SpeedIcon sx={{ fontSize: 12 }} />
+                              {speed} S/h
+                            </Box>
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
+                          {book && (
+                            <Box
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.4,
+                                px: 1,
+                                py: 0.2,
+                                borderRadius: 9999,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                color: 'text.primary',
+                                fontSize: '0.72rem',
+                                fontWeight: 500,
+                                maxWidth: '100%',
+                              }}
+                            >
+                              <MenuBookIcon sx={{ fontSize: 12, color: 'primary.main', flexShrink: 0 }} />
+                              <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {book.name}
+                              </Box>
+                            </Box>
+                          )}
+                          {session.endedOnPage && (
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
+                              S. {session.endedOnPage}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', fontVariantNumeric: 'tabular-nums' }}>
+                            {format(new Date(session.date), 'dd.MM.yyyy')}
+                          </Typography>
+                        </Box>
+
+                        {session._hasPendingWrites && (
+                          <Typography
+                            variant="caption"
+                            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'warning.main', mt: 0.5, fontWeight: 600 }}
+                          >
+                            <CloudOffIcon fontSize="inherit" /> Lokal gespeichert (Wartet auf Sync)
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                        <IconButton size="small" onClick={() => handleEditClick(session)} sx={{ color: 'text.secondary' }}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => deleteReadingSession(session.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Box>
-                  </Box>
-                ) : (
-                  <>
-                    <ListItemText 
-                      primary={`${formatTime(session.timeSpent)} gelesen`} 
-                      secondary={
-                        <React.Fragment>
-                          {`${session.amount} Seiten${session.endedOnPage ? ` | Beendet auf S. ${session.endedOnPage}` : ''} | ${format(new Date(session.date), 'dd.MM.yyyy HH:mm')}`}
-                          {session.bookId && books.find(b => b.id === session.bookId) && (
-                            <Typography component="span" variant="body2" sx={{ display: 'block', color: 'primary.main', mt: 0.5 }}>
-                              Buch: {books.find(b => b.id === session.bookId).name}
-                            </Typography>
-                          )}
-                          {session._hasPendingWrites && (
-                            <Typography component="span" variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'warning.main', mt: 0.5, fontWeight: 'bold' }}>
-                              <CloudOffIcon fontSize="inherit" /> Lokal gespeichert (Wartet auf Sync)
-                            </Typography>
-                          )}
-                        </React.Fragment>
-                      }
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton color="primary" onClick={() => handleEditClick(session)} sx={{ mr: 1 }}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton color="error" onClick={() => deleteReadingSession(session.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </>
-                )}
-              </ListItem>
-            ))}
-          </List>
-        </Card>
-      )}
-      </>
+                  );
+                })}
+              </Box>
+            </Card>
+          )}
+        </>
       ) : activeTab === 1 ? (
         <BookManager />
       ) : activeTab === 2 ? (
@@ -549,40 +730,258 @@ const ReadingSpeed = () => {
         <ReadingAnalytics />
       )}
 
-      <Dialog open={summaryModalOpen} onClose={() => setSummaryModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>Session gespeichert! 🎉</DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+      {/* Save Session Dialog */}
+      <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          <span>{isManualEntry ? 'Session nachtragen' : 'Lese-Session speichern'}</span>
+          <IconButton size="small" onClick={() => setSaveDialogOpen(false)} sx={{ color: 'text.secondary' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
+          {!isManualEntry ? (
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: '14px',
+                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.08),
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                Gemessene Zeit
+              </Typography>
+              <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                {formatTime(timerSeconds)}
+              </Typography>
+            </Box>
+          ) : (
+            <TextField
+              label="Lesezeit (Minuten)"
+              type="number"
+              value={manualMinutes}
+              onChange={(e) => setManualMinutes(e.target.value)}
+              size="small"
+              fullWidth
+            />
+          )}
+
+          {books.length > 0 && (
+            <Select
+              value={selectedBookId}
+              onChange={(e) => handleBookSelect(e.target.value)}
+              size="small"
+              displayEmpty
+              fullWidth
+            >
+              <MenuItem value="">Kein Buch zugeordnet</MenuItem>
+              {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
+                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+              ))}
+            </Select>
+          )}
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+            <TextField
+              label="Gelesene Seiten"
+              type="number"
+              value={amount}
+              onChange={(e) => handleAmountChange(e.target.value)}
+              placeholder="z.B. 15"
+              size="small"
+              fullWidth
+            />
+            <TextField
+              label="Beendet auf S."
+              type="number"
+              value={endedOnPage}
+              onChange={(e) => handleEndedOnPageChange(e.target.value)}
+              placeholder="Optional"
+              size="small"
+              fullWidth
+            />
+          </Box>
+
+          <TextField
+            label="Datum"
+            type="date"
+            value={sessionDate}
+            onChange={(e) => setSessionDate(e.target.value)}
+            size="small"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2.5 }}>
+          <Button color="error" onClick={handleDiscardTimer} sx={{ borderRadius: 9999 }}>
+            Verwerfen
+          </Button>
+          <Button variant="contained" onClick={handleSaveInfo} startIcon={<SaveIcon />} sx={{ borderRadius: 9999, px: 3 }}>
+            Speichern
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Session Dialog */}
+      <Dialog open={!!editingSession} onClose={() => setEditingSession(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          <span>Eintrag bearbeiten</span>
+          <IconButton size="small" onClick={() => setEditingSession(null)} sx={{ color: 'text.secondary' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+            <TextField
+              label="Minuten"
+              type="number"
+              value={editMinutes}
+              onChange={(e) => setEditMinutes(e.target.value)}
+              size="small"
+              fullWidth
+            />
+            <TextField
+              label="Seiten"
+              type="number"
+              value={editAmount}
+              onChange={(e) => setEditAmount(e.target.value)}
+              size="small"
+              fullWidth
+            />
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+            <TextField
+              label="Beendet auf S."
+              type="number"
+              value={editEndedOnPage}
+              onChange={(e) => setEditEndedOnPage(e.target.value)}
+              size="small"
+              fullWidth
+            />
+            <TextField
+              label="Datum"
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+          {books.length > 0 && (
+            <Select
+              value={editBookId}
+              onChange={(e) => setEditBookId(e.target.value)}
+              size="small"
+              displayEmpty
+              fullWidth
+            >
+              <MenuItem value="">Kein Buch</MenuItem>
+              {books.filter(b => !b.completed || b.id === editBookId).map(b => (
+                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+              ))}
+            </Select>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setEditingSession(null)} sx={{ borderRadius: 9999 }}>
+            Abbrechen
+          </Button>
+          <Button variant="contained" onClick={handleSaveEdit} startIcon={<SaveIcon />} sx={{ borderRadius: 9999, px: 3 }}>
+            Speichern
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Session Saved Summary Dialog */}
+      <Dialog open={summaryModalOpen} onClose={() => setSummaryModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogContent sx={{ p: 3, textAlign: 'center' }}>
+          <Box
+            sx={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              bgcolor: alpha(theme.palette.success.main, isDark ? 0.18 : 0.12),
+              color: 'success.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 1.5,
+            }}
+          >
+            <AutoAwesomeIcon />
+          </Box>
+          <Typography variant="h6" fontWeight={700}>
+            Session gespeichert
+          </Typography>
           {summaryData && (
             <>
-              <Typography variant="h6" color="primary">{summaryData.amount} Seiten in {summaryData.timeStr}</Typography>
-              
-              <Box sx={{ display: 'flex', gap: 4, mt: 2 }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="h4">{summaryData.pagesPerHour}</Typography>
-                  <Typography variant="body2" color="text.secondary">Seiten / h</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {summaryData.amount} Seiten in {summaryData.timeStr}
+                {summaryData.bookName ? ` · ${summaryData.bookName}` : ''}
+              </Typography>
+
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: summaryData.endedOnPage ? '1fr 1fr' : '1fr',
+                  gap: 1.5,
+                  mt: 2.5,
+                }}
+              >
+                <Box sx={{ p: 2, borderRadius: '16px', bgcolor: 'background.surfaceVariant' }}>
+                  <Typography variant="h4" fontWeight={700} color="primary.main" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {summaryData.pagesPerHour}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                    Seiten / h
+                  </Typography>
                 </Box>
                 {summaryData.endedOnPage && (
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h4">{summaryData.endedOnPage}</Typography>
-                    <Typography variant="body2" color="text.secondary">Seite erreicht</Typography>
+                  <Box sx={{ p: 2, borderRadius: '16px', bgcolor: 'background.surfaceVariant' }}>
+                    <Typography variant="h4" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {summaryData.endedOnPage}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                      Seite erreicht
+                    </Typography>
                   </Box>
                 )}
               </Box>
 
               {summaryData.forecast && (
-                <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 2, width: '100%', textAlign: 'center' }}>
-                  <Typography variant="subtitle2" color="text.secondary">Prognose für dieses Buch</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>{summaryData.forecast}</Typography>
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 1.75,
+                    borderRadius: '16px',
+                    bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.08),
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Prognose
+                  </Typography>
+                  <Typography variant="body2" fontWeight={700} color="primary.main" sx={{ mt: 0.35 }}>
+                    {summaryData.forecast}
+                  </Typography>
                 </Box>
               )}
             </>
           )}
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={() => setSummaryModalOpen(false)}
+            sx={{ mt: 3, borderRadius: 9999, py: 1.1 }}
+          >
+            Klasse!
+          </Button>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', p: 2 }}>
-          <Button variant="contained" onClick={() => setSummaryModalOpen(false)} size="large">Klasse!</Button>
-        </DialogActions>
       </Dialog>
-
     </Box>
   );
 };
