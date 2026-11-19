@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { format, parseISO, getHours } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import {
-  Box, Card, Typography, Select, MenuItem, Dialog, DialogContent, DialogTitle, IconButton
+  Box, Card, Typography, Select, MenuItem, Dialog, DialogContent, DialogTitle,
+  IconButton, Tooltip as MuiTooltip, LinearProgress
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -16,6 +17,12 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import AutoGraphIcon from '@mui/icons-material/AutoGraph';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import BookCover from './BookCover';
+
+const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
 const ReadingAnalytics = () => {
   const { readingSessions, books } = useTaskContext();
@@ -26,17 +33,22 @@ const ReadingAnalytics = () => {
   const [filterValue, setFilterValue] = useState('');
   const [trendView, setTrendView] = useState('months');
   const [trendMetric, setTrendMetric] = useState('speed');
-  const [expandedChart, setExpandedChart] = useState(null); // null | 'speed' | 'pages' | 'duration' | 'time'
+  const [expandedChart, setExpandedChart] = useState(null); // null | 'speed' | 'pages' | 'readingTime' | 'weekday'
 
   const {
     totalPages,
     totalSeconds,
     avgSpeedAllTime,
     avgWpmAllTime,
+    avgPagesPerSession,
+    activeDaysCount,
+    currentStreak,
+    longestStreak,
     trendData,
     monthlyTrendData,
-    durationData,
-    timeOfDayData
+    weekdayData,
+    heatmapWeeks,
+    topBooks,
   } = useMemo(() => {
     let pages = 0;
     let seconds = 0;
@@ -62,26 +74,16 @@ const ReadingAnalytics = () => {
 
     const trend = [];
     const monthlyBuckets = {};
-
-    const durationBuckets = {
-      '< 15 Min': { totalSpeed: 0, count: 0 },
-      '15-30 Min': { totalSpeed: 0, count: 0 },
-      '30-60 Min': { totalSpeed: 0, count: 0 },
-      '> 60 Min': { totalSpeed: 0, count: 0 }
-    };
-
-    const timeBuckets = {
-      'Morgens': { totalSpeed: 0, count: 0 },
-      'Nachmittags': { totalSpeed: 0, count: 0 },
-      'Abends': { totalSpeed: 0, count: 0 },
-      'Nachts': { totalSpeed: 0, count: 0 }
-    };
+    const weekdayPages = [0, 0, 0, 0, 0, 0, 0]; // Mo=0 .. So=6
+    const dayMap = {}; // 'yyyy-MM-dd' -> { pages, seconds }
+    const bookStatsMap = {}; // bookId -> { pages, seconds }
 
     validSessions.forEach((s, index) => {
       pages += s.amount;
       seconds += s.timeSpent;
 
       const speed = s.amount / (s.timeSpent / 3600);
+      const minutes = Math.round(s.timeSpent / 60);
 
       const book = books.find(b => b.id === s.bookId);
       let wpm = null;
@@ -91,90 +93,165 @@ const ReadingAnalytics = () => {
         secondsForWpm += s.timeSpent;
       }
 
+      const sessionDateObj = new Date(s.date);
+      const dayKey = format(sessionDateObj, 'yyyy-MM-dd');
+      if (!dayMap[dayKey]) dayMap[dayKey] = { pages: 0, seconds: 0 };
+      dayMap[dayKey].pages += s.amount;
+      dayMap[dayKey].seconds += s.timeSpent;
+
+      // JS getDay(): Sun=0, Mon=1..Sat=6 -> map to Mon=0..Sun=6
+      const wdIdx = (sessionDateObj.getDay() + 6) % 7;
+      weekdayPages[wdIdx] += s.amount;
+
+      if (s.bookId) {
+        if (!bookStatsMap[s.bookId]) bookStatsMap[s.bookId] = { pages: 0, seconds: 0 };
+        bookStatsMap[s.bookId].pages += s.amount;
+        bookStatsMap[s.bookId].seconds += s.timeSpent;
+      }
+
       trend.push({
         name: `Session ${index + 1}`,
-        date: format(new Date(s.date), 'dd.MM.'),
+        date: format(sessionDateObj, 'dd.MM.'),
         speed: Math.round(speed),
         wpm: wpm ? Math.round(wpm) : null,
-        pages: s.amount
+        pages: s.amount,
+        minutes,
       });
 
-      const monthKey = format(new Date(s.date), 'yyyy-MM');
+      const monthKey = format(sessionDateObj, 'yyyy-MM');
       if (!monthlyBuckets[monthKey]) {
         monthlyBuckets[monthKey] = {
-          monthName: format(new Date(s.date), 'MMM yy', { locale: de }),
+          monthName: format(sessionDateObj, 'MMM yy', { locale: de }),
           totalSpeed: 0, countSpeed: 0,
           totalWpm: 0, countWpm: 0,
-          totalPages: 0
+          totalPages: 0,
+          totalSeconds: 0,
         };
       }
       monthlyBuckets[monthKey].totalSpeed += speed;
       monthlyBuckets[monthKey].countSpeed++;
       monthlyBuckets[monthKey].totalPages += s.amount;
+      monthlyBuckets[monthKey].totalSeconds += s.timeSpent;
       if (wpm) {
         monthlyBuckets[monthKey].totalWpm += wpm;
         monthlyBuckets[monthKey].countWpm++;
       }
+    });
 
-      const minutes = s.timeSpent / 60;
-      if (minutes < 15) {
-        durationBuckets['< 15 Min'].totalSpeed += speed;
-        durationBuckets['< 15 Min'].count++;
-      } else if (minutes < 30) {
-        durationBuckets['15-30 Min'].totalSpeed += speed;
-        durationBuckets['15-30 Min'].count++;
-      } else if (minutes < 60) {
-        durationBuckets['30-60 Min'].totalSpeed += speed;
-        durationBuckets['30-60 Min'].count++;
-      } else {
-        durationBuckets['> 60 Min'].totalSpeed += speed;
-        durationBuckets['> 60 Min'].count++;
-      }
+    // Calculate current & longest reading streak
+    const sortedDayKeys = Object.keys(dayMap).sort();
+    let curStreak = 0;
+    let maxStreak = 0;
 
-      if (s.createdAt) {
-        const hour = getHours(parseISO(s.createdAt));
-        if (hour >= 6 && hour < 12) {
-          timeBuckets['Morgens'].totalSpeed += speed;
-          timeBuckets['Morgens'].count++;
-        } else if (hour >= 12 && hour < 18) {
-          timeBuckets['Nachmittags'].totalSpeed += speed;
-          timeBuckets['Nachmittags'].count++;
-        } else if (hour >= 18 && hour <= 23) {
-          timeBuckets['Abends'].totalSpeed += speed;
-          timeBuckets['Abends'].count++;
-        } else {
-          timeBuckets['Nachts'].totalSpeed += speed;
-          timeBuckets['Nachts'].count++;
+    if (sortedDayKeys.length > 0) {
+      let running = 1;
+      maxStreak = 1;
+      for (let i = 1; i < sortedDayKeys.length; i++) {
+        const prev = new Date(`${sortedDayKeys[i - 1]}T00:00:00`);
+        const curr = new Date(`${sortedDayKeys[i]}T00:00:00`);
+        const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          running++;
+          if (running > maxStreak) maxStreak = running;
+        } else if (diffDays > 1) {
+          running = 1;
         }
       }
+
+      // Check current streak ending today or yesterday
+      const today = new Date();
+      let checkDate = today;
+      if (!dayMap[format(checkDate, 'yyyy-MM-dd')]) {
+        checkDate = subDays(today, 1);
+      }
+      while (dayMap[format(checkDate, 'yyyy-MM-dd')]) {
+        curStreak++;
+        checkDate = subDays(checkDate, 1);
+      }
+    }
+
+    // Build 12-week heatmap (84 days ending today, aligned by week columns)
+    const today = new Date();
+    const weeks = [];
+    const totalDays = 84;
+    const startDay = subDays(today, totalDays - 1);
+    // Align startDay back to Monday so rows are Mo..So
+    const startOffset = (startDay.getDay() + 6) % 7;
+    const gridStart = subDays(startDay, startOffset);
+
+    let maxDailyPages = 1;
+    Object.values(dayMap).forEach(d => {
+      if (d.pages > maxDailyPages) maxDailyPages = d.pages;
     });
+
+    let cursor = new Date(gridStart);
+    while (cursor <= today) {
+      const weekCol = [];
+      for (let r = 0; r < 7; r++) {
+        const key = format(cursor, 'yyyy-MM-dd');
+        const isFuture = cursor > today;
+        const entry = dayMap[key];
+        const intensity = !entry || isFuture
+          ? 0
+          : Math.min(4, Math.ceil((entry.pages / maxDailyPages) * 4));
+        weekCol.push({
+          key,
+          label: format(cursor, 'dd.MM.yyyy'),
+          pages: entry ? entry.pages : 0,
+          minutes: entry ? Math.round(entry.seconds / 60) : 0,
+          intensity,
+          isFuture,
+        });
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+      }
+      weeks.push(weekCol);
+    }
 
     const mTrend = Object.values(monthlyBuckets).map(b => ({
       date: b.monthName,
       speed: b.countSpeed > 0 ? Math.round(b.totalSpeed / b.countSpeed) : 0,
       wpm: b.countWpm > 0 ? Math.round(b.totalWpm / b.countWpm) : null,
-      pages: b.totalPages
+      pages: b.totalPages,
+      minutes: Math.round(b.totalSeconds / 60),
     }));
 
-    const dData = Object.keys(durationBuckets).map(key => ({
-      name: key,
-      speed: durationBuckets[key].count > 0 ? Math.round(durationBuckets[key].totalSpeed / durationBuckets[key].count) : 0
+    const wdData = WEEKDAY_LABELS.map((label, idx) => ({
+      name: label,
+      pages: weekdayPages[idx],
     }));
 
-    const tData = Object.keys(timeBuckets).map(key => ({
-      name: key,
-      speed: timeBuckets[key].count > 0 ? Math.round(timeBuckets[key].totalSpeed / timeBuckets[key].count) : 0
-    }));
+    const rankedBooks = Object.entries(bookStatsMap)
+      .map(([bookId, stats]) => {
+        const book = books.find(b => b.id === bookId);
+        if (!book) return null;
+        return {
+          id: bookId,
+          name: book.name,
+          author: book.author || '',
+          coverUrl: book.coverUrl || null,
+          pages: stats.pages,
+          seconds: stats.seconds,
+          speed: stats.seconds > 0 ? Math.round(stats.pages / (stats.seconds / 3600)) : 0,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.pages - a.pages)
+      .slice(0, 5);
 
     return {
       totalPages: pages,
       totalSeconds: seconds,
       avgSpeedAllTime: seconds > 0 ? Math.round(pages / (seconds / 3600)) : 0,
       avgWpmAllTime: secondsForWpm > 0 ? Math.round(totalWords / (secondsForWpm / 60)) : 0,
+      avgPagesPerSession: validSessions.length > 0 ? Math.round(pages / validSessions.length) : 0,
+      activeDaysCount: sortedDayKeys.length,
+      currentStreak: curStreak,
+      longestStreak: maxStreak,
       trendData: trend.slice(-30),
       monthlyTrendData: mTrend,
-      durationData: dData,
-      timeOfDayData: tData
+      weekdayData: wdData,
+      heatmapWeeks: weeks,
+      topBooks: rankedBooks,
     };
   }, [readingSessions, filterType, filterValue, books]);
 
@@ -211,6 +288,7 @@ const ReadingAnalytics = () => {
       let unit = 'Seiten/h';
       if (dataKey === 'wpm') unit = 'WPM';
       if (dataKey === 'pages') unit = 'Seiten';
+      if (dataKey === 'minutes') unit = 'Min.';
 
       return (
         <Box
@@ -296,30 +374,30 @@ const ReadingAnalytics = () => {
             </AreaChart>
           </ResponsiveContainer>
         );
-      case 'duration':
+      case 'readingTime':
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={durationData} margin={{ top: 10, right: 10, bottom: 0, left: -16 }}>
+            <BarChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: -16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
-              <XAxis dataKey="name" stroke={axisColor} fontSize={11} tickLine={false} axisLine={false} />
+              <XAxis dataKey="date" stroke={axisColor} fontSize={11} tickLine={false} axisLine={false} />
               <YAxis stroke={axisColor} fontSize={11} tickLine={false} axisLine={false} />
               <RechartsTooltip content={<CustomTooltip />} />
-              <Bar dataKey="speed" radius={[8, 8, 2, 2]}>
-                {durationData.map((_, i) => <Cell key={i} fill={theme.palette.secondary.main} />)}
+              <Bar dataKey="minutes" radius={[8, 8, 2, 2]}>
+                {data.map((_, i) => <Cell key={i} fill={theme.palette.success.main} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         );
-      case 'time':
+      case 'weekday':
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={timeOfDayData} margin={{ top: 10, right: 10, bottom: 0, left: -16 }}>
+            <BarChart data={weekdayData} margin={{ top: 10, right: 10, bottom: 0, left: -16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
               <XAxis dataKey="name" stroke={axisColor} fontSize={11} tickLine={false} axisLine={false} />
               <YAxis stroke={axisColor} fontSize={11} tickLine={false} axisLine={false} />
               <RechartsTooltip content={<CustomTooltip />} />
-              <Bar dataKey="speed" radius={[8, 8, 2, 2]}>
-                {timeOfDayData.map((_, i) => <Cell key={i} fill={theme.palette.success.main} />)}
+              <Bar dataKey="pages" radius={[8, 8, 2, 2]}>
+                {weekdayData.map((_, i) => <Cell key={i} fill={theme.palette.secondary.main} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -332,8 +410,8 @@ const ReadingAnalytics = () => {
   const chartMeta = [
     { id: 'speed', title: trendMetric === 'wpm' ? 'Geschwindigkeit (WPM)' : 'Geschwindigkeit (S/h)' },
     { id: 'pages', title: 'Seiten gelesen' },
-    { id: 'duration', title: 'Dauer vs. Tempo' },
-    { id: 'time', title: 'Tageszeit vs. Tempo' },
+    { id: 'readingTime', title: 'Lesezeit (Minuten)' },
+    { id: 'weekday', title: 'Lese-Rhythmus (Mo–So)' },
   ];
 
   const kpis = [
@@ -362,6 +440,12 @@ const ReadingAnalytics = () => {
       color: theme.palette.info.main,
     },
   ];
+
+  const getHeatmapColor = (intensity) => {
+    if (intensity === 0) return isDark ? 'rgba(255,255,255,0.06)' : 'rgba(31,31,31,0.06)';
+    const opacities = [0, 0.28, 0.5, 0.74, 1];
+    return alpha(theme.palette.success.main, opacities[intensity]);
+  };
 
   const PillSwitch = ({ options, value, onChange }) => (
     <Box
@@ -399,6 +483,8 @@ const ReadingAnalytics = () => {
       })}
     </Box>
   );
+
+  const maxTopBookPages = topBooks.length > 0 ? Math.max(...topBooks.map(b => b.pages), 1) : 1;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -464,7 +550,7 @@ const ReadingAnalytics = () => {
         )}
       </Card>
 
-      {/* 2x2 KPI Grid */}
+      {/* Core 2x2 KPI Grid */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.75 }}>
         {kpis.map(({ label, value, icon: IconComp, color }) => (
           <Card
@@ -512,7 +598,106 @@ const ReadingAnalytics = () => {
         ))}
       </Box>
 
-      {/* Responsive Chart Grid */}
+      {/* Consistency & Streak Summary Strip */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1.25 }}>
+        {[
+          { label: 'Aktueller Streak', value: `${currentStreak} Tage`, icon: LocalFireDepartmentIcon, color: theme.palette.warning.main },
+          { label: 'Längster Streak', value: `${longestStreak} Tage`, icon: EmojiEventsIcon, color: theme.palette.primary.main },
+          { label: 'Aktive Lesetage', value: `${activeDaysCount}`, icon: CalendarMonthIcon, color: theme.palette.success.main },
+          { label: 'Ø Seiten / Session', value: `${avgPagesPerSession} S.`, icon: MenuBookIcon, color: theme.palette.secondary.main },
+        ].map(({ label, value, icon: IconComp, color }) => (
+          <Card
+            key={label}
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderRadius: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+            }}
+          >
+            <IconComp sx={{ fontSize: 20, color, flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2, fontSize: '0.68rem' }}>
+                {label}
+              </Typography>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                {value}
+              </Typography>
+            </Box>
+          </Card>
+        ))}
+      </Box>
+
+      {/* 12-Week Reading Activity Heatmap */}
+      <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '22px' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.75, flexWrap: 'wrap', gap: 1 }}>
+          <Typography variant="subtitle2" fontWeight={700}>
+            Lese-Aktivität (letzte 12 Wochen)
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', mr: 0.25 }}>
+              Weniger
+            </Typography>
+            {[0, 1, 2, 3, 4].map(lvl => (
+              <Box
+                key={lvl}
+                sx={{
+                  width: 11,
+                  height: 11,
+                  borderRadius: '3px',
+                  bgcolor: getHeatmapColor(lvl),
+                }}
+              />
+            ))}
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', ml: 0.25 }}>
+              Mehr
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', pb: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', py: 0.2, pr: 0.5 }}>
+            {WEEKDAY_LABELS.map((d, idx) => (
+              <Typography
+                key={d}
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontSize: '0.62rem', lineHeight: '14px', visibility: idx % 2 === 0 ? 'visible' : 'hidden' }}
+              >
+                {d}
+              </Typography>
+            ))}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.55, flex: 1 }}>
+            {heatmapWeeks.map((week, wIdx) => (
+              <Box key={wIdx} sx={{ display: 'flex', flexDirection: 'column', gap: 0.55, flex: 1, minWidth: 14 }}>
+                {week.map(day => (
+                  <MuiTooltip
+                    key={day.key}
+                    title={day.pages > 0 ? `${day.label}: ${day.pages} Seiten (${day.minutes} Min.)` : `${day.label}: Keine Session`}
+                  >
+                    <Box
+                      sx={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        maxWidth: 18,
+                        borderRadius: '4px',
+                        bgcolor: day.isFuture ? 'transparent' : getHeatmapColor(day.intensity),
+                        transition: 'transform 0.15s ease',
+                        '&:hover': !day.isFuture ? { transform: 'scale(1.2)' } : {},
+                      }}
+                    />
+                  </MuiTooltip>
+                ))}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      </Card>
+
+      {/* Responsive 2x2 Useful Charts Grid */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.75 }}>
         {chartMeta.map(({ id, title }) => (
           <Card
@@ -524,10 +709,8 @@ const ReadingAnalytics = () => {
               display: 'flex',
               flexDirection: 'column',
               cursor: 'pointer',
-              transition: 'border-color 0.2s ease, transform 0.15s ease',
-              '&:hover': {
-                borderColor: 'primary.main',
-              },
+              transition: 'border-color 0.2s ease',
+              '&:hover': { borderColor: 'primary.main' },
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
@@ -543,6 +726,49 @@ const ReadingAnalytics = () => {
         ))}
       </Box>
 
+      {/* Top Books Ranking */}
+      {topBooks.length > 0 && filterType !== 'book' && (
+        <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '22px' }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
+            Top Bücher nach gelesenen Seiten
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {topBooks.map((b, idx) => (
+              <Box key={b.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={700}
+                  sx={{ width: 18, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {idx + 1}
+                </Typography>
+                <BookCover coverUrl={b.coverUrl} title={b.name} width={34} height={50} borderRadius="6px" />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1, mb: 0.4 }}>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {b.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                      <strong>{b.pages} S.</strong> · {formatTime(b.seconds)} · {b.speed} S/h
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.round((b.pages / maxTopBookPages) * 100)}
+                    sx={{ height: 5, borderRadius: 9999 }}
+                  />
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Card>
+      )}
+
       {/* Fullscreen Chart Dialog */}
       <Dialog
         open={!!expandedChart}
@@ -555,7 +781,7 @@ const ReadingAnalytics = () => {
             <Typography variant="h6" fontWeight={700}>
               {expandedChart ? chartMeta.find(c => c.id === expandedChart)?.title : ''}
             </Typography>
-            {(expandedChart === 'speed' || expandedChart === 'pages') && (
+            {(expandedChart === 'speed' || expandedChart === 'pages' || expandedChart === 'readingTime') && (
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {expandedChart === 'speed' && (
                   <PillSwitch

@@ -765,7 +765,7 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages) => {
+  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null) => {
     const newBook = {
       id: uuidv4(),
       name,
@@ -776,13 +776,14 @@ export const TaskProvider = ({ children }) => {
       seriesNumber: seriesNumber ? parseInt(seriesNumber, 10) : null,
       universe: universe || '',
       totalPages: totalPages ? parseInt(totalPages, 10) : null,
+      coverUrl: coverUrl || null,
       createdAt: new Date().toISOString()
     };
-    if (!user) setBooks([...books, newBook]);
+    if (!user) setBooks(prev => [...prev, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const updatedBook = { 
@@ -794,10 +795,19 @@ export const TaskProvider = ({ children }) => {
       wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null,
       seriesNumber: seriesNumber !== undefined ? (seriesNumber ? parseInt(seriesNumber, 10) : null) : book.seriesNumber,
       universe: universe !== undefined ? universe : (book.universe || ''),
-      totalPages: totalPages !== undefined ? (totalPages ? parseInt(totalPages, 10) : null) : book.totalPages
+      totalPages: totalPages !== undefined ? (totalPages ? parseInt(totalPages, 10) : null) : book.totalPages,
+      coverUrl: coverUrl !== undefined ? (coverUrl || null) : (book.coverUrl || null),
     };
-    if (!user) setBooks(books.map(b => b.id === id ? updatedBook : b));
+    if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
+  };
+
+  const updateBookCover = async (id, coverUrl) => {
+    const book = books.find(b => b.id === id);
+    if (!book) return;
+    const updatedBook = { ...book, coverUrl: coverUrl || null };
+    if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
   };
 
   const renameAuthor = async (oldName, newName) => {
@@ -981,6 +991,7 @@ export const TaskProvider = ({ children }) => {
       books,
       addBook,
       updateBook,
+      updateBookCover,
       deleteBook,
       renameAuthor,
       deleteAuthor,

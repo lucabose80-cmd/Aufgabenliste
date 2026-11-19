@@ -10,6 +10,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import ReadingAnalytics from './ReadingAnalytics';
 import BookManager from './BookManager';
 import BookUniverseMap from './BookUniverseMap';
+import BookCover from './BookCover';
 import TimerIcon from '@mui/icons-material/Timer';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PublicIcon from '@mui/icons-material/Public';
@@ -415,31 +416,58 @@ const ReadingSpeed = () => {
                     <Box
                       sx={{
                         width: '100%',
-                        px: 2,
-                        py: 1.1,
-                        borderRadius: '14px',
+                        p: 1.5,
+                        borderRadius: '18px',
                         bgcolor: 'background.surfaceVariant',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.75,
                       }}
                     >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: selectedBookProgress.pct !== null ? 0.65 : 0 }}>
-                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                          {selectedBookProgress.lastPage > 0
-                            ? `Zuletzt auf Seite ${selectedBookProgress.lastPage}`
-                            : 'Noch keine Seiten erfasst'}
+                      <BookCover
+                        coverUrl={selectedBook.coverUrl}
+                        title={selectedBook.name}
+                        width={52}
+                        height={76}
+                        borderRadius="10px"
+                      />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          variant="subtitle2"
+                          fontWeight={700}
+                          sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        >
+                          {selectedBook.name}
                         </Typography>
-                        {selectedBookProgress.total > 0 && (
-                          <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                            {selectedBookProgress.lastPage}/{selectedBookProgress.total} · {selectedBookProgress.pct}%
+                        {selectedBook.author && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', mb: 0.75 }}
+                          >
+                            {selectedBook.author}
                           </Typography>
                         )}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: selectedBookProgress.pct !== null ? 0.5 : 0 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={500} sx={{ fontSize: '0.72rem' }}>
+                            {selectedBookProgress.lastPage > 0
+                              ? `Zuletzt S. ${selectedBookProgress.lastPage}`
+                              : 'Noch keine Seiten'}
+                          </Typography>
+                          {selectedBookProgress.total > 0 && (
+                            <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontSize: '0.72rem', fontVariantNumeric: 'tabular-nums' }}>
+                              {selectedBookProgress.lastPage}/{selectedBookProgress.total} · {selectedBookProgress.pct}%
+                            </Typography>
+                          )}
+                        </Box>
+                        {selectedBookProgress.pct !== null && (
+                          <LinearProgress
+                            variant="determinate"
+                            value={selectedBookProgress.pct}
+                            sx={{ height: 5, borderRadius: 9999 }}
+                          />
+                        )}
                       </Box>
-                      {selectedBookProgress.pct !== null && (
-                        <LinearProgress
-                          variant="determinate"
-                          value={selectedBookProgress.pct}
-                          sx={{ height: 5, borderRadius: 9999 }}
-                        />
-                      )}
                     </Box>
                   )}
                 </Box>

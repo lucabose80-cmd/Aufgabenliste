@@ -3,7 +3,7 @@ import { useTaskContext } from '../context/TaskContext';
 import {
   Box, Card, Typography, TextField, Button, IconButton,
   Autocomplete, Checkbox, Tooltip, Dialog, DialogTitle, DialogContent,
-  DialogActions, Collapse, LinearProgress
+  DialogActions, Collapse, LinearProgress, CircularProgress
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -19,10 +19,14 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import ImageSearchIcon from '@mui/icons-material/ImageSearch';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import BookCover from './BookCover';
+import { searchBookCovers, fetchBestBookCover } from '../utils/bookCoverApi';
 
 const BookManager = () => {
   const {
-    books, addBook, updateBook, deleteBook,
+    books, addBook, updateBook, updateBookCover, deleteBook,
     assignBookToUnassignedSessions, readingSessions, renameAuthor, renameSeries
   } = useTaskContext();
 
@@ -41,6 +45,15 @@ const BookManager = () => {
   const [formUniverse, setFormUniverse] = useState('');
   const [formTotalPages, setFormTotalPages] = useState('');
   const [formWordsPerPage, setFormWordsPerPage] = useState('');
+  const [formCoverUrl, setFormCoverUrl] = useState('');
+
+  // Cover search state inside modal
+  const [coverCandidates, setCoverCandidates] = useState([]);
+  const [isSearchingCovers, setIsSearchingCovers] = useState(false);
+  const [coverSearchDone, setCoverSearchDone] = useState(false);
+
+  // Batch fetch missing covers state
+  const [isFetchingAllCovers, setIsFetchingAllCovers] = useState(false);
 
   // Manage Authors / Series Modal
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
@@ -75,6 +88,7 @@ const BookManager = () => {
 
   const activeBooks = useMemo(() => sortedBooks.filter(b => !b.completed), [sortedBooks]);
   const completedBooks = useMemo(() => sortedBooks.filter(b => b.completed), [sortedBooks]);
+  const booksWithoutCover = useMemo(() => books.filter(b => !b.coverUrl), [books]);
 
   const unassignedSessionsCount = useMemo(
     () => readingSessions.filter(s => !s.bookId || !books.some(b => b.id === s.bookId)).length,
@@ -90,6 +104,9 @@ const BookManager = () => {
     setFormUniverse('');
     setFormTotalPages('');
     setFormWordsPerPage('');
+    setFormCoverUrl('');
+    setCoverCandidates([]);
+    setCoverSearchDone(false);
     setBookModalOpen(true);
   };
 
@@ -102,7 +119,35 @@ const BookManager = () => {
     setFormUniverse(book.universe || '');
     setFormTotalPages(book.totalPages ? book.totalPages.toString() : '');
     setFormWordsPerPage(book.wordsPerPage ? book.wordsPerPage.toString() : '');
+    setFormCoverUrl(book.coverUrl || '');
+    setCoverCandidates([]);
+    setCoverSearchDone(false);
     setBookModalOpen(true);
+  };
+
+  const handleSearchCovers = async () => {
+    if (!formName.trim()) return;
+    setIsSearchingCovers(true);
+    setCoverSearchDone(false);
+    const results = await searchBookCovers(formName, formAuthor);
+    setCoverCandidates(results);
+    setIsSearchingCovers(false);
+    setCoverSearchDone(true);
+  };
+
+  const handleFetchMissingCovers = async () => {
+    if (isFetchingAllCovers || booksWithoutCover.length === 0) return;
+    setIsFetchingAllCovers(true);
+    try {
+      for (const book of booksWithoutCover) {
+        const url = await fetchBestBookCover(book.name, book.author);
+        if (url) {
+          await updateBookCover(book.id, url);
+        }
+      }
+    } finally {
+      setIsFetchingAllCovers(false);
+    }
   };
 
   const handleSeriesInput = (newValue) => {
@@ -112,7 +157,7 @@ const BookManager = () => {
     }
   };
 
-  const handleSaveBook = () => {
+  const handleSaveBook = async () => {
     if (!formName.trim()) return;
 
     let wordsToSave = formWordsPerPage;
@@ -127,6 +172,16 @@ const BookManager = () => {
       }
     }
 
+    let finalCoverUrl = formCoverUrl.trim() || null;
+    if (!editingBookId && !finalCoverUrl) {
+      // Automatically try to fetch a cover when creating a new book
+      try {
+        finalCoverUrl = await fetchBestBookCover(formName, formAuthor);
+      } catch {
+        finalCoverUrl = null;
+      }
+    }
+
     if (editingBookId) {
       updateBook(
         editingBookId,
@@ -137,7 +192,8 @@ const BookManager = () => {
         wordsToSave,
         formSeriesNumber,
         formUniverse,
-        formTotalPages
+        formTotalPages,
+        finalCoverUrl
       );
     } else {
       addBook(
@@ -147,7 +203,8 @@ const BookManager = () => {
         wordsToSave,
         formSeriesNumber,
         formUniverse,
-        formTotalPages
+        formTotalPages,
+        finalCoverUrl
       );
     }
     setBookModalOpen(false);
@@ -200,6 +257,7 @@ const BookManager = () => {
 
         setCompletedBookStats({
           name: book.name,
+          coverUrl: book.coverUrl || null,
           timeStr: `${h}h ${m}m`,
           pages: pagesRead,
           speed: Math.round(bookSpeed),
@@ -285,6 +343,20 @@ const BookManager = () => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {booksWithoutCover.length > 0 && (
+              <Tooltip title={`Fehlende Cover (${booksWithoutCover.length}) automatisch über Google Books & Open Library laden`}>
+                <Button
+                  startIcon={isFetchingAllCovers ? <CircularProgress size={14} color="inherit" /> : <AutoFixHighIcon fontSize="small" />}
+                  variant="outlined"
+                  onClick={handleFetchMissingCovers}
+                  disabled={isFetchingAllCovers}
+                  size="small"
+                  sx={{ borderRadius: 9999, borderColor: 'divider', color: 'primary.main', px: 1.75 }}
+                >
+                  {isFetchingAllCovers ? 'Lade Cover...' : `Cover laden (${booksWithoutCover.length})`}
+                </Button>
+              </Tooltip>
+            )}
             <Button
               startIcon={<SettingsIcon fontSize="small" />}
               variant="outlined"
@@ -306,7 +378,7 @@ const BookManager = () => {
           </Box>
         </Box>
 
-        {/* Active Books Grid */}
+        {/* Active Books List */}
         {activeBooks.length === 0 ? (
           <Box
             sx={{
@@ -328,7 +400,7 @@ const BookManager = () => {
                 <Box
                   key={book.id}
                   sx={{
-                    p: { xs: 1.75, sm: 2.25 },
+                    p: { xs: 1.5, sm: 2 },
                     borderRadius: '18px',
                     bgcolor: 'background.surfaceVariant',
                     display: 'flex',
@@ -336,26 +408,67 @@ const BookManager = () => {
                     gap: 1.25,
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                    <Tooltip title="Buch abschließen">
-                      <Checkbox
-                        icon={<CheckCircleOutlinedIcon sx={{ fontSize: 22, color: 'text.secondary', opacity: 0.7 }} />}
-                        checkedIcon={<CheckCircleIcon sx={{ fontSize: 22, color: 'success.main' }} />}
-                        checked={!!book.completed}
-                        onChange={() => handleToggleCompleted(book)}
-                        sx={{ p: 0.25, mt: 0.1 }}
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                    {/* Book Cover on the left */}
+                    <Box
+                      onClick={() => openEditModal(book)}
+                      sx={{ cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <BookCover
+                        coverUrl={book.coverUrl}
+                        title={book.name}
+                        width={54}
+                        height={80}
+                        borderRadius="10px"
                       />
-                    </Tooltip>
+                    </Box>
 
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: '0.98rem', lineHeight: 1.3 }}>
-                        {book.name}
-                      </Typography>
-                      {book.author && (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem', mt: 0.25 }}>
-                          {book.author}
-                        </Typography>
-                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: '0.98rem', lineHeight: 1.3 }}>
+                            {book.name}
+                          </Typography>
+                          {book.author && (
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem', mt: 0.2 }}>
+                              {book.author}
+                            </Typography>
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                          <Tooltip title="Buch abschließen">
+                            <Checkbox
+                              icon={<CheckCircleOutlinedIcon sx={{ fontSize: 20, color: 'text.secondary', opacity: 0.7 }} />}
+                              checkedIcon={<CheckCircleIcon sx={{ fontSize: 20, color: 'success.main' }} />}
+                              checked={!!book.completed}
+                              onChange={() => handleToggleCompleted(book)}
+                              sx={{ p: 0.5 }}
+                            />
+                          </Tooltip>
+                          {unassignedSessionsCount > 0 && (
+                            <Tooltip title={`Allen ${unassignedSessionsCount} Einträgen ohne Buch dieses Buch zuweisen`}>
+                              <IconButton
+                                onClick={() => assignBookToUnassignedSessions(book.id)}
+                                color="success"
+                                size="small"
+                              >
+                                <LibraryAddCheckIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <IconButton onClick={() => openEditModal(book)} size="small" sx={{ color: 'text.secondary' }}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            onClick={() => deleteBook(book.id)}
+                            size="small"
+                            sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
 
                       {/* Metadata Pills */}
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
@@ -412,35 +525,11 @@ const BookManager = () => {
                         )}
                       </Box>
                     </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-                      {unassignedSessionsCount > 0 && (
-                        <Tooltip title={`Allen ${unassignedSessionsCount} Einträgen ohne Buch dieses Buch zuweisen`}>
-                          <IconButton
-                            onClick={() => assignBookToUnassignedSessions(book.id)}
-                            color="success"
-                            size="small"
-                          >
-                            <LibraryAddCheckIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <IconButton onClick={() => openEditModal(book)} size="small" sx={{ color: 'text.secondary' }}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => deleteBook(book.id)}
-                        size="small"
-                        sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
                   </Box>
 
                   {/* Book Progress Bar */}
                   {info.total > 0 && (
-                    <Box sx={{ pl: { xs: 0, sm: 4 } }}>
+                    <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', fontWeight: 500 }}>
                           Fortschritt
@@ -503,22 +592,14 @@ const BookManager = () => {
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 1,
+                      gap: 1.5,
                       p: 1.5,
                       borderRadius: '16px',
                       bgcolor: 'background.surfaceVariant',
-                      opacity: 0.78,
+                      opacity: 0.82,
                     }}
                   >
-                    <Tooltip title="Buch wieder öffnen">
-                      <Checkbox
-                        icon={<CheckCircleOutlinedIcon />}
-                        checkedIcon={<CheckCircleIcon color="success" />}
-                        checked={!!book.completed}
-                        onChange={() => handleToggleCompleted(book)}
-                        sx={{ p: 0.25 }}
-                      />
-                    </Tooltip>
+                    <BookCover coverUrl={book.coverUrl} title={book.name} width={38} height={56} borderRadius="8px" />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="body2" fontWeight={600} sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
                         {book.name}
@@ -529,6 +610,15 @@ const BookManager = () => {
                           .join(' · ')}
                       </Typography>
                     </Box>
+                    <Tooltip title="Buch wieder öffnen">
+                      <Checkbox
+                        icon={<CheckCircleOutlinedIcon />}
+                        checkedIcon={<CheckCircleIcon color="success" />}
+                        checked={!!book.completed}
+                        onChange={() => handleToggleCompleted(book)}
+                        sx={{ p: 0.5 }}
+                      />
+                    </Tooltip>
                     <IconButton onClick={() => openEditModal(book)} size="small" sx={{ color: 'text.secondary' }}>
                       <EditIcon fontSize="small" />
                     </IconButton>
@@ -543,7 +633,7 @@ const BookManager = () => {
         </Box>
       )}
 
-      {/* Add / Edit Book Dialog */}
+      {/* Add / Edit Book Dialog with Cover Search */}
       <Dialog open={bookModalOpen} onClose={() => setBookModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <span>{editingBookId ? 'Buch bearbeiten' : 'Neues Buch hinzufügen'}</span>
@@ -552,6 +642,84 @@ const BookManager = () => {
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.25, pt: '12px !important' }}>
+          {/* Cover Preview & Search Row */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              p: 1.5,
+              borderRadius: '16px',
+              bgcolor: 'background.surfaceVariant',
+            }}
+          >
+            <BookCover coverUrl={formCoverUrl} title={formName} width={56} height={84} borderRadius="10px" />
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                Buchcover (Google Books & Open Library)
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={isSearchingCovers ? <CircularProgress size={14} color="inherit" /> : <ImageSearchIcon fontSize="small" />}
+                  onClick={handleSearchCovers}
+                  disabled={!formName.trim() || isSearchingCovers}
+                  sx={{ borderRadius: 9999 }}
+                >
+                  {isSearchingCovers ? 'Suche...' : 'Cover suchen'}
+                </Button>
+                {formCoverUrl && (
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => setFormCoverUrl('')}
+                    sx={{ borderRadius: 9999 }}
+                  >
+                    Entfernen
+                  </Button>
+                )}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Cover Search Results Strip */}
+          {coverCandidates.length > 0 && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Passendes Cover antippen:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5 }}>
+                {coverCandidates.map((cand, idx) => {
+                  const selected = formCoverUrl === cand.url;
+                  return (
+                    <Box
+                      key={idx}
+                      onClick={() => setFormCoverUrl(cand.url)}
+                      sx={{
+                        cursor: 'pointer',
+                        p: 0.5,
+                        borderRadius: '12px',
+                        border: '2px solid',
+                        borderColor: selected ? 'primary.main' : 'transparent',
+                        bgcolor: selected ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
+                        flexShrink: 0,
+                        transition: 'border-color 0.15s ease',
+                      }}
+                    >
+                      <BookCover coverUrl={cand.url} title={cand.title} width={56} height={84} borderRadius="8px" />
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
+          {coverSearchDone && coverCandidates.length === 0 && (
+            <Typography variant="caption" color="text.secondary">
+              Kein passendes Cover gefunden. Du kannst auch unten direkt eine Bild-URL einfügen.
+            </Typography>
+          )}
+
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Basisinfos
@@ -593,7 +761,7 @@ const BookManager = () => {
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Reihe & Universum
+              Reihe, Universum & Cover-URL
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.5 }}>
               <Autocomplete
@@ -618,6 +786,14 @@ const BookManager = () => {
               value={formUniverse}
               onInputChange={(e, newValue) => setFormUniverse(newValue)}
               renderInput={(params) => <TextField {...params} label="Universum" size="small" fullWidth />}
+            />
+            <TextField
+              label="Cover Bild-URL (optional)"
+              value={formCoverUrl}
+              onChange={(e) => setFormCoverUrl(e.target.value)}
+              size="small"
+              fullWidth
+              placeholder="https://..."
             />
           </Box>
         </DialogContent>
@@ -725,22 +901,28 @@ const BookManager = () => {
       {/* Book Completed Stats Dialog */}
       <Dialog open={!!completedBookStats} onClose={() => setCompletedBookStats(null)} maxWidth="xs" fullWidth>
         <DialogContent sx={{ p: 3, textAlign: 'center' }}>
-          <Box
-            sx={{
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              bgcolor: alpha(theme.palette.success.main, isDark ? 0.18 : 0.12),
-              color: 'success.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mx: 'auto',
-              mb: 1.5,
-            }}
-          >
-            <AutoAwesomeIcon />
-          </Box>
+          {completedBookStats?.coverUrl ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.5 }}>
+              <BookCover coverUrl={completedBookStats.coverUrl} title={completedBookStats.name} width={68} height={100} borderRadius="12px" />
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                width: 52,
+                height: 52,
+                borderRadius: '50%',
+                bgcolor: alpha(theme.palette.success.main, isDark ? 0.18 : 0.12),
+                color: 'success.main',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mx: 'auto',
+                mb: 1.5,
+              }}
+            >
+              <AutoAwesomeIcon />
+            </Box>
+          )}
           <Typography variant="h6" fontWeight={700}>
             Buch abgeschlossen!
           </Typography>
