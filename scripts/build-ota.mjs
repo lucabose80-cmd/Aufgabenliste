@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 
 const DIST_DIR = path.resolve(process.cwd(), 'dist');
 const BUNDLE_NAME = 'ota-bundle.zip';
@@ -115,15 +116,17 @@ const files = collectFiles(DIST_DIR);
 const zipBuffer = buildZip(files);
 fs.writeFileSync(path.join(DIST_DIR, BUNDLE_NAME), zipBuffer);
 
+const checksum = crypto.createHash('sha256').update(zipBuffer).digest('hex');
 const commitSha = (process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || '').slice(0, 7);
 const version = commitSha ? `1.0.${Date.now()}-${commitSha}` : `1.0.${Date.now()}`;
 
 const manifest = {
   version,
   url: `${BASE_URL}/${BUNDLE_NAME}`,
+  checksum,
   builtAt: new Date().toISOString(),
   size: zipBuffer.length,
 };
 
 fs.writeFileSync(path.join(DIST_DIR, MANIFEST_NAME), JSON.stringify(manifest, null, 2));
-console.log(`OTA bundle generated: ${BUNDLE_NAME} (${(zipBuffer.length / 1024).toFixed(1)} KB), version ${version}`);
+console.log(`OTA bundle generated: ${BUNDLE_NAME} (${(zipBuffer.length / 1024).toFixed(1)} KB), version ${version}, sha256 ${checksum.slice(0, 12)}...`);

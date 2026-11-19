@@ -115,6 +115,7 @@ export const checkOtaUpdate = async () => {
     const bundle = await CapacitorUpdater.download({
       url: manifest.url,
       version: manifest.version,
+      checksum: manifest.checksum || '',
     });
 
     if (bundle?.id) {
