@@ -1,13 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Collapse, LinearProgress } from '@mui/material';
+import { Box, Card, Typography, Collapse, LinearProgress, Dialog, DialogContent, IconButton } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import PublicIcon from '@mui/icons-material/Public';
 import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import CloseIcon from '@mui/icons-material/Close';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import MapIcon from '@mui/icons-material/Map';
 import { ReactFlow, Handle, Position, Background, Controls } from '@xyflow/react';
@@ -73,9 +72,9 @@ const BookNode = ({ data }) => {
   return (
     <Box
       sx={{
-        p: 1.5,
-        width: 260,
-        borderRadius: '18px',
+        p: 1.25,
+        width: 230,
+        borderRadius: '16px',
         bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: book.completed ? alpha(theme.palette.success.main, 0.4) : 'divider',
@@ -86,15 +85,10 @@ const BookNode = ({ data }) => {
       }}
     >
       <Handle type="target" position={Position.Left} style={{ background: book.completed ? theme.palette.success.main : theme.palette.primary.main, border: 'none', width: 8, height: 8 }} />
-      <BookCover coverUrl={book.coverUrl} title={book.name} width={38} height={56} borderRadius="7px" />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.25, textDecoration: book.completed ? 'line-through' : 'none', color: book.completed ? 'text.secondary' : 'text.primary' }}>
-          {book.name}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-          {[book.seriesNumber ? `Band ${book.seriesNumber}` : null, book.author, book.totalPages ? `${book.totalPages} S.` : null].filter(Boolean).join(' · ')}
-        </Typography>
-      </Box>
+      <BookCover coverUrl={book.coverUrl} title={book.name} width={36} height={54} borderRadius="7px" />
+      <Typography variant="subtitle2" fontWeight={700} sx={{ flex: 1, minWidth: 0, lineHeight: 1.25, color: book.completed ? 'text.secondary' : 'text.primary' }}>
+        {book.name}
+      </Typography>
       {book.completed && <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main', flexShrink: 0 }} />}
     </Box>
   );
@@ -106,96 +100,113 @@ const nodeTypes = {
   bookNode: BookNode,
 };
 
-// --- Connected Book Card inside Tree Explorer ---
-const ExplorerBookCard = ({ book, isDark, theme }) => (
+// --- Minimal Cover-First Shelf Tile (Cover + Name only; tap for details) ---
+const CoverShelfTile = ({ book, onSelect, isDark }) => (
   <Box
+    onClick={() => onSelect(book)}
     sx={{
-      p: 1.25,
-      minWidth: 190,
-      maxWidth: 230,
+      width: 96,
       flexShrink: 0,
-      borderRadius: '16px',
-      bgcolor: 'background.paper',
-      border: '1px solid',
-      borderColor: book.completed ? alpha(theme.palette.success.main, 0.4) : 'divider',
+      cursor: 'pointer',
+      userSelect: 'none',
       display: 'flex',
-      alignItems: 'center',
-      gap: 1.25,
-      position: 'relative',
-      transition: 'border-color 0.2s ease',
+      flexDirection: 'column',
+      gap: 0.75,
+      transition: 'transform 0.16s ease',
+      '&:hover': { transform: 'translateY(-3px)' },
+      '&:active': { transform: 'scale(0.97)' },
     }}
   >
-    <BookCover coverUrl={book.coverUrl} title={book.name} width={40} height={58} borderRadius="8px" />
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
-        {book.seriesNumber && (
-          <Box
-            sx={{
-              px: 0.75,
-              py: 0.1,
-              borderRadius: 9999,
-              bgcolor: book.completed
-                ? alpha(theme.palette.success.main, isDark ? 0.18 : 0.12)
-                : alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
-              color: book.completed ? 'success.main' : 'primary.main',
-              fontSize: '0.64rem',
-              fontWeight: 700,
-            }}
-          >
-            Bd. {book.seriesNumber}
-          </Box>
-        )}
-        {book.completed && <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />}
-      </Box>
-      <Typography
-        variant="body2"
-        fontWeight={700}
+    <Box sx={{ position: 'relative', width: 96, height: 142 }}>
+      <BookCover
+        coverUrl={book.coverUrl}
+        title={book.name}
+        width={96}
+        height={142}
+        borderRadius="12px"
         sx={{
-          fontSize: '0.82rem',
-          lineHeight: 1.25,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          color: book.completed ? 'text.secondary' : 'text.primary',
+          opacity: book.completed ? 0.82 : 1,
         }}
-      >
-        {book.name}
-      </Typography>
-      {(book.author || book.totalPages) && (
-        <Typography
-          variant="caption"
-          color="text.secondary"
+      />
+
+      {/* Subtle Band badge in top-left corner */}
+      {book.seriesNumber && (
+        <Box
           sx={{
-            display: 'block',
-            mt: 0.25,
-            fontSize: '0.68rem',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            position: 'absolute',
+            top: 6,
+            left: 6,
+            px: 0.75,
+            py: 0.15,
+            borderRadius: 9999,
+            bgcolor: isDark ? 'rgba(19, 19, 20, 0.82)' : 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(6px)',
+            color: 'text.primary',
+            fontSize: '0.64rem',
+            fontWeight: 700,
+            lineHeight: 1.3,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.22)',
           }}
         >
-          {[book.author, book.totalPages ? `${book.totalPages} S.` : null].filter(Boolean).join(' · ')}
-        </Typography>
+          #{book.seriesNumber}
+        </Box>
+      )}
+
+      {/* Subtle completed check badge in top-right corner */}
+      {book.completed && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            bgcolor: isDark ? '#131314' : '#FFFFFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+          }}
+        >
+          <CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />
+        </Box>
       )}
     </Box>
+
+    <Typography
+      variant="caption"
+      fontWeight={600}
+      sx={{
+        fontSize: '0.76rem',
+        lineHeight: 1.25,
+        color: book.completed ? 'text.secondary' : 'text.primary',
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+        px: 0.25,
+      }}
+    >
+      {book.name}
+    </Typography>
   </Box>
 );
 
 const BookUniverseMap = () => {
-  const { books } = useTaskContext();
+  const { books, readingSessions } = useTaskContext();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   const [viewMode, setViewMode] = useState('explorer'); // 'explorer' | '2d'
   const [selectedFilter, setSelectedFilter] = useState('all'); // 'all' | 'uni:<name>' | 'series' | 'standalone'
   const [collapsedNodes, setCollapsedNodes] = useState({});
+  const [selectedBook, setSelectedBook] = useState(null);
 
   const toggleNode = (key) => {
     setCollapsedNodes(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Structured hierarchy used by BOTH the interactive Explorer and the 2D Map
   const hierarchy = useMemo(() => {
     const data = {
       universes: {},
@@ -238,7 +249,22 @@ const BookUniverseMap = () => {
   const universeNames = useMemo(() => Object.keys(hierarchy.universes).sort((a, b) => a.localeCompare(b)), [hierarchy]);
   const standaloneSeriesNames = useMemo(() => Object.keys(hierarchy.standaloneSeries).sort((a, b) => a.localeCompare(b)), [hierarchy]);
 
-  // 2D ReactFlow layout (only computed when needed)
+  // Compute reading stats for the selected book modal
+  const selectedBookStats = useMemo(() => {
+    if (!selectedBook) return null;
+    const sessions = readingSessions.filter(s => s.bookId === selectedBook.id);
+    const totalSec = sessions.reduce((acc, s) => acc + (s.timeSpent || 0), 0);
+    const maxEnded = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
+    const pagesRead = maxEnded > 0 ? maxEnded : sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
+    const total = Number(selectedBook.totalPages) || 0;
+    const pct = total > 0 ? Math.min(100, Math.round((pagesRead / total) * 100)) : null;
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const timeStr = totalSec > 0 ? (h > 0 ? `${h}h ${m}m` : `${m}m`) : null;
+    return { pagesRead, total, pct, timeStr, sessionsCount: sessions.length };
+  }, [selectedBook, readingSessions]);
+
+  // 2D ReactFlow layout (only computed when 2D-Map is active)
   const { nodes, edges } = useMemo(() => {
     if (viewMode !== '2d') return { nodes: [], edges: [] };
     const newNodes = [];
@@ -248,7 +274,7 @@ const BookUniverseMap = () => {
     const X_UNI = 40;
     const X_SER = 380;
     const X_BOK = 720;
-    const Y_SPACING = 115;
+    const Y_SPACING = 110;
 
     const edgeColorSubtle = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(31,31,31,0.22)';
     const edgeColorPrimary = alpha(theme.palette.primary.main, 0.75);
@@ -305,104 +331,26 @@ const BookUniverseMap = () => {
     return { nodes: newNodes, edges: newEdges };
   }, [viewMode, hierarchy, universeNames, standaloneSeriesNames, isDark, theme.palette.primary.main]);
 
-  const renderSeriesBranch = (serName, serBooks, branchKey) => {
-    const isCollapsed = !!collapsedNodes[branchKey];
+  const renderSeriesShelf = (serName, serBooks, key) => {
     const doneCount = serBooks.filter(b => b.completed).length;
-    const pct = serBooks.length > 0 ? Math.round((doneCount / serBooks.length) * 100) : 0;
-
     return (
-      <Box
-        key={branchKey}
-        sx={{
-          position: 'relative',
-          pl: { xs: 2, sm: 2.5 },
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            left: 0,
-            top: 22,
-            width: { xs: 14, sm: 18 },
-            height: 2,
-            bgcolor: alpha(theme.palette.secondary.main, 0.45),
-            borderRadius: 2,
-          },
-        }}
-      >
-        <Box
-          sx={{
-            p: { xs: 1.5, sm: 2 },
-            borderRadius: '18px',
-            bgcolor: 'background.surfaceVariant',
-            border: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Box
-            onClick={() => toggleNode(branchKey)}
-            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, cursor: 'pointer', userSelect: 'none' }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-              <CollectionsBookmarkIcon sx={{ fontSize: 18, color: 'secondary.main', flexShrink: 0 }} />
-              <Typography variant="subtitle2" fontWeight={700} sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {serName}
-              </Typography>
-              <Box
-                sx={{
-                  px: 1,
-                  py: 0.15,
-                  borderRadius: 9999,
-                  bgcolor: doneCount === serBooks.length
-                    ? alpha(theme.palette.success.main, isDark ? 0.18 : 0.12)
-                    : alpha(theme.palette.secondary.main, isDark ? 0.18 : 0.12),
-                  color: doneCount === serBooks.length ? 'success.main' : 'secondary.main',
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  fontVariantNumeric: 'tabular-nums',
-                  flexShrink: 0,
-                }}
-              >
-                {doneCount}/{serBooks.length}
-              </Box>
-            </Box>
-            <ExpandMoreIcon
-              fontSize="small"
-              sx={{
-                color: 'text.secondary',
-                transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-                transition: 'transform 0.2s ease',
-              }}
-            />
+      <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            <CollectionsBookmarkIcon sx={{ fontSize: 16, color: 'secondary.main', flexShrink: 0 }} />
+            <Typography variant="subtitle2" fontWeight={700} sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {serName}
+            </Typography>
           </Box>
+          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+            {doneCount}/{serBooks.length}
+          </Typography>
+        </Box>
 
-          <LinearProgress
-            variant="determinate"
-            value={pct}
-            color={doneCount === serBooks.length ? 'success' : 'secondary'}
-            sx={{ height: 4, borderRadius: 9999, mt: 1, mb: isCollapsed ? 0 : 1.5 }}
-          />
-
-          <Collapse in={!isCollapsed} timeout={200}>
-            {/* Connected horizontal Band-1 -> Band-2 -> Band-3 timeline */}
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                overflowX: 'auto',
-                pb: 0.5,
-                pt: 0.25,
-              }}
-            >
-              {serBooks.map((book, idx) => (
-                <React.Fragment key={book.id}>
-                  <ExplorerBookCard book={book} isDark={isDark} theme={theme} />
-                  {idx < serBooks.length - 1 && (
-                    <ArrowForwardIcon sx={{ fontSize: 16, color: 'text.disabled', flexShrink: 0 }} />
-                  )}
-                </React.Fragment>
-              ))}
-            </Box>
-          </Collapse>
+        <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', pb: 0.5 }}>
+          {serBooks.map(book => (
+            <CoverShelfTile key={book.id} book={book} onSelect={setSelectedBook} isDark={isDark} />
+          ))}
         </Box>
       </Box>
     );
@@ -412,129 +360,94 @@ const BookUniverseMap = () => {
     return (
       <Card sx={{ p: 4, textAlign: 'center', borderRadius: '24px' }}>
         <Typography variant="h6" fontWeight={600} gutterBottom>
-          Noch keine Bücher im Universum
+          Noch keine Bücher vorhanden
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Füge zuerst Bücher unter „Bücher“ hinzu, um deine Universen & Reihen zu erkunden.
+          Füge zuerst Bücher unter „Bücher“ hinzu, um deine Universen & Reihen zu sehen.
         </Typography>
       </Card>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      {/* Header & View Mode Toggle */}
-      <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-            <Box
-              sx={{
-                width: 38,
-                height: 38,
-                borderRadius: '12px',
-                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
-                color: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <AutoStoriesIcon fontSize="small" />
-            </Box>
-            <Box>
-              <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
-                Universum & Reihen
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {universeNames.length} Universen · {standaloneSeriesNames.length} Einzelreihen · {books.length} Bücher
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* Explorer vs 2D-Map Toggle */}
-          <Box
-            sx={{
-              display: 'inline-flex',
-              p: 0.4,
-              borderRadius: 9999,
-              bgcolor: 'background.surfaceVariant',
-              gap: 0.35,
-            }}
-          >
-            {[
-              { id: 'explorer', label: 'Übersicht', icon: AccountTreeIcon },
-              { id: '2d', label: '2D-Map', icon: MapIcon },
-            ].map(({ id, label, icon: IconComp }) => {
-              const active = viewMode === id;
-              return (
-                <Box
-                  key={id}
-                  onClick={() => setViewMode(id)}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    px: 1.4,
-                    py: 0.5,
-                    borderRadius: 9999,
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    fontSize: '0.76rem',
-                    fontWeight: active ? 700 : 500,
-                    bgcolor: active ? 'background.paper' : 'transparent',
-                    color: active ? 'primary.main' : 'text.secondary',
-                    boxShadow: active ? (isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.08)') : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <IconComp sx={{ fontSize: 15 }} />
-                  {label}
-                </Box>
-              );
-            })}
-          </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Slim Top Controls: Filter Pills + Compact View Switch */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25 }}>
+        <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', flex: 1, py: 0.25 }}>
+          {viewMode === 'explorer' && [
+            { id: 'all', label: 'Alle' },
+            ...universeNames.map(u => ({ id: `uni:${u}`, label: u })),
+            ...(standaloneSeriesNames.length > 0 ? [{ id: 'series', label: 'Reihen' }] : []),
+            ...(hierarchy.standaloneBooks.length > 0 ? [{ id: 'standalone', label: 'Einzeln' }] : []),
+          ].map(pill => {
+            const active = selectedFilter === pill.id;
+            return (
+              <Box
+                key={pill.id}
+                onClick={() => setSelectedFilter(pill.id)}
+                sx={{
+                  px: 1.5,
+                  py: 0.6,
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  flexShrink: 0,
+                  fontSize: '0.78rem',
+                  fontWeight: active ? 700 : 500,
+                  bgcolor: active
+                    ? alpha(theme.palette.primary.main, isDark ? 0.22 : 0.14)
+                    : 'background.paper',
+                  border: '1px solid',
+                  borderColor: active ? 'primary.main' : 'divider',
+                  color: active ? 'primary.main' : 'text.secondary',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {pill.label}
+              </Box>
+            );
+          })}
         </Box>
 
-        {/* Quick Universe / Section Filter Pills (Explorer mode) */}
-        {viewMode === 'explorer' && (
-          <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', pb: 0.25 }}>
-            {[
-              { id: 'all', label: 'Alle' },
-              ...universeNames.map(u => ({ id: `uni:${u}`, label: u })),
-              ...(standaloneSeriesNames.length > 0 ? [{ id: 'series', label: 'Einzelreihen' }] : []),
-              ...(hierarchy.standaloneBooks.length > 0 ? [{ id: 'standalone', label: 'Einzelbücher' }] : []),
-            ].map(pill => {
-              const active = selectedFilter === pill.id;
-              return (
-                <Box
-                  key={pill.id}
-                  onClick={() => setSelectedFilter(pill.id)}
-                  sx={{
-                    px: 1.5,
-                    py: 0.55,
-                    borderRadius: 9999,
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    flexShrink: 0,
-                    fontSize: '0.78rem',
-                    fontWeight: active ? 700 : 500,
-                    bgcolor: active
-                      ? alpha(theme.palette.primary.main, isDark ? 0.22 : 0.12)
-                      : 'background.surfaceVariant',
-                    color: active ? 'primary.main' : 'text.secondary',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {pill.label}
-                </Box>
-              );
-            })}
-          </Box>
-        )}
-      </Card>
+        {/* Compact Icon Switch: Shelf vs 2D-Map */}
+        <Box
+          sx={{
+            display: 'inline-flex',
+            p: 0.35,
+            borderRadius: 9999,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            flexShrink: 0,
+          }}
+        >
+          {[
+            { id: 'explorer', icon: AccountTreeIcon, title: 'Regal-Ansicht' },
+            { id: '2d', icon: MapIcon, title: '2D-Map' },
+          ].map(({ id, icon: IconComp, title }) => {
+            const active = viewMode === id;
+            return (
+              <IconButton
+                key={id}
+                size="small"
+                title={title}
+                onClick={() => setViewMode(id)}
+                sx={{
+                  width: 30,
+                  height: 30,
+                  bgcolor: active ? alpha(theme.palette.primary.main, isDark ? 0.22 : 0.14) : 'transparent',
+                  color: active ? 'primary.main' : 'text.secondary',
+                }}
+              >
+                <IconComp sx={{ fontSize: 16 }} />
+              </IconButton>
+            );
+          })}
+        </Box>
+      </Box>
 
       {viewMode === 'explorer' ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Universes */}
           {universeNames
             .filter(u => selectedFilter === 'all' || selectedFilter === `uni:${u}`)
@@ -546,50 +459,37 @@ const BookUniverseMap = () => {
                 ...uniData.standaloneBooks,
               ];
               const doneCount = allUniBooks.filter(b => b.completed).length;
-              const pct = allUniBooks.length > 0 ? Math.round((doneCount / allUniBooks.length) * 100) : 0;
               const uniKey = `uni-${uniName}`;
               const isCollapsed = !!collapsedNodes[uniKey];
 
               return (
-                <Card
-                  key={uniKey}
-                  sx={{
-                    p: { xs: 2, sm: 2.5 },
-                    borderRadius: '24px',
-                    borderColor: alpha(theme.palette.primary.main, isDark ? 0.3 : 0.22),
-                  }}
-                >
-                  {/* Universe Header Node */}
+                <Card key={uniKey} sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '24px' }}>
                   <Box
                     onClick={() => toggleNode(uniKey)}
-                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, cursor: 'pointer', userSelect: 'none' }}
+                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, cursor: 'pointer', userSelect: 'none' }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1, minWidth: 0 }}>
+                      <PublicIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />
+                      <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
+                        {uniName}
+                      </Typography>
                       <Box
                         sx={{
-                          width: 38,
-                          height: 38,
-                          borderRadius: '12px',
-                          bgcolor: alpha(theme.palette.primary.main, isDark ? 0.2 : 0.12),
+                          px: 0.95,
+                          py: 0.15,
+                          borderRadius: 9999,
+                          bgcolor: alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
                           color: 'primary.main',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          fontVariantNumeric: 'tabular-nums',
                         }}
                       >
-                        <PublicIcon fontSize="small" />
-                      </Box>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
-                          {uniName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {uniSeriesEntries.length} {uniSeriesEntries.length === 1 ? 'Reihe' : 'Reihen'} · {doneCount}/{allUniBooks.length} gelesen ({pct}%)
-                        </Typography>
+                        {doneCount}/{allUniBooks.length}
                       </Box>
                     </Box>
                     <ExpandMoreIcon
+                      fontSize="small"
                       sx={{
                         color: 'text.secondary',
                         transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
@@ -598,48 +498,20 @@ const BookUniverseMap = () => {
                     />
                   </Box>
 
-                  <LinearProgress variant="determinate" value={pct} sx={{ height: 5, borderRadius: 9999, mt: 1.5 }} />
-
-                  {/* Connected Tree Branches */}
-                  <Collapse in={!isCollapsed} timeout={220}>
-                    <Box
-                      sx={{
-                        mt: 2,
-                        ml: { xs: 1.5, sm: 2.25 },
-                        borderLeft: '2px solid',
-                        borderColor: alpha(theme.palette.primary.main, 0.35),
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 1.75,
-                        py: 0.5,
-                      }}
-                    >
+                  <Collapse in={!isCollapsed} timeout={200}>
+                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
                       {uniSeriesEntries.map(([serName, serBooks]) =>
-                        renderSeriesBranch(serName, serBooks, `uni-${uniName}-ser-${serName}`)
+                        renderSeriesShelf(serName, serBooks, `uni-${uniName}-ser-${serName}`)
                       )}
 
                       {uniData.standaloneBooks.length > 0 && (
-                        <Box
-                          sx={{
-                            position: 'relative',
-                            pl: { xs: 2, sm: 2.5 },
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              left: 0,
-                              top: 28,
-                              width: { xs: 14, sm: 18 },
-                              height: 2,
-                              bgcolor: alpha(theme.palette.primary.main, 0.35),
-                            },
-                          }}
-                        >
-                          <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Einzelwerke im Universum
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Einzelwerke
                           </Typography>
-                          <Box sx={{ display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5 }}>
+                          <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', pb: 0.5 }}>
                             {uniData.standaloneBooks.map(book => (
-                              <ExplorerBookCard key={book.id} book={book} isDark={isDark} theme={theme} />
+                              <CoverShelfTile key={book.id} book={book} onSelect={setSelectedBook} isDark={isDark} />
                             ))}
                           </Box>
                         </Box>
@@ -653,22 +525,9 @@ const BookUniverseMap = () => {
           {/* Standalone Series */}
           {(selectedFilter === 'all' || selectedFilter === 'series') && standaloneSeriesNames.length > 0 && (
             <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '24px' }}>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CollectionsBookmarkIcon fontSize="small" color="secondary" />
-                Einzelreihen
-              </Typography>
-              <Box
-                sx={{
-                  ml: 1,
-                  borderLeft: '2px solid',
-                  borderColor: alpha(theme.palette.secondary.main, 0.35),
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1.75,
-                }}
-              >
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                 {standaloneSeriesNames.map(serName =>
-                  renderSeriesBranch(serName, hierarchy.standaloneSeries[serName], `st-ser-${serName}`)
+                  renderSeriesShelf(serName, hierarchy.standaloneSeries[serName], `st-ser-${serName}`)
                 )}
               </Box>
             </Card>
@@ -677,12 +536,12 @@ const BookUniverseMap = () => {
           {/* Standalone Books */}
           {(selectedFilter === 'all' || selectedFilter === 'standalone') && hierarchy.standaloneBooks.length > 0 && (
             <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '24px' }}>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-                Einzelbücher ({hierarchy.standaloneBooks.length})
+              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                Einzelbücher
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
                 {hierarchy.standaloneBooks.map(book => (
-                  <ExplorerBookCard key={book.id} book={book} isDark={isDark} theme={theme} />
+                  <CoverShelfTile key={book.id} book={book} onSelect={setSelectedBook} isDark={isDark} />
                 ))}
               </Box>
             </Card>
@@ -729,6 +588,120 @@ const BookUniverseMap = () => {
           </Box>
         </Card>
       )}
+
+      {/* Book Detail Dialog on Tap */}
+      <Dialog
+        open={!!selectedBook}
+        onClose={() => setSelectedBook(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        {selectedBook && (
+          <DialogContent sx={{ p: 2.5 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, minWidth: 0, flex: 1 }}>
+                <BookCover
+                  coverUrl={selectedBook.coverUrl}
+                  title={selectedBook.name}
+                  width={76}
+                  height={114}
+                  borderRadius="12px"
+                />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.25 }}>
+                    {selectedBook.name}
+                  </Typography>
+                  {selectedBook.author && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                      {selectedBook.author}
+                    </Typography>
+                  )}
+
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.65, mt: 1.25 }}>
+                    <Box
+                      sx={{
+                        px: 1,
+                        py: 0.2,
+                        borderRadius: 9999,
+                        bgcolor: selectedBook.completed
+                          ? alpha(theme.palette.success.main, isDark ? 0.18 : 0.12)
+                          : alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
+                        color: selectedBook.completed ? 'success.main' : 'primary.main',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {selectedBook.completed ? 'Gelesen' : 'Aktiv'}
+                    </Box>
+                    {selectedBook.series && (
+                      <Box
+                        sx={{
+                          px: 1,
+                          py: 0.2,
+                          borderRadius: 9999,
+                          bgcolor: 'background.surfaceVariant',
+                          color: 'text.secondary',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {selectedBook.series}{selectedBook.seriesNumber ? ` · Bd. ${selectedBook.seriesNumber}` : ''}
+                      </Box>
+                    )}
+                    {selectedBook.universe && (
+                      <Box
+                        sx={{
+                          px: 1,
+                          py: 0.2,
+                          borderRadius: 9999,
+                          bgcolor: alpha(theme.palette.secondary.main, isDark ? 0.16 : 0.1),
+                          color: 'secondary.main',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {selectedBook.universe}
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              </Box>
+              <IconButton size="small" onClick={() => setSelectedBook(null)} sx={{ color: 'text.secondary', mt: -0.5, mr: -0.5 }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+
+            {selectedBookStats && (selectedBookStats.total > 0 || selectedBookStats.timeStr) && (
+              <Box sx={{ mt: 2.25, p: 1.75, borderRadius: '16px', bgcolor: 'background.surfaceVariant', display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                {selectedBookStats.total > 0 && (
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                        Fortschritt
+                      </Typography>
+                      <Typography variant="caption" color="text.primary" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {selectedBookStats.pagesRead} / {selectedBookStats.total} S. · {selectedBookStats.pct}%
+                      </Typography>
+                    </Box>
+                    <LinearProgress variant="determinate" value={selectedBookStats.pct} sx={{ height: 6, borderRadius: 9999 }} />
+                  </Box>
+                )}
+
+                {selectedBookStats.timeStr && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Bisherige Lesezeit
+                    </Typography>
+                    <Typography variant="caption" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {selectedBookStats.timeStr} ({selectedBookStats.sessionsCount} {selectedBookStats.sessionsCount === 1 ? 'Session' : 'Sessions'})
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+        )}
+      </Dialog>
     </Box>
   );
 };
