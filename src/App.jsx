@@ -113,7 +113,7 @@ function MainApp() {
   };
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', height: '100dvh', overflow: 'hidden' }}>
       <NotificationManager />
       <Sidebar 
         currentView={currentView} 
@@ -251,7 +251,8 @@ function MainApp() {
             right: 0,
             display: { md: 'none' },
             zIndex: 1100,
-            bgcolor: 'transparent',
+            borderRadius: 0,
+            bgcolor: (t) => t.palette.mode === 'dark' ? '#131314' : '#FFFFFF',
           }}
           elevation={0}
         >

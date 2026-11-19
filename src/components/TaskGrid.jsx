@@ -32,6 +32,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
+import CloseIcon from '@mui/icons-material/Close';
 import TaskCreator from './TaskCreator';
 
 const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setGlobalEditMode, isCompact = false }) => {
@@ -639,8 +640,9 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
               size="small"
               sx={{
                 mt: -0.25,
+                p: isCompact ? { xs: 0.25, sm: 0.5 } : 0.5,
                 color: 'text.secondary',
-                transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transform: (!isCompact && expanded) ? 'rotate(180deg)' : 'rotate(0deg)',
                 transition: 'transform 0.22s ease, background-color 0.2s ease',
               }}
             >
@@ -649,155 +651,448 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
           )}
         </Box>
 
-        <Collapse in={expanded} timeout={220}>
-          <Box
-            sx={{
-              mt: 1.5,
-              p: 1.5,
-              borderRadius: '14px',
-              bgcolor: 'background.surfaceVariant',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5,
-            }}
-          >
-            {task.subTasks.length > 0 && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
-                  <Box
-                    key={st.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      py: 0.35,
-                      px: 0.5,
-                      borderRadius: '10px',
-                      '&:hover': {
-                        bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                      },
-                    }}
-                  >
-                    <Checkbox
-                      checked={st.completed}
-                      onChange={() => {
-                        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
-                        toggleSubTask(task.id, st.id);
-                      }}
-                      size="small"
-                      icon={<RadioButtonUncheckedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />}
-                      checkedIcon={<CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />}
-                      sx={{ p: 0.25 }}
-                    />
-                    <Typography 
-                      variant="body2"
-                      sx={{ 
-                        fontSize: '0.84rem',
-                        textDecoration: st.completed ? 'line-through' : 'none',
-                        color: st.completed ? 'text.secondary' : 'text.primary',
+        {!isCompact && (
+          <Collapse in={expanded} timeout={220}>
+            <Box
+              sx={{
+                mt: 1.5,
+                p: 1.5,
+                borderRadius: '14px',
+                bgcolor: 'background.surfaceVariant',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              {task.subTasks.length > 0 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                  {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
+                    <Box
+                      key={st.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        py: 0.35,
+                        px: 0.5,
+                        borderRadius: '10px',
+                        '&:hover': {
+                          bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        },
                       }}
                     >
-                      {st.title}
-                      {st.completed && task.isShared && st.completedBy && (
-                        <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic', color: 'text.secondary' }}>
-                          (von {st.completedBy})
-                        </Typography>
-                      )}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            )}
-
-            {task.type !== 'general' && (
-              <Box>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: 'block', mb: 1, fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}
-                >
-                  Letzte 7 Tage
-                </Typography>
-                <Box 
-                  sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, overflowX: 'auto' }}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onTouchMove={(e) => e.stopPropagation()}
-                >
-                  {[6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
-                    const baseDate = subHours(new Date(), resetHour || 3);
-                    const d = subDays(baseDate, daysAgo);
-                    const dateStr = format(d, 'yyyy-MM-dd');
-                    const isDone = (task.completedDates || []).includes(dateStr);
-                    const isScheduled = task.type !== 'specific-days' || (task.specificDays || []).includes(d.getDay());
-                    const shortDay = format(d, 'EE', { locale: de });
-                    const shortDate = format(d, 'dd.MM');
-                    const isToday = daysAgo === 0;
-                    return (
-                      <Box 
-                        key={dateStr}
-                        onClick={() => {
+                      <Checkbox
+                        checked={st.completed}
+                        onChange={() => {
                           if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
-                          toggleTaskCompletion(task.id, dateStr);
+                          toggleSubTask(task.id, st.id);
                         }}
+                        size="small"
+                        icon={<RadioButtonUncheckedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />}
+                        checkedIcon={<CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />}
+                        sx={{ p: 0.25 }}
+                      />
+                      <Typography 
+                        variant="body2"
                         sx={{ 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          alignItems: 'center', 
-                          minWidth: 36,
-                          cursor: 'pointer',
-                          '&:hover .day-circle': {
-                            transform: 'scale(1.1)',
-                          },
+                          fontSize: '0.84rem',
+                          textDecoration: st.completed ? 'line-through' : 'none',
+                          color: st.completed ? 'text.secondary' : 'text.primary',
                         }}
                       >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.65rem',
-                            fontWeight: isToday ? 700 : 500,
-                            color: isToday ? 'primary.main' : 'text.secondary',
+                        {st.title}
+                        {st.completed && task.isShared && st.completedBy && (
+                          <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                            (von {st.completedBy})
+                          </Typography>
+                        )}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {task.type !== 'general' && (
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 1, fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                  >
+                    Letzte 7 Tage
+                  </Typography>
+                  <Box 
+                    sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, overflowX: 'auto' }}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                  >
+                    {[6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
+                      const baseDate = subHours(new Date(), resetHour || 3);
+                      const d = subDays(baseDate, daysAgo);
+                      const dateStr = format(d, 'yyyy-MM-dd');
+                      const isDone = (task.completedDates || []).includes(dateStr);
+                      const isScheduled = task.type !== 'specific-days' || (task.specificDays || []).includes(d.getDay());
+                      const shortDay = format(d, 'EE', { locale: de });
+                      const shortDate = format(d, 'dd.MM');
+                      const isToday = daysAgo === 0;
+                      return (
+                        <Box 
+                          key={dateStr}
+                          onClick={() => {
+                            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                            toggleTaskCompletion(task.id, dateStr);
+                          }}
+                          sx={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center', 
+                            minWidth: 36,
+                            cursor: 'pointer',
+                            '&:hover .day-circle': {
+                              transform: 'scale(1.1)',
+                            },
                           }}
                         >
-                          {shortDay}
-                        </Typography>
-                        <Box 
-                          className="day-circle"
-                          sx={{ 
-                            width: 30,
-                            height: 30,
-                            borderRadius: '50%',
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: '0.65rem',
+                              fontWeight: isToday ? 700 : 500,
+                              color: isToday ? 'primary.main' : 'text.secondary',
+                            }}
+                          >
+                            {shortDay}
+                          </Typography>
+                          <Box 
+                            className="day-circle"
+                            sx={{ 
+                              width: 30,
+                              height: 30,
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              bgcolor: isDone
+                                ? 'success.main'
+                                : (!isScheduled ? 'transparent' : 'background.paper'),
+                              color: isDone ? (isDark ? '#131314' : '#FFFFFF') : 'text.disabled',
+                              border: (!isScheduled && !isDone) ? 'none' : '1.5px solid',
+                              borderColor: isDone
+                                ? 'success.main'
+                                : (isToday ? 'primary.main' : 'divider'),
+                              my: 0.5,
+                              transition: 'transform 0.15s ease, background-color 0.2s ease',
+                            }}
+                          >
+                            {isDone ? (
+                              <CheckIcon sx={{ fontSize: 16, strokeWidth: 2 }} />
+                            ) : (!isScheduled ? (
+                              <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'divider' }} />
+                            ) : null)}
+                          </Box>
+                          <Typography variant="caption" sx={{ fontSize: '0.62rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                            {shortDate}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          </Collapse>
+        )}
+
+        {isCompact && (
+          <Dialog
+            open={expanded}
+            onClose={() => setExpanded(false)}
+            maxWidth="xs"
+            fullWidth
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            <DialogContent sx={{ p: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, mb: 1.5 }}>
+                <Checkbox
+                  checked={isCompleted}
+                  onChange={() => {
+                    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                    toggleTaskCompletion(task.id);
+                  }}
+                  disabled={!allSubTasksCompleted && task.subTasks.length > 0}
+                  icon={<RadioButtonUncheckedIcon sx={{ fontSize: 22, color: 'text.secondary', opacity: 0.7 }} />}
+                  checkedIcon={<CheckCircleIcon sx={{ fontSize: 22, color: 'success.main' }} />}
+                  sx={{ p: 0.25, mt: 0.1 }}
+                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    {task.categoryColor && (
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: task.categoryColor, flexShrink: 0 }} />
+                    )}
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '1.05rem',
+                        lineHeight: 1.3,
+                        textDecoration: isCompleted ? 'line-through' : 'none',
+                        color: isCompleted ? 'text.secondary' : 'text.primary',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {task.title}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        px: 1,
+                        py: 0.2,
+                        borderRadius: 9999,
+                        bgcolor: 'background.surfaceVariant',
+                        color: 'text.secondary',
+                        fontSize: '0.72rem',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {getTypeLabel()}{specificDaysString ? ` · ${specificDaysString}` : ''}
+                    </Box>
+                    {streak > 0 && (
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.25,
+                          px: 0.9,
+                          py: 0.2,
+                          borderRadius: 9999,
+                          bgcolor: alpha(muiTheme.palette.warning.main, isDark ? 0.18 : 0.14),
+                          color: isDark ? '#FDD663' : '#C25E00',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <LocalFireDepartmentIcon sx={{ fontSize: 13 }} />
+                        {streak}
+                      </Box>
+                    )}
+                    {consistencyScore !== null && (
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          px: 0.9,
+                          py: 0.2,
+                          borderRadius: 9999,
+                          bgcolor: alpha(
+                            consistencyScore >= 80
+                              ? muiTheme.palette.success.main
+                              : (consistencyScore >= 50 ? muiTheme.palette.warning.main : muiTheme.palette.error.main),
+                            isDark ? 0.16 : 0.12
+                          ),
+                          color:
+                            consistencyScore >= 80
+                              ? 'success.main'
+                              : (consistencyScore >= 50 ? 'warning.main' : 'error.main'),
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {consistencyScore}%
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+                <IconButton size="small" onClick={() => setExpanded(false)} sx={{ color: 'text.secondary', mt: -0.5, mr: -0.5 }}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+
+              {totalSubTasksCount > 0 && (
+                <Box sx={{ mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.74rem', fontWeight: 500 }}>
+                      Teilaufgaben
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.74rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {completedSubTasksCount}/{totalSubTasksCount} · {progressPercentage}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress variant="determinate" value={progressPercentage} sx={{ height: 5, borderRadius: 9999 }} />
+                </Box>
+              )}
+
+              {(task.subTasks.length > 0 || task.type !== 'general') && (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: '16px',
+                    bgcolor: 'background.surfaceVariant',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                  }}
+                >
+                  {task.subTasks.length > 0 && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                      {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
+                        <Box
+                          key={st.id}
+                          sx={{
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            bgcolor: isDone
-                              ? 'success.main'
-                              : (!isScheduled ? 'transparent' : 'background.paper'),
-                            color: isDone ? (isDark ? '#131314' : '#FFFFFF') : 'text.disabled',
-                            border: (!isScheduled && !isDone) ? 'none' : '1.5px solid',
-                            borderColor: isDone
-                              ? 'success.main'
-                              : (isToday ? 'primary.main' : 'divider'),
-                            my: 0.5,
-                            transition: 'transform 0.15s ease, background-color 0.2s ease',
+                            gap: 1,
+                            py: 0.35,
+                            px: 0.5,
+                            borderRadius: '10px',
                           }}
                         >
-                          {isDone ? (
-                            <CheckIcon sx={{ fontSize: 16, strokeWidth: 2 }} />
-                          ) : (!isScheduled ? (
-                            <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'divider' }} />
-                          ) : null)}
+                          <Checkbox
+                            checked={st.completed}
+                            onChange={() => {
+                              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                              toggleSubTask(task.id, st.id);
+                            }}
+                            size="small"
+                            icon={<RadioButtonUncheckedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />}
+                            checkedIcon={<CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />}
+                            sx={{ p: 0.25 }}
+                          />
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontSize: '0.86rem',
+                              textDecoration: st.completed ? 'line-through' : 'none',
+                              color: st.completed ? 'text.secondary' : 'text.primary',
+                            }}
+                          >
+                            {st.title}
+                            {st.completed && task.isShared && st.completedBy && (
+                              <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                                (von {st.completedBy})
+                              </Typography>
+                            )}
+                          </Typography>
                         </Box>
-                        <Typography variant="caption" sx={{ fontSize: '0.62rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                          {shortDate}
-                        </Typography>
+                      ))}
+                    </Box>
+                  )}
+
+                  {task.type !== 'general' && (
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', mb: 1, fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                      >
+                        Letzte 7 Tage
+                      </Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, overflowX: 'auto' }}>
+                        {[6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
+                          const baseDate = subHours(new Date(), resetHour || 3);
+                          const d = subDays(baseDate, daysAgo);
+                          const dateStr = format(d, 'yyyy-MM-dd');
+                          const isDone = (task.completedDates || []).includes(dateStr);
+                          const isScheduled = task.type !== 'specific-days' || (task.specificDays || []).includes(d.getDay());
+                          const shortDay = format(d, 'EE', { locale: de });
+                          const shortDate = format(d, 'dd.MM');
+                          const isToday = daysAgo === 0;
+                          return (
+                            <Box
+                              key={dateStr}
+                              onClick={() => {
+                                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                                toggleTaskCompletion(task.id, dateStr);
+                              }}
+                              sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                minWidth: 36,
+                                cursor: 'pointer',
+                                '&:hover .day-circle': { transform: 'scale(1.1)' },
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: isToday ? 700 : 500,
+                                  color: isToday ? 'primary.main' : 'text.secondary',
+                                }}
+                              >
+                                {shortDay}
+                              </Typography>
+                              <Box
+                                className="day-circle"
+                                sx={{
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  bgcolor: isDone
+                                    ? 'success.main'
+                                    : (!isScheduled ? 'transparent' : 'background.paper'),
+                                  color: isDone ? (isDark ? '#131314' : '#FFFFFF') : 'text.disabled',
+                                  border: (!isScheduled && !isDone) ? 'none' : '1.5px solid',
+                                  borderColor: isDone
+                                    ? 'success.main'
+                                    : (isToday ? 'primary.main' : 'divider'),
+                                  my: 0.5,
+                                  transition: 'transform 0.15s ease, background-color 0.2s ease',
+                                }}
+                              >
+                                {isDone ? (
+                                  <CheckIcon sx={{ fontSize: 16, strokeWidth: 2 }} />
+                                ) : (!isScheduled ? (
+                                  <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'divider' }} />
+                                ) : null)}
+                              </Box>
+                              <Typography variant="caption" sx={{ fontSize: '0.62rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                                {shortDate}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
                       </Box>
-                    );
-                  })}
+                    </Box>
+                  )}
                 </Box>
+              )}
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mt: 2 }}>
+                <Button
+                  size="small"
+                  startIcon={<EditIcon fontSize="small" />}
+                  onClick={() => {
+                    setExpanded(false);
+                    onEdit(task);
+                  }}
+                  sx={{ borderRadius: 9999, color: 'text.secondary', px: 1.5 }}
+                >
+                  Bearbeiten
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setExpanded(false)}
+                  sx={{ borderRadius: 9999, px: 2, borderColor: 'divider', color: 'text.primary' }}
+                >
+                  Schließen
+                </Button>
               </Box>
-            )}
-          </Box>
-        </Collapse>
+            </DialogContent>
+          </Dialog>
+        )}
       </Box>
     </Card>
   );
@@ -1413,6 +1708,7 @@ const TaskGrid = () => {
                                 ? 'repeat(2, minmax(0, 1fr))'
                                 : { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
                               gap: taskColumns === 2 ? { xs: 1.25, sm: 1.75 } : 1.75,
+                              alignItems: 'start',
                             }}
                           >
                             {catTasks.map(task => (
@@ -1533,6 +1829,7 @@ const TaskGrid = () => {
                       ? 'repeat(2, minmax(0, 1fr))'
                       : { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
                     gap: taskColumns === 2 ? { xs: 1.25, sm: 1.75 } : 1.75,
+                    alignItems: 'start',
                     opacity: 0.72,
                   }}
                 >
