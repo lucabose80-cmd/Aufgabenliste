@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Grid, Button, Select, MenuItem, FormControl, InputLabel, Switch, Divider } from '@mui/material';
+import { Box, Card, Typography, Grid, Button, Select, MenuItem, FormControl, InputLabel, Switch, Divider, CircularProgress } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ViewAgendaIcon from '@mui/icons-material/ViewAgenda';
 import GridViewIcon from '@mui/icons-material/GridView';
+import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
 import CategoriesManager from './CategoriesManager';
+import { isNativeAndroid, checkOtaUpdate } from '../utils/nativeBridge';
 
 const COLORS = [
   { name: 'Google Blau', hex: '#1a73e8' },
@@ -33,6 +35,20 @@ const Settings = () => {
   const { theme, accentColor, pinnedNavItems, saveSettings, resetHour, vacationMode, saveVacationMode, resetTaskStatistics, enableReadingFeature, taskColumns, saveTaskColumns } = useTaskContext();
   const muiTheme = useTheme();
   const isDark = muiTheme.palette.mode === 'dark';
+  const [otaChecking, setOtaChecking] = useState(false);
+  const [otaStatusMsg, setOtaStatusMsg] = useState('');
+  const [otaApplyFn, setOtaApplyFn] = useState(null);
+
+  const handleManualOtaCheck = async () => {
+    setOtaChecking(true);
+    setOtaStatusMsg('');
+    const res = await checkOtaUpdate();
+    setOtaChecking(false);
+    setOtaStatusMsg(res.message || '');
+    if (res.status === 'ready' && res.applyNow) {
+      setOtaApplyFn(() => res.applyNow);
+    }
+  };
 
   const handleThemeChange = (newTheme) => {
     saveSettings(newTheme, accentColor, undefined, pinnedNavItems);
@@ -317,6 +333,43 @@ const Settings = () => {
           />
         </Box>
       </Card>
+
+      {/* App-Updates (nur in Android-App) */}
+      {isNativeAndroid() && (
+        <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
+          <Typography variant="h6" gutterBottom fontWeight={700}>
+            App-Updates (OTA)
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Prüft auf neue Web-Updates über Vercel und lädt sie direkt ohne neue APK.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              startIcon={otaChecking ? <CircularProgress size={16} color="inherit" /> : <SystemUpdateAltIcon fontSize="small" />}
+              disabled={otaChecking}
+              onClick={handleManualOtaCheck}
+              sx={{ borderRadius: 9999 }}
+            >
+              {otaChecking ? 'Prüfe...' : 'Nach Updates suchen'}
+            </Button>
+            {otaApplyFn && (
+              <Button
+                variant="contained"
+                onClick={() => otaApplyFn()}
+                sx={{ borderRadius: 9999 }}
+              >
+                Update jetzt laden
+              </Button>
+            )}
+          </Box>
+          {otaStatusMsg && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+              {otaStatusMsg}
+            </Typography>
+          )}
+        </Card>
+      )}
 
       {/* Gefahrenzone */}
       <Card

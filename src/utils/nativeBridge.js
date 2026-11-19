@@ -89,21 +89,28 @@ export const requestNativeNotificationPermission = async () => {
   }
 };
 
-export const initOfflineFirstOtaUpdater = async (onUpdateDownloaded) => {
-  if (!isNativeAndroid()) return;
+export const checkOtaUpdate = async () => {
+  if (!isNativeAndroid()) {
+    return { status: 'web', message: 'Nur in der Android-App verfügbar' };
+  }
   try {
-    // Always tell CapacitorUpdater the current bundle booted cleanly
-    await CapacitorUpdater.notifyAppReady();
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return { status: 'offline', message: 'Keine Internetverbindung' };
+    }
 
     const res = await fetch(`${OTA_MANIFEST_URL}?t=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) return;
+    if (!res.ok) {
+      return { status: 'error', message: `Manifest nicht erreichbar (HTTP ${res.status})` };
+    }
     const manifest = await res.json();
-    if (!manifest?.version || !manifest?.url) return;
+    if (!manifest?.version || !manifest?.url) {
+      return { status: 'error', message: 'Ungültiges Update-Manifest' };
+    }
 
     const currentVersion = localStorage.getItem(OTA_VERSION_STORAGE_KEY);
-    if (currentVersion === manifest.version) return;
+    if (currentVersion === manifest.version) {
+      return { status: 'up-to-date', version: manifest.version, message: 'App ist auf dem neuesten Stand' };
+    }
 
     const bundle = await CapacitorUpdater.download({
       url: manifest.url,
@@ -111,16 +118,35 @@ export const initOfflineFirstOtaUpdater = async (onUpdateDownloaded) => {
     });
 
     if (bundle?.id) {
+      // Queue for next restart automatically so even dismissing the banner applies it
+      await CapacitorUpdater.next({ id: bundle.id });
       localStorage.setItem(OTA_VERSION_STORAGE_KEY, manifest.version);
-      if (typeof onUpdateDownloaded === 'function') {
-        onUpdateDownloaded(async () => {
-          await CapacitorUpdater.set(bundle);
-        });
-      } else {
-        await CapacitorUpdater.next(bundle);
-      }
+      return {
+        status: 'ready',
+        version: manifest.version,
+        message: 'Update heruntergeladen und bereit',
+        applyNow: async () => {
+          await CapacitorUpdater.set({ id: bundle.id });
+        },
+      };
+    }
+
+    return { status: 'error', message: 'Bundle konnte nicht gespeichert werden' };
+  } catch (e) {
+    console.warn('OTA update check failed:', e);
+    return { status: 'error', message: e?.message || 'Update-Prüfung fehlgeschlagen' };
+  }
+};
+
+export const initOfflineFirstOtaUpdater = async (onUpdateDownloaded) => {
+  if (!isNativeAndroid()) return;
+  try {
+    await CapacitorUpdater.notifyAppReady();
+    const result = await checkOtaUpdate();
+    if (result.status === 'ready' && typeof onUpdateDownloaded === 'function') {
+      onUpdateDownloaded(result.applyNow);
     }
   } catch (e) {
-    console.warn('OTA update check skipped:', e);
+    console.warn('OTA init skipped:', e);
   }
 };

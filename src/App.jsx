@@ -334,7 +334,9 @@ function MainApp() {
 
         <Snackbar
           open={!!otaApplyFn}
-          onClose={() => setOtaApplyFn(null)}
+          onClose={(_, reason) => {
+            if (reason !== 'clickaway') setOtaApplyFn(null);
+          }}
           message="Neues App-Update bereit"
           sx={{ bottom: { xs: 84, md: 24 } }}
           action={
