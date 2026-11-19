@@ -293,13 +293,24 @@ function MainApp() {
             autoHideDuration={4000}
             onClose={closeSnackbar}
             message={snackbarInfo.message}
+            sx={{ bottom: { xs: 84, md: 24 } }}
             action={
               snackbarInfo.onUndo ? (
-                <Button color="secondary" size="small" onClick={() => {
-                  snackbarInfo.onUndo();
-                  closeSnackbar();
-                }}>
-                  RÜCKGÄNGIG
+                <Button
+                  size="small"
+                  sx={{
+                    color: '#A8C7FA',
+                    fontWeight: 700,
+                    px: 1.5,
+                    borderRadius: 9999,
+                    '&:hover': { bgcolor: 'rgba(168, 199, 250, 0.14)' },
+                  }}
+                  onClick={() => {
+                    snackbarInfo.onUndo();
+                    closeSnackbar();
+                  }}
+                >
+                  Rückgängig
                 </Button>
               ) : null
             }
@@ -313,6 +324,19 @@ function MainApp() {
 function ThemeWrapper() {
   const { theme, accentColor } = useTaskContext();
   const muiTheme = React.useMemo(() => createAppTheme(theme, accentColor), [theme, accentColor]);
+
+  useEffect(() => {
+    const bgColor = theme === 'dark' ? '#131314' : '#F0F4F9';
+    document.documentElement.style.backgroundColor = bgColor;
+    document.body.style.backgroundColor = bgColor;
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', bgColor);
+  }, [theme]);
   
   return (
     <ThemeProvider theme={muiTheme}>

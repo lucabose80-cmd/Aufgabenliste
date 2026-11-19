@@ -272,14 +272,30 @@ const getDesignTokens = (mode, accentColor) => {
           },
         },
       },
+      MuiSnackbarContent: {
+        styleOverrides: {
+          root: {
+            backgroundColor: isDark ? '#303134' : '#1F1F1F',
+            color: '#F1F3F4',
+            borderRadius: 16,
+            border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+            boxShadow: isDark
+              ? '0 8px 28px rgba(0, 0, 0, 0.55)'
+              : '0 8px 24px rgba(0, 0, 0, 0.18)',
+            padding: '6px 16px',
+            fontSize: '0.88rem',
+            fontWeight: 500,
+          },
+        },
+      },
       MuiBottomNavigation: {
         styleOverrides: {
           root: {
-            backgroundColor: isDark ? alpha('#1E1F20', 0.88) : alpha('#FFFFFF', 0.88),
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            height: 72,
-            paddingBottom: 6,
+            backgroundColor: isDark ? '#131314' : '#FFFFFF',
+            height: 'auto',
+            minHeight: 68,
+            paddingTop: 6,
+            paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))',
             borderTop: `1px solid ${dividerColor}`,
           },
         },

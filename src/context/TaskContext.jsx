@@ -39,6 +39,10 @@ export const TaskProvider = ({ children }) => {
   const [resetHour, setResetHour] = useState(3);
   const [vacationMode, setVacationMode] = useState(false);
   const [enableReadingFeature, setEnableReadingFeature] = useState(false);
+  const [taskColumns, setTaskColumns] = useState(() => {
+    const saved = localStorage.getItem('taskColumns');
+    return saved === '2' ? 2 : 1;
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   // Global Reading Timer
@@ -238,6 +242,10 @@ export const TaskProvider = ({ children }) => {
         if (data.pastReviewOrder) setPastReviewOrder(data.pastReviewOrder);
         if (data.vacationMode !== undefined) setVacationMode(data.vacationMode);
         if (data.enableReadingFeature !== undefined) setEnableReadingFeature(data.enableReadingFeature);
+        if (data.taskColumns !== undefined) {
+          setTaskColumns(data.taskColumns);
+          localStorage.setItem('taskColumns', String(data.taskColumns));
+        }
       }
       setIsLoading(false);
     });
@@ -891,6 +899,15 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const saveTaskColumns = async (cols) => {
+    const validCols = cols === 2 ? 2 : 1;
+    setTaskColumns(validCols);
+    localStorage.setItem('taskColumns', String(validCols));
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), { taskColumns: validCols }, { merge: true });
+    }
+  };
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.style.setProperty('--accent-primary', accentColor);
@@ -1015,7 +1032,9 @@ export const TaskProvider = ({ children }) => {
       acceptListInvitation,
       rejectListInvitation,
       assignBookToUnassignedSessions,
-      enableReadingFeature
+      enableReadingFeature,
+      taskColumns,
+      saveTaskColumns
     }}>
       {children}
     </TaskContext.Provider>

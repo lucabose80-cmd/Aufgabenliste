@@ -5,6 +5,8 @@ import { alpha, useTheme } from '@mui/material/styles';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ViewAgendaIcon from '@mui/icons-material/ViewAgenda';
+import GridViewIcon from '@mui/icons-material/GridView';
 import CategoriesManager from './CategoriesManager';
 
 const COLORS = [
@@ -28,7 +30,7 @@ const NAV_ITEMS = [
 ];
 
 const Settings = () => {
-  const { theme, accentColor, pinnedNavItems, saveSettings, resetHour, vacationMode, saveVacationMode, resetTaskStatistics, enableReadingFeature } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, saveSettings, resetHour, vacationMode, saveVacationMode, resetTaskStatistics, enableReadingFeature, taskColumns, saveTaskColumns } = useTaskContext();
   const muiTheme = useTheme();
   const isDark = muiTheme.palette.mode === 'dark';
 
@@ -190,6 +192,62 @@ const Settings = () => {
               </Grid>
             );
           })}
+        </Grid>
+
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 3.5, mb: 1.5, fontWeight: 600 }}>
+          Aufgaben-Layout
+        </Typography>
+        <Grid container spacing={1.5}>
+          <Grid item xs={6}>
+            <Box
+              onClick={() => saveTaskColumns(1)}
+              sx={{
+                py: 2,
+                px: 2,
+                borderRadius: '18px',
+                border: '1.5px solid',
+                borderColor: (taskColumns || 1) === 1 ? 'primary.main' : 'divider',
+                bgcolor: (taskColumns || 1) === 1 ? alpha(muiTheme.palette.primary.main, isDark ? 0.16 : 0.08) : 'background.surfaceVariant',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.75,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': { borderColor: 'primary.main' },
+              }}
+            >
+              <ViewAgendaIcon sx={{ color: (taskColumns || 1) === 1 ? 'primary.main' : 'text.secondary', fontSize: 26 }} />
+              <Typography variant="body2" fontWeight={600} color={(taskColumns || 1) === 1 ? 'primary.main' : 'text.primary'}>
+                1 Spalte
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={6}>
+            <Box
+              onClick={() => saveTaskColumns(2)}
+              sx={{
+                py: 2,
+                px: 2,
+                borderRadius: '18px',
+                border: '1.5px solid',
+                borderColor: taskColumns === 2 ? 'primary.main' : 'divider',
+                bgcolor: taskColumns === 2 ? alpha(muiTheme.palette.primary.main, isDark ? 0.16 : 0.08) : 'background.surfaceVariant',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.75,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': { borderColor: 'primary.main' },
+              }}
+            >
+              <GridViewIcon sx={{ color: taskColumns === 2 ? 'primary.main' : 'text.secondary', fontSize: 26 }} />
+              <Typography variant="body2" fontWeight={600} color={taskColumns === 2 ? 'primary.main' : 'text.primary'}>
+                2 Spalten
+              </Typography>
+            </Box>
+          </Grid>
         </Grid>
       </Card>
 

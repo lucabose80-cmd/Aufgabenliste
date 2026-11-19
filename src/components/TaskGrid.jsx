@@ -34,7 +34,7 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import TaskCreator from './TaskCreator';
 
-const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setGlobalEditMode }) => {
+const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setGlobalEditMode, isCompact = false }) => {
   const timerRef = useRef(null);
   const touchStartRef = useRef(null);
   const longPressedRef = useRef(false);
@@ -447,8 +447,8 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
         </IconButton>
       )}
 
-      <Box sx={{ flexGrow: 1, px: 2, py: 1.75, display: 'flex', flexDirection: 'column', pointerEvents: isEditMode ? 'none' : 'auto' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
+      <Box sx={{ flexGrow: 1, px: isCompact ? { xs: 1.35, sm: 2 } : 2, py: isCompact ? { xs: 1.35, sm: 1.75 } : 1.75, display: 'flex', flexDirection: 'column', pointerEvents: isEditMode ? 'none' : 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: isCompact ? { xs: 0.75, sm: 1.25 } : 1.25 }}>
           {!isEditMode && (
             <Checkbox
               checked={isCompleted}
@@ -457,8 +457,8 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
                 toggleTaskCompletion(task.id);
               }}
               disabled={!allSubTasksCompleted && task.subTasks.length > 0}
-              icon={<RadioButtonUncheckedIcon sx={{ fontSize: 22, color: 'text.secondary', opacity: 0.7 }} />}
-              checkedIcon={<CheckCircleIcon sx={{ fontSize: 22, color: 'success.main' }} />}
+              icon={<RadioButtonUncheckedIcon sx={{ fontSize: isCompact ? { xs: 19, sm: 22 } : 22, color: 'text.secondary', opacity: 0.7 }} />}
+              checkedIcon={<CheckCircleIcon sx={{ fontSize: isCompact ? { xs: 19, sm: 22 } : 22, color: 'success.main' }} />}
               sx={{
                 p: 0.25,
                 mt: 0.1,
@@ -482,7 +482,7 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
               variant="subtitle1" 
               sx={{ 
                 fontWeight: 600, 
-                fontSize: '0.96rem',
+                fontSize: isCompact ? { xs: '0.84rem', sm: '0.96rem' } : '0.96rem',
                 lineHeight: 1.35,
                 textDecoration: isCompleted ? 'line-through' : 'none',
                 color: isCompleted ? 'text.secondary' : 'text.primary',
@@ -804,7 +804,7 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
 };
 
 const TaskGrid = () => {
-  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories, resetHour, deleteTask, vacationMode } = useTaskContext();
+  const { tasks, categories, getTodayDateString, reorderTasks, reorderCategories, resetHour, deleteTask, vacationMode, taskColumns } = useTaskContext();
   const [showCompleted, setShowCompleted] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
@@ -1409,8 +1409,10 @@ const TaskGrid = () => {
                           <Box
                             sx={{
                               display: 'grid',
-                              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
-                              gap: 1.75,
+                              gridTemplateColumns: taskColumns === 2
+                                ? 'repeat(2, minmax(0, 1fr))'
+                                : { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
+                              gap: taskColumns === 2 ? { xs: 1.25, sm: 1.75 } : 1.75,
                             }}
                           >
                             {catTasks.map(task => (
@@ -1419,6 +1421,7 @@ const TaskGrid = () => {
                                 task={task}
                                 isWrongDay={task.isWrongDay}
                                 isEditMode={isEditMode}
+                                isCompact={taskColumns === 2}
                                 setGlobalEditMode={setIsEditMode}
                                 onEdit={(t) => setTaskToEdit(t)}
                                 onDelete={(t) => {
@@ -1526,8 +1529,10 @@ const TaskGrid = () => {
                 <Box
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
-                    gap: 1.75,
+                    gridTemplateColumns: taskColumns === 2
+                      ? 'repeat(2, minmax(0, 1fr))'
+                      : { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
+                    gap: taskColumns === 2 ? { xs: 1.25, sm: 1.75 } : 1.75,
                     opacity: 0.72,
                   }}
                 >
@@ -1537,6 +1542,7 @@ const TaskGrid = () => {
                       task={task}
                       isWrongDay={false}
                       isEditMode={isEditMode}
+                      isCompact={taskColumns === 2}
                       setGlobalEditMode={setIsEditMode}
                       onEdit={(t) => setTaskToEdit(t)}
                       onDelete={(t) => {
