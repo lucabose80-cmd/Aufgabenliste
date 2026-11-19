@@ -337,9 +337,14 @@ const Settings = () => {
       {/* App-Updates (nur in Android-App) */}
       {isNativeAndroid() && (
         <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
-          <Typography variant="h6" gutterBottom fontWeight={700}>
-            App-Updates (OTA)
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.75 }}>
+            <Typography variant="h6" fontWeight={700}>
+              App-Updates (OTA)
+            </Typography>
+            <Typography variant="caption" color="primary.main" fontWeight={700}>
+              v2.0.1
+            </Typography>
+          </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Prüft auf neue Web-Updates über Vercel und lädt sie direkt ohne neue APK.
           </Typography>
