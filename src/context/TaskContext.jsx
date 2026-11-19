@@ -4,6 +4,12 @@ import { format, subHours } from 'date-fns';
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, query, where, arrayUnion, arrayRemove } from 'firebase/firestore';
+import {
+  syncNativeBooks,
+  syncNativeTasks,
+  getNativePendingState,
+  clearNativePendingFinish
+} from '../utils/nativeBridge';
 
 const TaskContext = createContext();
 
@@ -982,6 +988,78 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const [pendingWidgetFinish, setPendingWidgetFinish] = useState(null);
+  const [widgetSelectedBookId, setWidgetSelectedBookId] = useState('');
+
+  const clearPendingWidgetFinish = async () => {
+    setPendingWidgetFinish(null);
+    await clearNativePendingFinish();
+  };
+
+  // Sync open tasks for today to Compact Tasks Android Widget
+  useEffect(() => {
+    const today = getTodayDateString();
+    const todayDayOfWeek = subHours(new Date(), resetHour || 3).getDay();
+    const openTodayTasks = tasks
+      .filter((t) => {
+        const isDone = t.type === 'general'
+          ? (t.completedDates || []).length > 0
+          : (t.completedDates || []).includes(today);
+        if (isDone) return false;
+        if (t.type === 'specific-days' && Array.isArray(t.specificDays) && !t.specificDays.includes(todayDayOfWeek)) {
+          return false;
+        }
+        return true;
+      })
+      .map((t) => {
+        const cat = categories.find((c) => c.id === t.categoryId);
+        return {
+          id: t.id,
+          title: t.title,
+          categoryColor: cat?.color || '#A8C7FA',
+        };
+      });
+    syncNativeTasks(openTodayTasks);
+  }, [personalTasks, sharedTasks, categories, resetHour]);
+
+  // Sync active books to Reading Timer Android Widget
+  useEffect(() => {
+    syncNativeBooks(books, widgetSelectedBookId);
+  }, [books]);
+
+  // Pull state from Android Widget / Lockscreen Notification when app becomes active
+  useEffect(() => {
+    const pullNativeState = async () => {
+      const state = await getNativePendingState();
+      if (!state) return;
+      if (state.selectedBookId) {
+        setWidgetSelectedBookId(state.selectedBookId);
+      }
+      if (state.pendingFinish) {
+        setTimerRunning(false);
+        setTimerSeconds(state.pendingFinishSeconds || 0);
+        setPendingWidgetFinish({
+          seconds: state.pendingFinishSeconds || 0,
+          bookId: state.pendingFinishBookId || state.selectedBookId || '',
+        });
+      } else if (state.timerRunning || state.elapsedSeconds > 0) {
+        setTimerRunning(!!state.timerRunning);
+        setTimerSeconds(state.elapsedSeconds || 0);
+      }
+    };
+
+    pullNativeState();
+    const handleVisibility = () => {
+      if (!document.hidden) pullNativeState();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', pullNativeState);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', pullNativeState);
+    };
+  }, []);
+
   return (
     <TaskContext.Provider value={{
       tasks,
@@ -1032,6 +1110,10 @@ export const TaskProvider = ({ children }) => {
       setTimerRunning,
       timerSeconds,
       setTimerSeconds,
+      pendingWidgetFinish,
+      clearPendingWidgetFinish,
+      widgetSelectedBookId,
+      setWidgetSelectedBookId,
       allUsersDB,
       resetHour,
       vacationMode,

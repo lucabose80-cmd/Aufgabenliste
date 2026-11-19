@@ -30,6 +30,7 @@ import ProfileModal from './components/ProfileModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { initOfflineFirstOtaUpdater } from './utils/nativeBridge';
 
 const CURRENT_APP_VERSION = '1.1.6';
 
@@ -46,9 +47,22 @@ function MainApp() {
   });
   
   const { user, logout } = useAuth();
-  const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar, pendingTasks, pendingLists, enableReadingFeature } = useTaskContext();
+  const { theme, accentColor, pinnedNavItems, snackbarInfo, closeSnackbar, pendingTasks, pendingLists, enableReadingFeature, pendingWidgetFinish } = useTaskContext();
+  const [otaApplyFn, setOtaApplyFn] = useState(null);
   
   const pendingCount = (pendingTasks?.length || 0) + (pendingLists?.length || 0) + (hasUpdate ? 1 : 0);
+
+  useEffect(() => {
+    if (pendingWidgetFinish) {
+      setCurrentView('reading-speed');
+    }
+  }, [pendingWidgetFinish]);
+
+  useEffect(() => {
+    initOfflineFirstOtaUpdater((applyNow) => {
+      setOtaApplyFn(() => applyNow);
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -317,6 +331,31 @@ function MainApp() {
             }
           />
         )}
+
+        <Snackbar
+          open={!!otaApplyFn}
+          onClose={() => setOtaApplyFn(null)}
+          message="Neues App-Update bereit"
+          sx={{ bottom: { xs: 84, md: 24 } }}
+          action={
+            <Button
+              size="small"
+              sx={{
+                color: '#A8C7FA',
+                fontWeight: 700,
+                px: 1.5,
+                borderRadius: 9999,
+                '&:hover': { bgcolor: 'rgba(168, 199, 250, 0.14)' },
+              }}
+              onClick={() => {
+                if (otaApplyFn) otaApplyFn();
+                setOtaApplyFn(null);
+              }}
+            >
+              Jetzt laden
+            </Button>
+          }
+        />
       </Box>
     </Box>
   );

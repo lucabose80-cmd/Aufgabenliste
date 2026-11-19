@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifestFilename: 'manifest.json',
+      workbox: {
+        globIgnores: ['**/ota-bundle.zip', '**/ota-manifest.json'],
+      },
       devOptions: {
         enabled: true
       },

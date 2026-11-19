@@ -1,0 +1,13 @@
+{
+  "appId": "de.lucabose.aufgabenliste",
+  "appName": "Aufgabenliste",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#131314"
+  },
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": false
+    }
+  }
+}

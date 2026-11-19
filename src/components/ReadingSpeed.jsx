@@ -26,6 +26,7 @@ import CloudOffIcon from '@mui/icons-material/CloudOff';
 import CloseIcon from '@mui/icons-material/Close';
 import SpeedIcon from '@mui/icons-material/Speed';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { syncNativeTimer, syncNativeBooks, requestNativeNotificationPermission } from '../utils/nativeBridge';
 
 const SUB_TABS = [
   { id: 0, label: 'Timer', icon: TimerIcon },
@@ -38,7 +39,8 @@ const ReadingSpeed = () => {
   const {
     readingSessions, saveReadingSession, deleteReadingSession, updateReadingSession,
     timerRunning, setTimerRunning, timerSeconds, setTimerSeconds,
-    books
+    books, pendingWidgetFinish, clearPendingWidgetFinish,
+    widgetSelectedBookId, setWidgetSelectedBookId
   } = useTaskContext();
 
   const theme = useTheme();
@@ -59,7 +61,7 @@ const ReadingSpeed = () => {
 
   const [amount, setAmount] = useState('');
   const [endedOnPage, setEndedOnPage] = useState('');
-  const [selectedBookId, setSelectedBookId] = useState('');
+  const [selectedBookId, setSelectedBookId] = useState(widgetSelectedBookId || '');
   const [sessionDate, setSessionDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [sessionTime, setSessionTime] = useState(format(new Date(), 'HH:mm'));
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -86,6 +88,30 @@ const ReadingSpeed = () => {
     return sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
   };
 
+  // Sync book selection made on Android widget into ReadingSpeed
+  useEffect(() => {
+    if (widgetSelectedBookId && !selectedBookId) {
+      setSelectedBookId(widgetSelectedBookId);
+    }
+  }, [widgetSelectedBookId]);
+
+  // Automatically open Save Session modal when user tapped "Beenden" on Widget or Lockscreen
+  useEffect(() => {
+    if (pendingWidgetFinish) {
+      setActiveTab(0);
+      setIsManualEntry(false);
+      if (pendingWidgetFinish.bookId) {
+        setSelectedBookId(pendingWidgetFinish.bookId);
+        const lastPage = getBookLastPage(pendingWidgetFinish.bookId);
+        setEndedOnPage(lastPage > 0 ? lastPage.toString() : '');
+      }
+      setSessionDate(format(new Date(), 'yyyy-MM-dd'));
+      setSessionTime(format(new Date(), 'HH:mm'));
+      setSaveDialogOpen(true);
+      clearPendingWidgetFinish();
+    }
+  }, [pendingWidgetFinish]);
+
   const selectedBook = useMemo(
     () => books.find(b => b.id === selectedBookId) || null,
     [books, selectedBookId]
@@ -100,16 +126,21 @@ const ReadingSpeed = () => {
   }, [selectedBook, readingSessions]);
 
   const handleStartTimer = () => {
+    requestNativeNotificationPermission();
     setTimerRunning(true);
+    syncNativeTimer(true, timerSeconds, selectedBookId);
   };
 
   const handlePauseTimer = () => {
     setTimerRunning(false);
+    syncNativeTimer(false, timerSeconds, selectedBookId);
   };
 
   const handleStopTimer = () => {
     if (timerRunning) {
       handlePauseTimer();
+    } else {
+      syncNativeTimer(false, timerSeconds, selectedBookId);
     }
     setIsManualEntry(false);
     setSessionDate(format(new Date(), 'yyyy-MM-dd'));
@@ -129,6 +160,8 @@ const ReadingSpeed = () => {
 
   const handleBookSelect = (bookId) => {
     setSelectedBookId(bookId);
+    setWidgetSelectedBookId(bookId);
+    syncNativeBooks(books, bookId);
     if (bookId) {
       const lastPage = getBookLastPage(bookId);
       setEndedOnPage(lastPage > 0 ? lastPage.toString() : '');
@@ -223,6 +256,7 @@ const ReadingSpeed = () => {
     saveReadingSession(effectiveSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt);
     if (!isManualEntry) {
       setTimerSeconds(0);
+      syncNativeTimer(false, 0);
     }
     setSaveDialogOpen(false);
     setIsManualEntry(false);
@@ -235,6 +269,7 @@ const ReadingSpeed = () => {
   const handleDiscardTimer = () => {
     if (!isManualEntry) {
       setTimerSeconds(0);
+      syncNativeTimer(false, 0);
     }
     setSaveDialogOpen(false);
     setIsManualEntry(false);
