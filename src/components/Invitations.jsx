@@ -52,11 +52,11 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
           >
             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
               <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                App Update
+                App Update · v2.0
               </Typography>
-              <Typography variant="h6" fontWeight={700} sx={{ mt: 0.5 }}>Neue Version ist live!</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-                Das Update wurde erfolgreich installiert. Der Fehler beim Hinzufügen von Artikeln (grauer Kasten) wurde behoben.
+              <Typography variant="h6" fontWeight={700} sx={{ mt: 0.5 }}>Willkommen in der neuen Aufgabenliste!</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, mb: 2, lineHeight: 1.55 }}>
+                Neues einheitliches Google-One-Design, 2-Spalten-Modus für Aufgaben, überarbeitetes Lese-Abteil mit Buchcovern, Cover-Regalen &amp; Lese-Heatmap sowie Android-Widgets, Lockscreen-Timer und automatische OTA-Updates.
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button variant="contained" color="primary" size="small" onClick={onClearUpdate}>

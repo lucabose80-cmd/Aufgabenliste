@@ -32,7 +32,7 @@ import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { initOfflineFirstOtaUpdater } from './utils/nativeBridge';
 
-const CURRENT_APP_VERSION = '1.1.6';
+const CURRENT_APP_VERSION = '2.0.0';
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');
