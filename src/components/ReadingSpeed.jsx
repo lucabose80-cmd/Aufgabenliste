@@ -200,20 +200,38 @@ const ReadingSpeed = () => {
     .slice(0, 10);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pb: 10, maxWidth: 840, mx: 'auto' }}>
       {!isOnline && (
-        <Box sx={{ p: 2, bgcolor: 'warning.main', color: 'warning.contrastText', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" fontWeight="bold">
+        <Box
+          sx={{
+            px: 2.5,
+            py: 1.5,
+            bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(253, 214, 99, 0.14)' : 'rgba(227, 116, 0, 0.1)',
+            color: 'warning.main',
+            border: '1px solid',
+            borderColor: 'warning.main',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}
+        >
+          <CloudOffIcon fontSize="small" />
+          <Typography variant="body2" fontWeight={600}>
             Du bist offline. Deine Lesezeiten werden lokal gespeichert und hochgeladen, sobald du wieder Internet hast.
           </Typography>
         </Box>
       )}
 
-      <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mb: -2 }}>
-        <MenuBookIcon color="primary" fontSize="large" /> Lesegeschwindigkeit
-      </Typography>
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Box
+        sx={{
+          bgcolor: 'background.paper',
+          borderRadius: '20px',
+          border: '1px solid',
+          borderColor: 'divider',
+          px: 1,
+        }}
+      >
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
           <Tab label="Eingabe & Historie" />
           <Tab label="Bücher" />
@@ -224,17 +242,17 @@ const ReadingSpeed = () => {
 
       {activeTab === 0 ? (
         <>
-          <Card sx={{ p: { xs: 2, sm: 4 } }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', my: { xs: 8, sm: 4 }, minHeight: { xs: '40vh', sm: 'auto' } }}>
+          <Card sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: '24px' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', my: { xs: 5, sm: 3 }, minHeight: { xs: '34vh', sm: 'auto' } }}>
               {books.length > 0 && (
-                <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ mb: 3.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                   <Select
                     value={selectedBookId}
                     onChange={(e) => handleBookSelect(e.target.value)}
                     size="small"
                     displayEmpty
                     disabled={timerRunning}
-                    sx={{ minWidth: 200, bgcolor: 'background.default', borderRadius: 2 }}
+                    sx={{ minWidth: 220, bgcolor: 'background.surfaceVariant', borderRadius: 9999, '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }}
                   >
                     <MenuItem value="">Aktuelles Buch wählen...</MenuItem>
                     {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
@@ -251,9 +269,11 @@ const ReadingSpeed = () => {
           <Typography 
             variant="h2" 
             sx={{ 
-              fontFamily: 'monospace', 
-              fontWeight: 'bold', 
-              fontSize: { xs: '4rem', sm: '3.75rem' },
+              fontFamily: '"Plus Jakarta Sans", monospace', 
+              fontWeight: 700, 
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '-0.02em',
+              fontSize: { xs: '3.75rem', sm: '4rem' },
               color: timerRunning ? 'primary.main' : 'text.primary',
               transition: 'color 0.3s ease'
             }}
@@ -319,9 +339,9 @@ const ReadingSpeed = () => {
         </Box>
 
         {showAmountField && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 4, p: 3, bgcolor: 'background.default', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 4, p: 3, bgcolor: 'background.surfaceVariant', borderRadius: '18px' }}>
             <Box>
-              <Typography variant="h6" gutterBottom>Lese-Session speichern</Typography>
+              <Typography variant="h6" gutterBottom fontWeight={700}>Lese-Session speichern</Typography>
               <Typography variant="body2" color="text.secondary">
                 Wie viele Seiten hast du in dieser Zeit ({formatTime(timerSeconds)}) gelesen?
               </Typography>
@@ -403,22 +423,22 @@ const ReadingSpeed = () => {
       </Card>
 
       {recentSessions.length > 0 && (
-        <Card sx={{ p: { xs: 2, sm: 4 } }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="h6">Letzte Lese-Einträge</Typography>
+        <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="h6" fontWeight={700}>Letzte Lese-Einträge</Typography>
             <Select
               value={sessionFilter}
               onChange={(e) => setSessionFilter(e.target.value)}
               size="small"
-              sx={{ minWidth: 150 }}
+              sx={{ minWidth: 160 }}
             >
               <MenuItem value="all">Alle Einträge</MenuItem>
               <MenuItem value="active">Nur aktive Bücher</MenuItem>
             </Select>
           </Box>
-          <List>
+          <List disablePadding>
             {recentSessions.map(session => (
-              <ListItem key={session.id} sx={{ bgcolor: 'background.default', borderRadius: 2, mb: 1, border: 1, borderColor: 'divider', px: 2 }}>
+              <ListItem key={session.id} sx={{ bgcolor: 'background.surfaceVariant', borderRadius: '16px', mb: 1.25, px: 2 }}>
                 {editingSessionId === session.id ? (
                   <Box sx={{ display: 'flex', gap: 2, flex: 1, alignItems: 'center', flexWrap: 'wrap', py: 1 }}>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>

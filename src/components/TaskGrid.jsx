@@ -37,16 +37,36 @@ import TaskCreator from './TaskCreator';
 const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setGlobalEditMode }) => {
   const timerRef = useRef(null);
   const touchStartRef = useRef(null);
+  const longPressedRef = useRef(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
 
-  const handlePointerDown = () => {
-    if (isEditMode) return;
-    timerRef.current = setTimeout(() => {
-      setGlobalEditMode(true);
-    }, 600); // 600ms long press
+  const clearLongPress = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
   };
+
+  const handlePointerDown = (e) => {
+    if (isEditMode) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    longPressedRef.current = false;
+    clearLongPress();
+    timerRef.current = setTimeout(() => {
+      longPressedRef.current = true;
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40);
+      setGlobalEditMode(true);
+    }, 550);
+  };
+
   const handlePointerUp = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    clearLongPress();
+  };
+
+  const handlePointerLeave = (e) => {
+    if (e.pointerType === 'mouse') {
+      clearLongPress();
+    }
   };
 
   const handleTouchStart = (e) => {
@@ -58,6 +78,9 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
     if (!touchStartRef.current || isEditMode) return;
     const deltaX = e.touches[0].clientX - touchStartRef.current.x;
     const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+      clearLongPress();
+    }
     // only if horizontal swipe is dominant
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
       setSwipeOffset(deltaX);
@@ -67,6 +90,7 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
   const { toggleTaskCompletion, toggleSubTask, updateTask, categories, getTodayDateString, resetHour } = useTaskContext();
 
   const handleTouchEnd = () => {
+    clearLongPress();
     if (!touchStartRef.current || isEditMode) return;
     if (swipeOffset > 80) {
       // Swipe Right -> Complete
@@ -308,10 +332,12 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
       elevation={0}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onContextMenu={(e) => e.preventDefault()}
       sx={{ 
         display: 'flex',
         flexDirection: 'column',
@@ -333,6 +359,14 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
         position: 'relative',
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        '& *': {
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitTapHighlightColor: 'transparent',
+        },
         transition: isDragging
           ? undefined
           : 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease',
@@ -434,7 +468,16 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
             />
           )}
           
-          <Box sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
+          <Box
+            sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+            onClick={() => {
+              if (longPressedRef.current) {
+                longPressedRef.current = false;
+                return;
+              }
+              setExpanded(!expanded);
+            }}
+          >
             <Typography 
               variant="subtitle1" 
               sx={{ 

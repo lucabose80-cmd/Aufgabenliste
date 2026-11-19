@@ -8,7 +8,7 @@ import {
   CircularProgress, Divider, Checkbox, Dialog, DialogTitle, DialogContent,
   DialogActions, Chip, Avatar, InputAdornment, Fab, Tooltip, Collapse, Paper, InputBase
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -19,6 +19,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import { startOfWeek, parseISO } from 'date-fns';
 
 import {
@@ -34,13 +35,12 @@ import { CSS } from '@dnd-kit/utilities';
 const UNITS = ['x', 'kg', 'g', 'L', 'ml', 'Pkg.'];
 
 function SortableItem({ item, toggleItem, deleteItem }) {
-  const theme = useTheme();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, data: item });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.2 : 1,
+    opacity: isDragging ? 0.25 : 1,
   };
 
   const quantityLabel = item.quantity && item.quantity !== '1' && item.unit === 'x'
@@ -56,9 +56,13 @@ function SortableItem({ item, toggleItem, deleteItem }) {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        px: 1.5,
-        py: 0.75,
-        gap: 1,
+        px: 2,
+        py: 1.1,
+        gap: 1.25,
+        transition: 'background-color 0.15s ease',
+        '&:hover': {
+          bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+        },
         '&:hover .delete-btn': { opacity: 1 },
       }}
     >
@@ -76,7 +80,9 @@ function SortableItem({ item, toggleItem, deleteItem }) {
         checked={item.completed}
         onChange={() => toggleItem && toggleItem(item.id, item.completed)}
         size="small"
-        sx={{ p: 0.5, color: 'text.disabled', '&.Mui-checked': { color: 'success.main' } }}
+        icon={<RadioButtonUncheckedIcon sx={{ fontSize: 20, color: 'text.secondary', opacity: 0.7 }} />}
+        checkedIcon={<CheckCircleIcon sx={{ fontSize: 20, color: 'success.main' }} />}
+        sx={{ p: 0.25 }}
       />
 
       {/* Text */}
@@ -84,8 +90,9 @@ function SortableItem({ item, toggleItem, deleteItem }) {
         <Typography
           variant="body2"
           sx={{
+            fontSize: '0.92rem',
             textDecoration: item.completed ? 'line-through' : 'none',
-            color: item.completed ? 'text.disabled' : 'text.primary',
+            color: item.completed ? 'text.secondary' : 'text.primary',
             fontWeight: item.completed ? 400 : 500,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -93,14 +100,14 @@ function SortableItem({ item, toggleItem, deleteItem }) {
           }}
         >
           {quantityLabel && (
-            <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 600, mr: 0.5 }}>
+            <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 700, mr: 0.75, fontSize: '0.8rem' }}>
               {quantityLabel}
             </Typography>
           )}
           {item.text}
         </Typography>
         {item.completed && item.completedBy && (
-          <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
             ✓ {item.completedBy}
           </Typography>
         )}
@@ -111,9 +118,15 @@ function SortableItem({ item, toggleItem, deleteItem }) {
         className="delete-btn"
         size="small"
         onClick={() => deleteItem && deleteItem(item.id)}
-        sx={{ opacity: 0, transition: 'opacity 0.15s', color: 'text.disabled', '&:hover': { color: 'error.main' }, flexShrink: 0 }}
+        sx={{
+          opacity: { xs: 0.55, md: 0 },
+          transition: 'opacity 0.15s ease, color 0.15s ease',
+          color: 'text.secondary',
+          '&:hover': { color: 'error.main' },
+          flexShrink: 0,
+        }}
       >
-        <DeleteIcon sx={{ fontSize: 16 }} />
+        <DeleteIcon sx={{ fontSize: 17 }} />
       </IconButton>
     </Box>
   );
@@ -121,43 +134,52 @@ function SortableItem({ item, toggleItem, deleteItem }) {
 
 function CategorySection({ id, title, items, toggleItem, deleteItem, accent }) {
   const { setNodeRef } = useDroppable({ id });
-  const theme = useTheme();
 
   return (
     <Box>
-      {/* Section label */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.5, mb: 0.5 }}>
-        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: accent, flexShrink: 0 }} />
-        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+      {/* Section label matching TaskGrid category headers */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, mb: 1.25 }}>
+        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: accent, flexShrink: 0 }} />
+        <Typography variant="subtitle1" sx={{ color: 'text.primary', fontWeight: 700, letterSpacing: '-0.01em' }}>
           {title}
         </Typography>
-        <Box sx={{ flex: 1, height: 1, bgcolor: 'divider', ml: 0.5 }} />
-        <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.65rem' }}>
+        <Box
+          sx={{
+            px: 1,
+            py: 0.15,
+            borderRadius: 9999,
+            bgcolor: 'background.surfaceVariant',
+            color: 'text.secondary',
+            fontSize: '0.72rem',
+            fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           {items.length}
-        </Typography>
+        </Box>
       </Box>
 
       {/* Items */}
       <Box
         sx={{
           bgcolor: 'background.paper',
-          borderRadius: 2,
+          borderRadius: '20px',
           overflow: 'hidden',
           border: '1px solid',
           borderColor: 'divider',
         }}
       >
         <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-          <Box ref={setNodeRef} sx={{ minHeight: 48 }}>
+          <Box ref={setNodeRef} sx={{ minHeight: 52 }}>
             {items.map((item, index) => (
               <React.Fragment key={item.id}>
                 <SortableItem item={item} toggleItem={toggleItem} deleteItem={deleteItem} />
-                {index < items.length - 1 && <Divider sx={{ mx: 1.5 }} />}
+                {index < items.length - 1 && <Divider sx={{ mx: 2 }} />}
               </React.Fragment>
             ))}
             {items.length === 0 && (
-              <Box sx={{ px: 2, py: 1.5 }}>
-                <Typography variant="caption" color="text.disabled">Noch nichts hier</Typography>
+              <Box sx={{ px: 2.5, py: 2 }}>
+                <Typography variant="body2" color="text.secondary">Noch nichts hier</Typography>
               </Box>
             )}
           </Box>
@@ -350,11 +372,26 @@ const ShoppingList = () => {
 
   const invitableUsers = allUsersDB.filter(u => u.uid !== user.uid && !activeList?.members?.includes(u.uid));
 
+  const isDark = theme.palette.mode === 'dark';
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, pb: 14, maxWidth: 600, mx: 'auto' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, pb: 14, maxWidth: 680, mx: 'auto' }}>
 
       {/* ── Top bar: list selector ── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          mb: 3,
+          px: 2,
+          py: 1,
+          borderRadius: '20px',
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
         <Select
           value={activeListId}
           onChange={(e) => setActiveListId(e.target.value)}
@@ -362,21 +399,32 @@ const ShoppingList = () => {
           displayEmpty
           variant="standard"
           disableUnderline
-          sx={{ fontWeight: 700, fontSize: '1rem', flex: 1, '.MuiSelect-select': { py: 0 } }}
+          sx={{ fontWeight: 700, fontSize: '1.05rem', flex: 1, '.MuiSelect-select': { py: 0.25 } }}
         >
           {allLists.length === 0 && <MenuItem value="" disabled>Keine Listen</MenuItem>}
           {allLists.map(l => <MenuItem key={l.id} value={l.id}>{l.name || 'Einkaufsliste'}</MenuItem>)}
         </Select>
 
         <Tooltip title="Neue Liste erstellen">
-          <IconButton size="small" onClick={() => setIsCreateModalOpen(true)}>
+          <IconButton
+            size="small"
+            onClick={() => setIsCreateModalOpen(true)}
+            sx={{ bgcolor: 'background.surfaceVariant', '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.14), color: 'primary.main' } }}
+          >
             <AddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
 
         {activeList && (
           <Tooltip title="Details & Mitglieder">
-            <IconButton size="small" onClick={() => setShowMeta(v => !v)}>
+            <IconButton
+              size="small"
+              onClick={() => setShowMeta(v => !v)}
+              sx={{
+                bgcolor: showMeta ? alpha(theme.palette.primary.main, 0.14) : 'background.surfaceVariant',
+                color: showMeta ? 'primary.main' : 'text.secondary',
+              }}
+            >
               {showMeta ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </IconButton>
           </Tooltip>
@@ -385,7 +433,7 @@ const ShoppingList = () => {
 
       {/* ── Collapsible meta panel ── */}
       <Collapse in={showMeta && !!activeList}>
-        <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2, mb: 3, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: '20px', p: 2.5, mb: 3, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {/* Members */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             {activeList?.members?.map(uid => {
@@ -407,15 +455,15 @@ const ShoppingList = () => {
           {/* Invite row */}
           {invitableUsers.length > 0 && (
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <PersonAddIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-              <Select value={selectedUserToInvite} onChange={(e) => setSelectedUserToInvite(e.target.value)} size="small" sx={{ flex: 1, fontSize: '0.8rem' }}>
+              <PersonAddIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+              <Select value={selectedUserToInvite} onChange={(e) => setSelectedUserToInvite(e.target.value)} size="small" sx={{ flex: 1, fontSize: '0.85rem' }}>
                 {invitableUsers.map(u => <MenuItem key={u.uid} value={u.uid}>{u.displayName || u.email}</MenuItem>)}
               </Select>
               <Button variant="contained" size="small" onClick={handleInviteUser} sx={{ whiteSpace: 'nowrap' }}>Einladen</Button>
             </Box>
           )}
 
-          <Button variant="text" color="error" size="small" onClick={handleLeaveList} sx={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
+          <Button variant="text" color="error" size="small" onClick={handleLeaveList} sx={{ alignSelf: 'flex-start', fontSize: '0.78rem', px: 1 }}>
             Liste verlassen
           </Button>
         </Box>
@@ -423,7 +471,7 @@ const ShoppingList = () => {
 
       {!activeList ? (
         <Box sx={{ textAlign: 'center', mt: 8, color: 'text.secondary', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <ShoppingCartIcon sx={{ fontSize: 48 }} />
+          <ShoppingCartIcon sx={{ fontSize: 48, opacity: 0.5 }} />
           <Typography>Keine aktive Liste. Erstelle eine neue!</Typography>
         </Box>
       ) : (
@@ -441,7 +489,7 @@ const ShoppingList = () => {
 
             <DragOverlay>
               {activeDragId && (
-                <Box sx={{ bgcolor: 'background.paper', boxShadow: 6, borderRadius: 2, px: 1.5, py: 0.75 }}>
+                <Box sx={{ bgcolor: 'background.paper', boxShadow: 6, borderRadius: '16px', border: '1px solid', borderColor: 'primary.main', px: 1.5, py: 0.75 }}>
                   <SortableItem item={items.find(i => i.id === activeDragId)} />
                 </Box>
               )}
@@ -449,32 +497,52 @@ const ShoppingList = () => {
           </DndContext>
 
           {/* Erledigte */}
-          <Box sx={{ mt: 1 }}>
-            <Button
-              startIcon={showCompleted ? <VisibilityOffIcon sx={{ fontSize: 16 }} /> : <CheckCircleIcon sx={{ fontSize: 16 }} />}
+          <Box sx={{ mt: 2.5 }}>
+            <Box
               onClick={() => setShowCompleted(v => !v)}
-              size="small"
-              sx={{ color: 'text.disabled', fontSize: '0.72rem', textTransform: 'none', px: 0.5 }}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                userSelect: 'none',
+                px: 1.5,
+                py: 0.75,
+                borderRadius: 9999,
+                bgcolor: 'background.surfaceVariant',
+                color: 'text.secondary',
+                '&:hover': { color: 'text.primary' },
+              }}
             >
-              {completedItems.length} erledigt {showCompleted ? 'ausblenden' : 'anzeigen'}
-            </Button>
+              {showCompleted ? <VisibilityOffIcon sx={{ fontSize: 16 }} /> : <CheckCircleIcon sx={{ fontSize: 16 }} />}
+              <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem' }}>
+                {completedItems.length} erledigt {showCompleted ? 'ausblenden' : 'anzeigen'}
+              </Typography>
+            </Box>
 
             <Collapse in={showCompleted}>
-              <Box sx={{ mt: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', opacity: 0.75 }}>
+              <Box sx={{ mt: 1.5, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: '20px', overflow: 'hidden', opacity: 0.75 }}>
                 {completedItems.map((item, i) => (
                   <React.Fragment key={item.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', px: 1.5, py: 0.75, gap: 1 }}>
-                      <Checkbox checked size="small" onChange={() => toggleItem(item.id, true)} sx={{ p: 0.5, '&.Mui-checked': { color: 'success.main' } }} />
-                      <Typography variant="body2" sx={{ flex: 1, textDecoration: 'line-through', color: 'text.disabled', fontSize: '0.85rem' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, gap: 1.25 }}>
+                      <Checkbox
+                        checked
+                        size="small"
+                        onChange={() => toggleItem(item.id, true)}
+                        icon={<RadioButtonUncheckedIcon sx={{ fontSize: 20 }} />}
+                        checkedIcon={<CheckCircleIcon sx={{ fontSize: 20, color: 'success.main' }} />}
+                        sx={{ p: 0.25 }}
+                      />
+                      <Typography variant="body2" sx={{ flex: 1, textDecoration: 'line-through', color: 'text.secondary', fontSize: '0.88rem' }}>
                         {item.quantity && item.quantity !== '1' && item.unit === 'x' ? `${item.quantity}× ` : ''}
                         {item.quantity && item.unit !== 'x' ? `${item.quantity} ${item.unit} ` : ''}
                         {item.text}
                       </Typography>
-                      <IconButton size="small" onClick={() => deleteItem(item.id)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
-                        <DeleteIcon sx={{ fontSize: 16 }} />
+                      <IconButton size="small" onClick={() => deleteItem(item.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                        <DeleteIcon sx={{ fontSize: 17 }} />
                       </IconButton>
                     </Box>
-                    {i < completedItems.length - 1 && <Divider sx={{ mx: 1.5 }} />}
+                    {i < completedItems.length - 1 && <Divider sx={{ mx: 2 }} />}
                   </React.Fragment>
                 ))}
               </Box>
@@ -488,24 +556,35 @@ const ShoppingList = () => {
         <Paper
           component="form"
           onSubmit={handleAddItem}
-          elevation={12}
+          elevation={0}
           sx={{
             position: 'fixed',
-            bottom: { xs: 110, sm: 110, md: 30 },
+            bottom: { xs: 84, sm: 88, md: 28 },
             left: '50%',
             transform: 'translateX(-50%)',
-            width: { xs: 'calc(100% - 32px)', sm: 560 },
-            maxWidth: 560,
-            borderRadius: 8,
+            width: { xs: 'calc(100% - 32px)', sm: 580 },
+            maxWidth: 580,
+            borderRadius: 9999,
             display: 'grid',
             gridTemplateColumns: 'auto auto auto auto 1fr auto',
             alignItems: 'center',
             gap: 1,
-            px: 2,
-            py: 0.5,
+            pl: 2,
+            pr: 0.75,
+            py: 0.65,
             zIndex: 1200,
-            bgcolor: 'background.paper',
-            overflow: 'hidden'
+            bgcolor: isDark ? alpha('#1E1F20', 0.94) : alpha('#FFFFFF', 0.94),
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: isDark ? '0 8px 28px rgba(0,0,0,0.45)' : '0 8px 24px rgba(0,0,0,0.1)',
+            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            '&:focus-within': {
+              borderColor: 'primary.main',
+              boxShadow: `0 8px 28px rgba(0,0,0,0.18), 0 0 0 3px ${alpha(theme.palette.primary.main, isDark ? 0.22 : 0.14)}`,
+            },
+            overflow: 'hidden',
           }}
         >
           {/* 1. Category dot toggle */}
@@ -525,7 +604,7 @@ const ShoppingList = () => {
             value={newQuantity}
             onChange={(e) => setNewQuantity(e.target.value)}
             placeholder="1"
-            sx={{ width: 28, input: { textAlign: 'center', fontSize: '0.9rem' } }}
+            sx={{ width: 28, input: { textAlign: 'center', fontSize: '0.9rem', fontWeight: 600 } }}
           />
 
           {/* 3. Unit */}
@@ -540,16 +619,16 @@ const ShoppingList = () => {
           </Select>
 
           {/* 4. Divider */}
-          <Box sx={{ width: 1, bgcolor: 'divider', height: 24 }} />
+          <Box sx={{ width: 1, bgcolor: 'divider', height: 22 }} />
 
           {/* 5. Item name */}
           <InputBase
-            placeholder="Artikel..."
+            placeholder="Artikel hinzufügen..."
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
             autoComplete="off"
             fullWidth
-            sx={{ minWidth: 0, input: { fontSize: '0.9rem' } }}
+            sx={{ minWidth: 0, input: { fontSize: '0.92rem' } }}
           />
 
           {/* 6. Submit */}
@@ -558,13 +637,13 @@ const ShoppingList = () => {
             disabled={!newItemText.trim()} 
             sx={{ 
               bgcolor: newItemText.trim() ? 'primary.main' : 'action.disabledBackground', 
-              color: newItemText.trim() ? 'white' : 'action.disabled', 
+              color: newItemText.trim() ? 'primary.contrastText' : 'action.disabled', 
               '&:hover': { bgcolor: 'primary.dark' }, 
-              width: 36, 
-              height: 36,
+              width: 38, 
+              height: 38,
             }}
           >
-            <AddIcon />
+            <AddIcon fontSize="small" />
           </IconButton>
         </Paper>
       )}

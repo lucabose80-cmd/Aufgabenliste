@@ -39,25 +39,27 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h6" gutterBottom fontWeight="bold">Benachrichtigungen</Typography>
+    <Box sx={{ p: { xs: 2.5, sm: 3 } }}>
+      <Typography variant="h6" gutterBottom fontWeight={700} sx={{ mb: 2 }}>Benachrichtigungen</Typography>
       <Stack spacing={2}>
         {hasUpdate && (
-          <Card variant="outlined" sx={{ borderRadius: 2, borderColor: 'primary.main', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
-            <CardContent>
-              <Typography variant="subtitle2" gutterBottom sx={{ opacity: 0.8 }}>App Update</Typography>
-              <Typography variant="h6">Neue Version ist live!</Typography>
-              <Typography variant="body2" sx={{ mb: 2, opacity: 0.9 }}>
+          <Card
+            sx={{
+              borderRadius: '18px',
+              bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(138, 180, 248, 0.14)' : 'rgba(26, 115, 232, 0.08)',
+              borderColor: 'primary.main',
+            }}
+          >
+            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                App Update
+              </Typography>
+              <Typography variant="h6" fontWeight={700} sx={{ mt: 0.5 }}>Neue Version ist live!</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
                 Das Update wurde erfolgreich installiert. Der Fehler beim Hinzufügen von Artikeln (grauer Kasten) wurde behoben.
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button 
-                  variant="contained" 
-                  color="inherit" 
-                  size="small" 
-                  sx={{ color: 'primary.main', bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
-                  onClick={onClearUpdate}
-                >
+                <Button variant="contained" color="primary" size="small" onClick={onClearUpdate}>
                   Verstanden
                 </Button>
               </Box>
@@ -66,10 +68,12 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
         )}
 
         {pendingTasks.map(task => (
-          <Card key={task.id} variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent>
-              <Typography variant="subtitle2" color="primary" gutterBottom>Aufgabe geteilt</Typography>
-              <Typography variant="h6">{task.title}</Typography>
+          <Card key={task.id} sx={{ borderRadius: '18px', bgcolor: 'background.surfaceVariant', border: 'none' }}>
+            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Aufgabe geteilt
+              </Typography>
+              <Typography variant="h6" fontWeight={600} sx={{ mt: 0.5 }}>{task.title}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Jemand hat eine Aufgabe mit dir geteilt.
               </Typography>
@@ -78,7 +82,7 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
                   variant="contained" 
                   color="primary" 
                   size="small" 
-                  startIcon={<CheckIcon />}
+                  startIcon={<CheckIcon fontSize="small" />}
                   onClick={() => handleAcceptTask(task.id)}
                 >
                   Annehmen
@@ -87,7 +91,7 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
                   variant="outlined" 
                   color="error" 
                   size="small" 
-                  startIcon={<CloseIcon />}
+                  startIcon={<CloseIcon fontSize="small" />}
                   onClick={() => handleRejectTask(task.id)}
                 >
                   Ablehnen
@@ -98,10 +102,12 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
         ))}
 
         {pendingLists.map(list => (
-          <Card key={list.id} variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent>
-              <Typography variant="subtitle2" color="secondary" gutterBottom>Einkaufsliste geteilt</Typography>
-              <Typography variant="h6">{list.name}</Typography>
+          <Card key={list.id} sx={{ borderRadius: '18px', bgcolor: 'background.surfaceVariant', border: 'none' }}>
+            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              <Typography variant="caption" color="secondary.main" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Einkaufsliste geteilt
+              </Typography>
+              <Typography variant="h6" fontWeight={600} sx={{ mt: 0.5 }}>{list.name}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Jemand hat dich zu einer Einkaufsliste eingeladen.
               </Typography>
@@ -110,7 +116,7 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
                   variant="contained" 
                   color="primary" 
                   size="small" 
-                  startIcon={<CheckIcon />}
+                  startIcon={<CheckIcon fontSize="small" />}
                   onClick={() => handleAcceptList(list.id)}
                 >
                   Annehmen
@@ -119,7 +125,7 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
                   variant="outlined" 
                   color="error" 
                   size="small" 
-                  startIcon={<CloseIcon />}
+                  startIcon={<CloseIcon fontSize="small" />}
                   onClick={() => handleRejectList(list.id)}
                 >
                   Ablehnen

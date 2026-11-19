@@ -1,16 +1,15 @@
 import React from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Grid, Button, IconButton, Checkbox, FormControlLabel, Select, MenuItem, FormControl, InputLabel, Switch } from '@mui/material';
-import SettingsIcon from '@mui/icons-material/Settings';
+import { Box, Card, Typography, Grid, Button, Select, MenuItem, FormControl, InputLabel, Switch, Divider } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import CategoriesManager from './CategoriesManager';
 
 const COLORS = [
-  { name: 'Indigo (Standard)', hex: '#6366f1' },
+  { name: 'Google Blau', hex: '#1a73e8' },
+  { name: 'Indigo', hex: '#6366f1' },
   { name: 'Smaragdgrün', hex: '#10b981' },
   { name: 'Kirschrot', hex: '#f43f5e' },
   { name: 'Bernstein', hex: '#f59e0b' },
@@ -30,6 +29,8 @@ const NAV_ITEMS = [
 
 const Settings = () => {
   const { theme, accentColor, pinnedNavItems, saveSettings, resetHour, vacationMode, saveVacationMode, resetTaskStatistics, enableReadingFeature } = useTaskContext();
+  const muiTheme = useTheme();
+  const isDark = muiTheme.palette.mode === 'dark';
 
   const handleThemeChange = (newTheme) => {
     saveSettings(newTheme, accentColor, undefined, pinnedNavItems);
@@ -81,129 +82,139 @@ const Settings = () => {
   });
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pb: 10, maxWidth: 800, mx: 'auto' }}>
-      <Card sx={{ p: { xs: 2, sm: 4 } }}>
-        <Typography variant="h5" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-          <SettingsIcon color="primary" fontSize="large" /> Personalisierung
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pb: 10, maxWidth: 760, mx: 'auto' }}>
+      {/* Erscheinungsbild & Akzentfarbe */}
+      <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
+        <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700 }}>
+          Erscheinungsbild
         </Typography>
 
-        {/* Theme Toggle */}
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Erscheinungsbild</Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Button 
-                variant="outlined"
-                fullWidth
-                onClick={() => handleThemeChange('dark')}
-                sx={{
-                  py: 3,
-                  border: 2,
-                  borderColor: theme === 'dark' ? 'primary.main' : 'divider',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                  bgcolor: 'background.paper',
-                  color: 'text.primary',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    bgcolor: 'background.paper',
-                  }
-                }}
-              >
-                <DarkModeIcon color={theme === 'dark' ? 'primary' : 'inherit'} fontSize="large" />
-                <Typography fontWeight="bold">Dark Mode</Typography>
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Button 
-                variant="outlined"
-                fullWidth
-                onClick={() => handleThemeChange('light')}
-                sx={{
-                  py: 3,
-                  border: 2,
-                  borderColor: theme === 'light' ? 'primary.main' : 'divider',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                  bgcolor: 'background.paper',
-                  color: 'text.primary',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    bgcolor: 'background.paper',
-                  }
-                }}
-              >
-                <LightModeIcon color={theme === 'light' ? 'primary' : 'inherit'} fontSize="large" />
-                <Typography fontWeight="bold">Light Mode</Typography>
-              </Button>
-            </Grid>
+        <Grid container spacing={1.5} sx={{ mb: 3.5 }}>
+          <Grid item xs={6}>
+            <Box
+              onClick={() => handleThemeChange('dark')}
+              sx={{
+                py: 2.5,
+                px: 2,
+                borderRadius: '18px',
+                border: '1.5px solid',
+                borderColor: theme === 'dark' ? 'primary.main' : 'divider',
+                bgcolor: theme === 'dark' ? alpha(muiTheme.palette.primary.main, isDark ? 0.16 : 0.08) : 'background.surfaceVariant',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': { borderColor: 'primary.main' },
+              }}
+            >
+              <DarkModeIcon sx={{ color: theme === 'dark' ? 'primary.main' : 'text.secondary', fontSize: 28 }} />
+              <Typography variant="body2" fontWeight={600} color={theme === 'dark' ? 'primary.main' : 'text.primary'}>
+                Dark Mode
+              </Typography>
+            </Box>
           </Grid>
-        </Box>
+          <Grid item xs={6}>
+            <Box
+              onClick={() => handleThemeChange('light')}
+              sx={{
+                py: 2.5,
+                px: 2,
+                borderRadius: '18px',
+                border: '1.5px solid',
+                borderColor: theme === 'light' ? 'primary.main' : 'divider',
+                bgcolor: theme === 'light' ? alpha(muiTheme.palette.primary.main, isDark ? 0.16 : 0.08) : 'background.surfaceVariant',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': { borderColor: 'primary.main' },
+              }}
+            >
+              <LightModeIcon sx={{ color: theme === 'light' ? 'primary.main' : 'text.secondary', fontSize: 28 }} />
+              <Typography variant="body2" fontWeight={600} color={theme === 'light' ? 'primary.main' : 'text.primary'}>
+                Light Mode
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
 
-        {/* Accent Color Selection */}
-        <Box>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Hauptfarbe (Akzent)</Typography>
-          <Grid container spacing={2}>
-            {COLORS.map((c) => (
-              <Grid item xs={6} sm={4} md={3} key={c.hex}>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+          Akzentfarbe
+        </Typography>
+        <Grid container spacing={1.25}>
+          {COLORS.map((c) => {
+            const isSelected = accentColor?.toLowerCase() === c.hex.toLowerCase();
+            return (
+              <Grid item xs={6} sm={3} key={c.hex}>
                 <Box
                   onClick={() => handleColorChange(c.hex)}
                   sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    border: 2,
-                    borderColor: accentColor === c.hex ? c.hex : 'divider',
-                    bgcolor: 'background.paper',
+                    p: 1.5,
+                    borderRadius: '16px',
+                    border: '1.5px solid',
+                    borderColor: isSelected ? c.hex : 'divider',
+                    bgcolor: isSelected ? alpha(c.hex, isDark ? 0.16 : 0.08) : 'background.surfaceVariant',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: 1,
+                    gap: 0.75,
                     cursor: 'pointer',
                     position: 'relative',
-                    transition: 'all 0.2s',
+                    transition: 'all 0.2s ease',
                     '&:hover': {
                       borderColor: c.hex,
-                      transform: 'translateY(-2px)'
-                    }
+                      transform: 'translateY(-1px)',
+                    },
                   }}
                 >
-                  <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: c.hex, boxShadow: 2 }} />
-                  <Typography variant="caption" fontWeight="bold" align="center">{c.name}</Typography>
-                  
-                  {accentColor === c.hex && (
-                    <CheckCircleIcon 
-                      sx={{ 
-                        position: 'absolute', 
-                        top: 8, 
-                        right: 8, 
+                  <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: c.hex }} />
+                  <Typography variant="caption" fontWeight={600} align="center" sx={{ fontSize: '0.72rem' }}>
+                    {c.name}
+                  </Typography>
+                  {isSelected && (
+                    <CheckCircleIcon
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
                         color: c.hex,
-                        fontSize: 20,
-                        bgcolor: 'background.paper',
-                        borderRadius: '50%'
-                      }} 
+                        fontSize: 18,
+                      }}
                     />
                   )}
                 </Box>
               </Grid>
-            ))}
-          </Grid>
-        </Box>
+            );
+          })}
+        </Grid>
+      </Card>
 
-        {/* Kategorien verwalten */}
-        <Box sx={{ mt: 5 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Kategorien verwalten</Typography>
-          <CategoriesManager isEmbedded={true} />
-        </Box>
+      {/* Kategorien verwalten */}
+      <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+          Kategorien verwalten
+        </Typography>
+        <CategoriesManager isEmbedded={true} />
+      </Card>
 
-        {/* Reset Timer */}
-        <Box sx={{ mt: 5 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Tageswechsel (Reset)</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Um wie viel Uhr sollen deine täglichen Aufgaben für den neuen Tag zurückgesetzt werden?
-          </Typography>
-          <FormControl fullWidth sx={{ maxWidth: 300 }}>
+      {/* Allgemeine Einstellungen */}
+      <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          Allgemein
+        </Typography>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ flex: 1, minWidth: 200 }}>
+            <Typography variant="subtitle2" fontWeight={600}>Tageswechsel (Reset)</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Um wie viel Uhr sollen deine täglichen Aufgaben zurückgesetzt werden?
+            </Typography>
+          </Box>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel id="reset-hour-label">Uhrzeit</InputLabel>
             <Select
               labelId="reset-hour-label"
@@ -220,49 +231,61 @@ const Settings = () => {
           </FormControl>
         </Box>
 
-        {/* Urlaubsmodus */}
-        <Box sx={{ mt: 5 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Urlaubsmodus</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Wenn aktiviert, werden Aufgaben nicht mehr angezeigt und Streaks brechen nicht ab, während du im Urlaub bist.
-          </Typography>
-          <FormControlLabel
-            control={<Switch checked={vacationMode} onChange={(e) => saveVacationMode(e.target.checked)} color="primary" />}
-            label={<Typography fontWeight="bold">Urlaubsmodus aktivieren</Typography>}
+        <Divider />
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600}>Urlaubsmodus</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Pausiert Aufgaben und schützt deine Streaks während du im Urlaub bist.
+            </Typography>
+          </Box>
+          <Switch checked={vacationMode} onChange={(e) => saveVacationMode(e.target.checked)} color="primary" />
+        </Box>
+
+        <Divider />
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600}>Lesen-Tab anzeigen</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Schalte den separaten &quot;Lesen&quot;-Tab für Lesestatistiken ein oder aus.
+            </Typography>
+          </Box>
+          <Switch
+            checked={enableReadingFeature}
+            onChange={(e) => saveSettings(undefined, undefined, undefined, undefined, undefined, undefined, undefined, e.target.checked)}
+            color="primary"
           />
         </Box>
+      </Card>
 
-        {/* Lesestatistiken Feature */}
-        <Box sx={{ mt: 5 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>Lesestatistiken</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Schalte den separaten "Lesen"-Tab ein oder aus, wenn du die Lesestatistiken nicht brauchst.
-          </Typography>
-          <FormControlLabel
-            control={<Switch checked={enableReadingFeature} onChange={(e) => saveSettings(undefined, undefined, undefined, undefined, undefined, undefined, undefined, e.target.checked)} color="primary" />}
-            label={<Typography fontWeight="bold">Lesen-Tab anzeigen</Typography>}
-          />
-        </Box>
-
-        {/* Reset Statistiken */}
-        <Box sx={{ mt: 5, p: 2, border: '1px solid', borderColor: 'error.main', borderRadius: 2, bgcolor: 'error.light', color: 'error.contrastText' }}>
-          <Typography variant="h6" gutterBottom color="error.dark">Gefahrenzone</Typography>
-          <Typography variant="body2" sx={{ mb: 2 }} color="error.dark">
-            Hier kannst du alle Statistiken und Erledigungen deiner Aufgaben unwiderruflich zurücksetzen. Deine Lese-Statistiken bleiben erhalten.
-          </Typography>
-          <Button 
-            variant="contained" 
-            color="error" 
-            onClick={() => {
-              if (window.confirm("Bist du sicher? Alle abgeschlossenen Aufgaben und Streaks werden unwiderruflich gelöscht!")) {
-                resetTaskStatistics();
-              }
-            }}
-          >
-            Statistiken zurücksetzen
-          </Button>
-        </Box>
-
+      {/* Gefahrenzone */}
+      <Card
+        sx={{
+          p: { xs: 2.5, sm: 3.5 },
+          borderRadius: '24px',
+          bgcolor: alpha(muiTheme.palette.error.main, isDark ? 0.1 : 0.06),
+          borderColor: alpha(muiTheme.palette.error.main, 0.28),
+        }}
+      >
+        <Typography variant="h6" gutterBottom color="error.main" fontWeight={700}>
+          Gefahrenzone
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+          Hier kannst du alle Statistiken und Erledigungen deiner Aufgaben unwiderruflich zurücksetzen. Deine Lese-Statistiken bleiben erhalten.
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="error" 
+          onClick={() => {
+            if (window.confirm("Bist du sicher? Alle abgeschlossenen Aufgaben und Streaks werden unwiderruflich gelöscht!")) {
+              resetTaskStatistics();
+            }
+          }}
+        >
+          Statistiken zurücksetzen
+        </Button>
       </Card>
     </Box>
   );

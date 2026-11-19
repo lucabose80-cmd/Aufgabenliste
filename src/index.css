@@ -1,4 +1,8 @@
 /* Modern base styles & subtle utilities */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
 html, body {
   margin: 0;
   padding: 0;

@@ -207,6 +207,71 @@ const getDesignTokens = (mode, accentColor) => {
           },
         },
       },
+      MuiTabs: {
+        styleOverrides: {
+          indicator: {
+            height: 3,
+            borderRadius: '3px 3px 0 0',
+          },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: {
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '0.88rem',
+            minHeight: 46,
+            borderRadius: '12px 12px 0 0',
+          },
+        },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            borderRadius: 16,
+            border: `1px solid ${dividerColor}`,
+            boxShadow: isDark
+              ? '0 12px 32px rgba(0, 0, 0, 0.5)'
+              : '0 8px 24px rgba(0, 0, 0, 0.1)',
+          },
+        },
+      },
+      MuiAlert: {
+        styleOverrides: {
+          root: {
+            borderRadius: 16,
+          },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: {
+            fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif',
+            fontWeight: 700,
+            fontSize: '1.15rem',
+            padding: '20px 24px 12px',
+          },
+        },
+      },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: {
+            padding: '12px 24px 20px',
+            gap: 8,
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            borderRadius: 14,
+            '& fieldset': {
+              borderColor: dividerColor,
+            },
+          },
+        },
+      },
       MuiBottomNavigation: {
         styleOverrides: {
           root: {
