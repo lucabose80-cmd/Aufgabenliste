@@ -54,6 +54,15 @@ const BookManager = () => {
 
   // Batch fetch missing covers state
   const [isFetchingAllCovers, setIsFetchingAllCovers] = useState(false);
+  const [batchCoverFeedback, setBatchCoverFeedback] = useState(null);
+
+  // Dedicated interactive Cover Search Modal state
+  const [coverPickerBook, setCoverPickerBook] = useState(null);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const [pickerResults, setPickerResults] = useState([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerSearched, setPickerSearched] = useState(false);
+  const [pickerCustomUrl, setPickerCustomUrl] = useState('');
 
   // Manage Authors / Series Modal
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
@@ -135,15 +144,53 @@ const BookManager = () => {
     setCoverSearchDone(true);
   };
 
+  const runPickerSearch = async (queryText) => {
+    const q = (queryText || '').trim();
+    if (!q) return;
+    setPickerLoading(true);
+    setPickerSearched(false);
+    const results = await searchBookCovers(q);
+    setPickerResults(results);
+    setPickerLoading(false);
+    setPickerSearched(true);
+  };
+
+  const openCoverPicker = (book) => {
+    const initialQuery = [book.name, book.author].filter(Boolean).join(' ');
+    setCoverPickerBook(book);
+    setPickerQuery(initialQuery);
+    setPickerCustomUrl(book.coverUrl || '');
+    setPickerResults([]);
+    setPickerSearched(false);
+    runPickerSearch(initialQuery);
+  };
+
+  const handleSelectPickedCover = async (url) => {
+    if (!coverPickerBook) return;
+    await updateBookCover(coverPickerBook.id, url);
+    setCoverPickerBook(null);
+  };
+
   const handleFetchMissingCovers = async () => {
     if (isFetchingAllCovers || booksWithoutCover.length === 0) return;
     setIsFetchingAllCovers(true);
+    setBatchCoverFeedback(null);
+    let foundCount = 0;
+    const total = booksWithoutCover.length;
     try {
       for (const book of booksWithoutCover) {
         const url = await fetchBestBookCover(book.name, book.author);
         if (url) {
           await updateBookCover(book.id, url);
+          foundCount++;
         }
+      }
+      if (foundCount === total) {
+        setBatchCoverFeedback(`Alle ${foundCount} Cover erfolgreich geladen!`);
+      } else if (foundCount > 0) {
+        setBatchCoverFeedback(`${foundCount} von ${total} Covern geladen. Tippe auf ein fehlendes Cover, um manuell zu suchen.`);
+      } else {
+        setBatchCoverFeedback(`Keine automatischen Treffer für ${total} ${total === 1 ? 'Buch' : 'Bücher'}. Tippe links auf ein Buchcover, um im Suchmenü manuell zu suchen.`);
       }
     } finally {
       setIsFetchingAllCovers(false);
@@ -378,6 +425,31 @@ const BookManager = () => {
           </Box>
         </Box>
 
+        {batchCoverFeedback && (
+          <Box
+            sx={{
+              mb: 2,
+              px: 2,
+              py: 1.25,
+              borderRadius: '14px',
+              bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.08),
+              border: '1px solid',
+              borderColor: alpha(theme.palette.primary.main, 0.25),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+            }}
+          >
+            <Typography variant="caption" color="text.primary" fontWeight={500} sx={{ fontSize: '0.8rem' }}>
+              {batchCoverFeedback}
+            </Typography>
+            <IconButton size="small" onClick={() => setBatchCoverFeedback(null)} sx={{ color: 'text.secondary' }}>
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Box>
+        )}
+
         {/* Active Books List */}
         {activeBooks.length === 0 ? (
           <Box
@@ -409,19 +481,26 @@ const BookManager = () => {
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                    {/* Book Cover on the left */}
-                    <Box
-                      onClick={() => openEditModal(book)}
-                      sx={{ cursor: 'pointer', flexShrink: 0 }}
-                    >
-                      <BookCover
-                        coverUrl={book.coverUrl}
-                        title={book.name}
-                        width={54}
-                        height={80}
-                        borderRadius="10px"
-                      />
-                    </Box>
+                    {/* Book Cover on the left (tap to open Cover Search Menu) */}
+                    <Tooltip title="Cover suchen / ändern">
+                      <Box
+                        onClick={() => openCoverPicker(book)}
+                        sx={{
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          position: 'relative',
+                          '&:hover': { opacity: 0.88 },
+                        }}
+                      >
+                        <BookCover
+                          coverUrl={book.coverUrl}
+                          title={book.name}
+                          width={54}
+                          height={80}
+                          borderRadius="10px"
+                        />
+                      </Box>
+                    </Tooltip>
 
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
@@ -599,7 +678,11 @@ const BookManager = () => {
                       opacity: 0.82,
                     }}
                   >
-                    <BookCover coverUrl={book.coverUrl} title={book.name} width={38} height={56} borderRadius="8px" />
+                    <Tooltip title="Cover suchen / ändern">
+                      <Box onClick={() => openCoverPicker(book)} sx={{ cursor: 'pointer', flexShrink: 0 }}>
+                        <BookCover coverUrl={book.coverUrl} title={book.name} width={38} height={56} borderRadius="8px" />
+                      </Box>
+                    </Tooltip>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="body2" fontWeight={600} sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
                         {book.name}
@@ -978,6 +1061,164 @@ const BookManager = () => {
             Super!
           </Button>
         </DialogContent>
+      </Dialog>
+
+      {/* Interactive Cover Search Menu Dialog */}
+      <Dialog
+        open={!!coverPickerBook}
+        onClose={() => setCoverPickerBook(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
+              Cover auswählen
+            </Typography>
+            {coverPickerBook && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {coverPickerBook.name}
+              </Typography>
+            )}
+          </Box>
+          <IconButton size="small" onClick={() => setCoverPickerBook(null)} sx={{ color: 'text.secondary' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
+          {/* Editable Search Bar */}
+          <Box
+            component="form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              runPickerSearch(pickerQuery);
+            }}
+            sx={{ display: 'flex', gap: 1 }}
+          >
+            <TextField
+              value={pickerQuery}
+              onChange={(e) => setPickerQuery(e.target.value)}
+              placeholder="Titel, englischer Titel oder Autor..."
+              size="small"
+              fullWidth
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={!pickerQuery.trim() || pickerLoading}
+              startIcon={pickerLoading ? <CircularProgress size={14} color="inherit" /> : <ImageSearchIcon fontSize="small" />}
+              sx={{ borderRadius: 9999, px: 2.25, flexShrink: 0 }}
+            >
+              Suchen
+            </Button>
+          </Box>
+
+          {/* Search Results Grid */}
+          {pickerLoading ? (
+            <Box sx={{ py: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+              <CircularProgress size={28} />
+              <Typography variant="caption" color="text.secondary">
+                Durchsuche Apple Books, Open Library & Google Books...
+              </Typography>
+            </Box>
+          ) : pickerResults.length > 0 ? (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' },
+                gap: 1.25,
+                maxHeight: 360,
+                overflowY: 'auto',
+                pr: 0.5,
+              }}
+            >
+              {pickerResults.map((item, idx) => {
+                const isSelected = coverPickerBook?.coverUrl === item.url;
+                return (
+                  <Box
+                    key={idx}
+                    onClick={() => handleSelectPickedCover(item.url)}
+                    sx={{
+                      p: 1.25,
+                      borderRadius: '16px',
+                      bgcolor: 'background.surfaceVariant',
+                      border: '2px solid',
+                      borderColor: isSelected ? 'primary.main' : 'transparent',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      gap: 0.75,
+                      transition: 'border-color 0.15s ease, transform 0.15s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        transform: 'translateY(-2px)',
+                      },
+                    }}
+                  >
+                    <BookCover coverUrl={item.url} title={item.title} width={72} height={106} borderRadius="8px" />
+                    <Typography
+                      variant="caption"
+                      fontWeight={600}
+                      sx={{
+                        lineHeight: 1.2,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {item.title}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.64rem' }}>
+                      {item.source}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Box>
+          ) : pickerSearched ? (
+            <Box sx={{ p: 3, textAlign: 'center', borderRadius: '16px', bgcolor: 'background.surfaceVariant' }}>
+              <Typography variant="body2" fontWeight={600} gutterBottom>
+                Keine Treffer für „{pickerQuery}“
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Tipp: Probiere einen kürzeren Titel, den englischen Originaltitel oder füge unten direkt eine Bild-URL ein.
+              </Typography>
+            </Box>
+          ) : null}
+
+          {/* Manual URL Fallback */}
+          <Box sx={{ display: 'flex', gap: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+            <TextField
+              label="Oder eigene Bild-URL"
+              value={pickerCustomUrl}
+              onChange={(e) => setPickerCustomUrl(e.target.value)}
+              placeholder="https://..."
+              size="small"
+              fullWidth
+            />
+            <Button
+              variant="outlined"
+              onClick={() => handleSelectPickedCover(pickerCustomUrl.trim() || null)}
+              disabled={!pickerCustomUrl.trim()}
+              sx={{ borderRadius: 9999, flexShrink: 0 }}
+            >
+              Nutzen
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2.5 }}>
+          {coverPickerBook?.coverUrl ? (
+            <Button color="error" onClick={() => handleSelectPickedCover(null)} sx={{ borderRadius: 9999 }}>
+              Cover entfernen
+            </Button>
+          ) : <Box />}
+          <Button onClick={() => setCoverPickerBook(null)} sx={{ borderRadius: 9999 }}>
+            Schließen
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

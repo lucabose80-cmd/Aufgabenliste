@@ -42,6 +42,7 @@ const ReadingAnalytics = () => {
     avgWpmAllTime,
     avgPagesPerSession,
     activeDaysCount,
+    activeDaysPerYear,
     currentStreak,
     longestStreak,
     trendData,
@@ -238,6 +239,11 @@ const ReadingAnalytics = () => {
       .sort((a, b) => b.pages - a.pages)
       .slice(0, 5);
 
+    const distinctYears = new Set(sortedDayKeys.map(k => k.slice(0, 4)));
+    const avgDaysPerYear = sortedDayKeys.length > 0
+      ? Math.round(sortedDayKeys.length / Math.max(1, distinctYears.size))
+      : 0;
+
     return {
       totalPages: pages,
       totalSeconds: seconds,
@@ -245,6 +251,7 @@ const ReadingAnalytics = () => {
       avgWpmAllTime: secondsForWpm > 0 ? Math.round(totalWords / (secondsForWpm / 60)) : 0,
       avgPagesPerSession: validSessions.length > 0 ? Math.round(pages / validSessions.length) : 0,
       activeDaysCount: sortedDayKeys.length,
+      activeDaysPerYear: avgDaysPerYear,
       currentStreak: curStreak,
       longestStreak: maxStreak,
       trendData: trend.slice(-30),
@@ -603,9 +610,9 @@ const ReadingAnalytics = () => {
         {[
           { label: 'Aktueller Streak', value: `${currentStreak} Tage`, icon: LocalFireDepartmentIcon, color: theme.palette.warning.main },
           { label: 'Längster Streak', value: `${longestStreak} Tage`, icon: EmojiEventsIcon, color: theme.palette.primary.main },
-          { label: 'Aktive Lesetage', value: `${activeDaysCount}`, icon: CalendarMonthIcon, color: theme.palette.success.main },
+          { label: 'Aktive Lesetage', value: `${activeDaysCount}`, subValue: `Ø ${activeDaysPerYear} / Jahr`, icon: CalendarMonthIcon, color: theme.palette.success.main },
           { label: 'Ø Seiten / Session', value: `${avgPagesPerSession} S.`, icon: MenuBookIcon, color: theme.palette.secondary.main },
-        ].map(({ label, value, icon: IconComp, color }) => (
+        ].map(({ label, value, subValue, icon: IconComp, color }) => (
           <Card
             key={label}
             sx={{
@@ -622,9 +629,14 @@ const ReadingAnalytics = () => {
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2, fontSize: '0.68rem' }}>
                 {label}
               </Typography>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>
                 {value}
               </Typography>
+              {subValue && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.66rem', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+                  {subValue}
+                </Typography>
+              )}
             </Box>
           </Card>
         ))}
