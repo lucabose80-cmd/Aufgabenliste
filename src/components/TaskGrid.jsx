@@ -17,19 +17,21 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Stack, Tooltip as MuiTooltip, Collapse, Select, MenuItem, Dialog, DialogContent, Fab, TextField, Chip } from '@mui/material';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import { Box, Card, Typography, LinearProgress, IconButton, Button, Checkbox, Tooltip as MuiTooltip, Collapse, Select, MenuItem, Dialog, DialogContent, InputBase, Chip } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import CheckIcon from '@mui/icons-material/Check';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import GroupIcon from '@mui/icons-material/Group';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import WifiOffIcon from '@mui/icons-material/WifiOff';
 import TaskCreator from './TaskCreator';
 
 const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setGlobalEditMode }) => {
@@ -288,12 +290,22 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
   const streak = calculateStreak();
   const consistencyScore = getConsistencyScore();
 
+  const muiTheme = useTheme();
+  const isDark = muiTheme.palette.mode === 'dark';
+
+  const swipeTint =
+    swipeOffset > 30
+      ? alpha(muiTheme.palette.success.main, isDark ? 0.16 : 0.08)
+      : swipeOffset < -30
+      ? alpha(muiTheme.palette.primary.main, isDark ? 0.16 : 0.08)
+      : undefined;
+
   return (
     <Card 
       ref={setNodeRef} 
       className={isEditMode ? 'jiggle-mode' : ''}
       style={style} 
-      elevation={isDragging ? 8 : (swipeOffset ? 4 : 1)}
+      elevation={0}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
@@ -304,21 +316,56 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
         display: 'flex',
         flexDirection: 'column',
         overflow: 'visible',
-        borderRadius: 3,
+        borderRadius: '20px',
         mb: 0,
-        bgcolor: task.categoryColor ? `${task.categoryColor}1A` : 'background.paper',
-        border: task.categoryColor ? `1px solid ${task.categoryColor}40` : '1px solid',
-        borderColor: task.categoryColor ? `${task.categoryColor}40` : 'divider',
+        bgcolor: swipeTint || 'background.paper',
+        border: '1px solid',
+        borderColor: isDragging
+          ? 'primary.main'
+          : (swipeOffset > 30
+            ? alpha(muiTheme.palette.success.main, 0.45)
+            : (swipeOffset < -30
+              ? alpha(muiTheme.palette.primary.main, 0.45)
+              : 'divider')),
+        boxShadow: isDragging
+          ? (isDark ? '0 12px 32px rgba(0,0,0,0.5)' : '0 12px 28px rgba(0,0,0,0.12)')
+          : (isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.03)'),
         position: 'relative',
         userSelect: 'none',
-        WebkitUserSelect: 'none'
+        WebkitUserSelect: 'none',
+        transition: isDragging
+          ? undefined
+          : 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease',
+        '&:hover': !isEditMode ? {
+          borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,31,31,0.16)',
+          boxShadow: isDark
+            ? '0 4px 16px rgba(0,0,0,0.28)'
+            : '0 4px 14px rgba(0,0,0,0.06)',
+        } : {},
       }}
     >
+      {/* Subtle category indicator pill on left edge */}
+      {task.categoryColor && (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 0,
+            top: 16,
+            bottom: 16,
+            width: 3.5,
+            borderRadius: '0 4px 4px 0',
+            bgcolor: task.categoryColor,
+            opacity: isCompleted ? 0.35 : 0.85,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
       {isEditMode && (
         <Box 
           {...attributes} 
           {...listeners} 
-          sx={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'grab', touchAction: 'none' }}
+          sx={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'grab', touchAction: 'none', borderRadius: '20px' }}
         />
       )}
       {isEditMode && (
@@ -326,9 +373,21 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
           size="small" 
           color="error" 
           onClick={(e) => { e.stopPropagation(); onDelete(task); }} 
-          sx={{ position: 'absolute', top: -12, right: -12, bgcolor: 'background.paper', boxShadow: 1, '&:hover': { bgcolor: 'error.main', color: 'white' }, zIndex: 10 }}
+          sx={{
+            position: 'absolute',
+            top: -10,
+            right: -10,
+            width: 30,
+            height: 30,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.12)',
+            '&:hover': { bgcolor: 'error.main', color: 'white', borderColor: 'error.main' },
+            zIndex: 10,
+          }}
         >
-          <DeleteIcon fontSize="small" />
+          <DeleteIcon sx={{ fontSize: 16 }} />
         </IconButton>
       )}
       {isEditMode && (
@@ -336,214 +395,366 @@ const SortableTaskItem = ({ task, isWrongDay, isEditMode, onEdit, onDelete, setG
           size="small" 
           color="primary" 
           onClick={(e) => { e.stopPropagation(); onEdit(task); }} 
-          sx={{ position: 'absolute', top: -12, left: -12, bgcolor: 'background.paper', boxShadow: 1, '&:hover': { bgcolor: 'primary.main', color: 'white' }, zIndex: 10 }}
+          sx={{
+            position: 'absolute',
+            top: -10,
+            left: -10,
+            width: 30,
+            height: 30,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.12)',
+            '&:hover': { bgcolor: 'primary.main', color: 'white', borderColor: 'primary.main' },
+            zIndex: 10,
+          }}
         >
-          <EditIcon fontSize="small" />
+          <EditIcon sx={{ fontSize: 16 }} />
         </IconButton>
       )}
 
-      <Box sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', pointerEvents: isEditMode ? 'none' : 'auto' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-        {!isEditMode && (
-          <Checkbox
-            checked={isCompleted}
-            onChange={() => {
-              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
-              toggleTaskCompletion(task.id);
-            }}
-            disabled={!allSubTasksCompleted && task.subTasks.length > 0}
-            icon={<CheckBoxOutlineBlankIcon />}
-            checkedIcon={<CheckBoxIcon color="success" />}
-            sx={{ p: 0.5, mr: 1 }}
-          />
-        )}
-        
-        <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              fontWeight: 600, 
-              fontSize: '1.1rem',
-              textDecoration: isCompleted ? 'line-through' : 'none',
-              color: isCompleted ? 'text.secondary' : 'text.primary',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              flexWrap: 'wrap'
-            }}
-          >
-            {task.title}
-            {task.isShared && (
-              <MuiTooltip title="Geteilte Aufgabe">
-                <GroupIcon fontSize="small" sx={{ color: 'primary.main', opacity: 0.8 }} />
-              </MuiTooltip>
-            )}
-            {streak > 0 && (
-              <MuiTooltip title={`${streak} ${(task.type === 'weekly' || task.type === 'x-times') ? 'Wochen' : 'Tage'} in Folge!`}>
-                <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.8rem', color: 'error.main', bgcolor: 'background.default', px: 1, py: 0.25, borderRadius: 4, border: 1, borderColor: 'divider' }}>
-                  <LocalFireDepartmentIcon fontSize="small" sx={{ mr: 0.5 }} /> {streak}
-                </Box>
-              </MuiTooltip>
-            )}
-            {consistencyScore !== null && (
-              <MuiTooltip title={`Zuverlässigkeit der letzten ${Math.min(30, Math.max(1, Math.floor((new Date() - new Date(task.createdAt)) / (1000 * 60 * 60 * 24))))} Tage`}>
-                <Typography variant="caption" sx={{ color: consistencyScore >= 80 ? 'success.main' : (consistencyScore >= 50 ? 'warning.main' : 'error.main'), fontWeight: 'bold' }}>
-                  {consistencyScore}%
-                </Typography>
-              </MuiTooltip>
-            )}
-            {completedByToday && isCompleted && (
-              <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>
-                (erledigt von {completedByToday})
-              </Typography>
-            )}
-          </Typography>
+      <Box sx={{ flexGrow: 1, px: 2, py: 1.75, display: 'flex', flexDirection: 'column', pointerEvents: isEditMode ? 'none' : 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
+          {!isEditMode && (
+            <Checkbox
+              checked={isCompleted}
+              onChange={() => {
+                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                toggleTaskCompletion(task.id);
+              }}
+              disabled={!allSubTasksCompleted && task.subTasks.length > 0}
+              icon={<RadioButtonUncheckedIcon sx={{ fontSize: 22, color: 'text.secondary', opacity: 0.7 }} />}
+              checkedIcon={<CheckCircleIcon sx={{ fontSize: 22, color: 'success.main' }} />}
+              sx={{
+                p: 0.25,
+                mt: 0.1,
+                transition: 'transform 0.15s ease',
+                '&:active': { transform: 'scale(0.88)' },
+              }}
+            />
+          )}
           
-          <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', mt: 0.5, display: 'block' }}>
-            Typ: {getTypeLabel()} {specificDaysString && `(${specificDaysString})`}
-          </Typography>
+          <Box sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                fontWeight: 600, 
+                fontSize: '0.96rem',
+                lineHeight: 1.35,
+                textDecoration: isCompleted ? 'line-through' : 'none',
+                color: isCompleted ? 'text.secondary' : 'text.primary',
+                wordBreak: 'break-word',
+              }}
+            >
+              {task.title}
+            </Typography>
 
-          {!hasValidCategory && categories.length > 0 && (
-            <Box sx={{ mt: 1 }}>
-              <Select
-                value=""
-                displayEmpty
-                size="small"
-                onChange={(e) => {
-                  if (e.target.value) {
-                    updateTask(task.id, { categoryId: e.target.value });
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                sx={{ 
-                  minWidth: 150, 
-                  fontSize: '0.75rem', 
-                  height: 28,
-                  bgcolor: 'background.default',
-                  borderRadius: 2,
-                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { border: 'none' }
+            {/* Unified metadata pill row */}
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  px: 1,
+                  py: 0.2,
+                  borderRadius: 9999,
+                  bgcolor: 'background.surfaceVariant',
+                  color: 'text.secondary',
+                  fontSize: '0.7rem',
+                  fontWeight: 500,
+                  lineHeight: 1.4,
                 }}
               >
-                <MenuItem value="" disabled sx={{ fontSize: '0.75rem' }}>Kategorie zuweisen...</MenuItem>
-                {categories.map(c => (
-                  <MenuItem key={c.id} value={c.id} sx={{ fontSize: '0.75rem' }}>{c.name}</MenuItem>
-                ))}
-              </Select>
-            </Box>
-          )}
-
-          {totalSubTasksCount > 0 && (
-            <Box sx={{ mt: 1.5 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="caption" color="text.secondary">Teilaufgaben</Typography>
-                <Typography variant="caption" color="text.secondary">{progressPercentage}% ({completedSubTasksCount}/{totalSubTasksCount})</Typography>
+                {getTypeLabel()}{specificDaysString ? ` · ${specificDaysString}` : ''}
               </Box>
-              <LinearProgress variant="determinate" value={progressPercentage} sx={{ height: 6, borderRadius: 3 }} />
-            </Box>
-          )}
-        </Box>
-        
-        {(task.subTasks.length > 0 || task.type !== 'general') && (
-          <IconButton onClick={() => setExpanded(!expanded)} size="small" sx={{ mt: 0.5 }}>
-            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
-        )}
-      </Box>
 
-      <Collapse in={expanded}>
-        <Box sx={{ ml: 6, mr: 2, mt: 0, mb: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {task.subTasks.length > 0 && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
-                <Box key={st.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Checkbox
-                    checked={st.completed}
-                    onChange={() => {
-                      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
-                      toggleSubTask(task.id, st.id);
-                    }}
-                    size="small"
-                    sx={{ p: 0.5 }}
-                  />
-                  <Typography 
-                    variant="body2"
-                    sx={{ 
-                      textDecoration: st.completed ? 'line-through' : 'none',
-                      color: st.completed ? 'text.secondary' : 'text.primary',
+              {streak > 0 && (
+                <MuiTooltip title={`${streak} ${(task.type === 'weekly' || task.type === 'x-times') ? 'Wochen' : 'Tage'} in Folge!`}>
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.25,
+                      px: 0.9,
+                      py: 0.2,
+                      borderRadius: 9999,
+                      bgcolor: alpha(muiTheme.palette.warning.main, isDark ? 0.18 : 0.14),
+                      color: isDark ? '#FDD663' : '#C25E00',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      lineHeight: 1.4,
                     }}
                   >
-                    {st.title}
-                    {st.completed && task.isShared && st.completedBy && (
-                      <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic' }}>
-                        (von {st.completedBy})
-                      </Typography>
-                    )}
+                    <LocalFireDepartmentIcon sx={{ fontSize: 13 }} />
+                    {streak}
+                  </Box>
+                </MuiTooltip>
+              )}
+
+              {consistencyScore !== null && (
+                <MuiTooltip title={`Zuverlässigkeit der letzten ${Math.min(30, Math.max(1, Math.floor((new Date() - new Date(task.createdAt)) / (1000 * 60 * 60 * 24))))} Tage`}>
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      px: 0.9,
+                      py: 0.2,
+                      borderRadius: 9999,
+                      bgcolor: alpha(
+                        consistencyScore >= 80
+                          ? muiTheme.palette.success.main
+                          : (consistencyScore >= 50 ? muiTheme.palette.warning.main : muiTheme.palette.error.main),
+                        isDark ? 0.16 : 0.12
+                      ),
+                      color:
+                        consistencyScore >= 80
+                          ? 'success.main'
+                          : (consistencyScore >= 50 ? 'warning.main' : 'error.main'),
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      lineHeight: 1.4,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {consistencyScore}%
+                  </Box>
+                </MuiTooltip>
+              )}
+
+              {task.isShared && (
+                <MuiTooltip title="Geteilte Aufgabe">
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.4,
+                      px: 0.85,
+                      py: 0.2,
+                      borderRadius: 9999,
+                      bgcolor: alpha(muiTheme.palette.primary.main, isDark ? 0.16 : 0.1),
+                      color: 'primary.main',
+                      fontSize: '0.7rem',
+                      fontWeight: 500,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <GroupIcon sx={{ fontSize: 13 }} />
+                    {completedByToday && isCompleted ? completedByToday : 'Geteilt'}
+                  </Box>
+                </MuiTooltip>
+              )}
+            </Box>
+
+            {!hasValidCategory && categories.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <Select
+                  value=""
+                  displayEmpty
+                  size="small"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      updateTask(task.id, { categoryId: e.target.value });
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ 
+                    minWidth: 150, 
+                    fontSize: '0.75rem', 
+                    height: 28,
+                    bgcolor: 'background.surfaceVariant',
+                    borderRadius: 9999,
+                    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { border: 'none' }
+                  }}
+                >
+                  <MenuItem value="" disabled sx={{ fontSize: '0.75rem' }}>Kategorie zuweisen...</MenuItem>
+                  {categories.map(c => (
+                    <MenuItem key={c.id} value={c.id} sx={{ fontSize: '0.75rem' }}>{c.name}</MenuItem>
+                  ))}
+                </Select>
+              </Box>
+            )}
+
+            {totalSubTasksCount > 0 && (
+              <Box sx={{ mt: 1.25 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', fontWeight: 500 }}>
+                    Teilaufgaben
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                    {completedSubTasksCount}/{totalSubTasksCount} · {progressPercentage}%
                   </Typography>
                 </Box>
-              ))}
-            </Box>
-          )}
-
-          {task.type !== 'general' && (
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'uppercase', fontWeight: 'bold' }}>
-                Verlauf der letzten 7 Tage
-              </Typography>
-              <Box 
-                sx={{ display: 'flex', gap: 0.5, overflowX: 'auto', pb: 1 }}
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-              >
-                {[6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
-                  const baseDate = subHours(new Date(), resetHour || 3);
-                  const d = subDays(baseDate, daysAgo);
-                  const dateStr = format(d, 'yyyy-MM-dd');
-                  const isDone = (task.completedDates || []).includes(dateStr);
-                  const isScheduled = task.type !== 'specific-days' || (task.specificDays || []).includes(d.getDay());
-                  const shortDay = format(d, 'EE', { locale: de });
-                  const shortDate = format(d, 'dd.MM');
-                  return (
-                    <Box 
-                      key={dateStr}
-                      onClick={() => {
-                        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
-                        toggleTaskCompletion(task.id, dateStr);
-                      }}
-                      sx={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        minWidth: 40,
-                        cursor: 'pointer',
-                        opacity: isDone ? 1 : 0.6,
-                        '&:hover': { opacity: 1 }
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{shortDay}</Typography>
-                      <Box 
-                        sx={{ 
-                          width: 28, height: 28, 
-                          borderRadius: '50%', 
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          bgcolor: isDone ? 'success.main' : (!isScheduled ? 'transparent' : 'background.default'),
-                          color: isDone ? 'white' : 'text.disabled',
-                          border: (!isScheduled && !isDone) ? 0 : 1,
-                          borderColor: isDone ? 'success.main' : 'divider',
-                          my: 0.5
-                        }}
-                      >
-                        {isDone ? <CheckBoxIcon fontSize="small" /> : (!isScheduled ? <Typography sx={{fontSize: '1rem', color: 'divider'}}>-</Typography> : <CheckBoxOutlineBlankIcon fontSize="small" />)}
-                      </Box>
-                      <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{shortDate}</Typography>
-                    </Box>
-                  );
-                })}
+                <LinearProgress variant="determinate" value={progressPercentage} sx={{ height: 5, borderRadius: 9999 }} />
               </Box>
-            </Box>
+            )}
+          </Box>
+          
+          {(task.subTasks.length > 0 || task.type !== 'general') && (
+            <IconButton
+              onClick={() => setExpanded(!expanded)}
+              size="small"
+              sx={{
+                mt: -0.25,
+                color: 'text.secondary',
+                transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.22s ease, background-color 0.2s ease',
+              }}
+            >
+              <ExpandMoreIcon fontSize="small" />
+            </IconButton>
           )}
         </Box>
-      </Collapse>
+
+        <Collapse in={expanded} timeout={220}>
+          <Box
+            sx={{
+              mt: 1.5,
+              p: 1.5,
+              borderRadius: '14px',
+              bgcolor: 'background.surfaceVariant',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5,
+            }}
+          >
+            {task.subTasks.length > 0 && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                {[...task.subTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(st => (
+                  <Box
+                    key={st.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      py: 0.35,
+                      px: 0.5,
+                      borderRadius: '10px',
+                      '&:hover': {
+                        bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                      },
+                    }}
+                  >
+                    <Checkbox
+                      checked={st.completed}
+                      onChange={() => {
+                        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                        toggleSubTask(task.id, st.id);
+                      }}
+                      size="small"
+                      icon={<RadioButtonUncheckedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />}
+                      checkedIcon={<CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />}
+                      sx={{ p: 0.25 }}
+                    />
+                    <Typography 
+                      variant="body2"
+                      sx={{ 
+                        fontSize: '0.84rem',
+                        textDecoration: st.completed ? 'line-through' : 'none',
+                        color: st.completed ? 'text.secondary' : 'text.primary',
+                      }}
+                    >
+                      {st.title}
+                      {st.completed && task.isShared && st.completedBy && (
+                        <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                          (von {st.completedBy})
+                        </Typography>
+                      )}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+
+            {task.type !== 'general' && (
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1, fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                >
+                  Letzte 7 Tage
+                </Typography>
+                <Box 
+                  sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, overflowX: 'auto' }}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onTouchMove={(e) => e.stopPropagation()}
+                >
+                  {[6, 5, 4, 3, 2, 1, 0].map(daysAgo => {
+                    const baseDate = subHours(new Date(), resetHour || 3);
+                    const d = subDays(baseDate, daysAgo);
+                    const dateStr = format(d, 'yyyy-MM-dd');
+                    const isDone = (task.completedDates || []).includes(dateStr);
+                    const isScheduled = task.type !== 'specific-days' || (task.specificDays || []).includes(d.getDay());
+                    const shortDay = format(d, 'EE', { locale: de });
+                    const shortDate = format(d, 'dd.MM');
+                    const isToday = daysAgo === 0;
+                    return (
+                      <Box 
+                        key={dateStr}
+                        onClick={() => {
+                          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                          toggleTaskCompletion(task.id, dateStr);
+                        }}
+                        sx={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          alignItems: 'center', 
+                          minWidth: 36,
+                          cursor: 'pointer',
+                          '&:hover .day-circle': {
+                            transform: 'scale(1.1)',
+                          },
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.65rem',
+                            fontWeight: isToday ? 700 : 500,
+                            color: isToday ? 'primary.main' : 'text.secondary',
+                          }}
+                        >
+                          {shortDay}
+                        </Typography>
+                        <Box 
+                          className="day-circle"
+                          sx={{ 
+                            width: 30,
+                            height: 30,
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            bgcolor: isDone
+                              ? 'success.main'
+                              : (!isScheduled ? 'transparent' : 'background.paper'),
+                            color: isDone ? (isDark ? '#131314' : '#FFFFFF') : 'text.disabled',
+                            border: (!isScheduled && !isDone) ? 'none' : '1.5px solid',
+                            borderColor: isDone
+                              ? 'success.main'
+                              : (isToday ? 'primary.main' : 'divider'),
+                            my: 0.5,
+                            transition: 'transform 0.15s ease, background-color 0.2s ease',
+                          }}
+                        >
+                          {isDone ? (
+                            <CheckIcon sx={{ fontSize: 16, strokeWidth: 2 }} />
+                          ) : (!isScheduled ? (
+                            <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'divider' }} />
+                          ) : null)}
+                        </Box>
+                        <Typography variant="caption" sx={{ fontSize: '0.62rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                          {shortDate}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </Collapse>
       </Box>
     </Card>
   );
@@ -771,243 +982,516 @@ const TaskGrid = () => {
     }
   };
 
+  const muiTheme = useTheme();
+  const isDark = muiTheme.palette.mode === 'dark';
+  const formattedToday = format(subHours(new Date(), resetHour || 3), 'EEEE, d. MMMM', { locale: de });
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, position: 'relative' }}>
       {!isOnline && (
-        <Box sx={{ p: 2, bgcolor: 'error.dark', color: 'white', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" fontWeight="bold">
+        <Box
+          sx={{
+            px: 2.5,
+            py: 1.5,
+            bgcolor: alpha(muiTheme.palette.error.main, isDark ? 0.18 : 0.1),
+            color: 'error.main',
+            border: '1px solid',
+            borderColor: alpha(muiTheme.palette.error.main, 0.3),
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}
+        >
+          <WifiOffIcon fontSize="small" />
+          <Typography variant="body2" fontWeight={600}>
             Du bist offline. Aufgaben können derzeit nicht synchronisiert werden. Nur die Lesegeschwindigkeit ist verfügbar.
           </Typography>
         </Box>
       )}
 
       {isEditMode && (
-        <Box sx={{ position: 'sticky', top: 16, zIndex: 1100, display: 'flex', justifyContent: 'center', mb: -2 }}>
-          <Fab color="primary" onClick={() => setIsCreatingNew(true)}>
-            <AddIcon />
-          </Fab>
-        </Box>
-      )}
-
-      {!vacationMode && totalTasks > 0 && (
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <MuiTooltip title="Dein Tagesziel umfasst nur wiederkehrende Routinen (z.B. täglich oder an bestimmten Tagen). Allgemeine To-Dos werden hier nicht mitgezählt, damit sie deine tägliche Serie nicht blockieren.">
-                <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'help' }}>
-                  <Typography variant="body2" color="text.secondary" fontWeight="bold">Tagesziel (Routinen)</Typography>
-                </Box>
-              </MuiTooltip>
-              <MuiTooltip title={allPerfect ? "Perfekte Woche!" : "Perfekte Tage (Letzte 7 Tage)"}>
-                <Box sx={{ display: 'flex', gap: 0.25 }}>
-                  {perfectDays.map((d, i) => (
-                    <LocalFireDepartmentIcon 
-                      key={d.dateStr} 
-                      sx={{ 
-                        fontSize: '1rem', 
-                        color: d.perfect ? (allPerfect ? '#ffd700' : 'warning.main') : 'divider',
-                        filter: (allPerfect && d.perfect) ? 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.8))' : 'none',
-                        transform: (allPerfect && d.perfect) ? 'scale(1.1)' : 'scale(1)',
-                        transition: 'all 0.3s'
-                      }} 
-                    />
-                  ))}
-                </Box>
-              </MuiTooltip>
-              {badgeInfo && (
-                <MuiTooltip title={`Deine Konstanz der letzten 30 Tage liegt bei ${monthScore}%.`}>
-                  <Chip 
-                    onClick={() => setHistoryModalOpen(true)}
-                    size="small" 
-                    icon={<span style={{ fontSize: '12px', marginLeft: 6 }}>{badgeInfo.icon}</span>} 
-                    label={`${monthScore}% ${badgeInfo.label}`} 
-                    sx={{ 
-                      height: 20, 
-                      fontSize: '0.65rem', 
-                      bgcolor: `${badgeInfo.color}22`, 
-                      color: badgeInfo.color, 
-                      fontWeight: 'bold',
-                      ml: 1,
-                      cursor: 'pointer',
-                      '&:hover': { bgcolor: `${badgeInfo.color}44` }
-                    }} 
-                  />
-                </MuiTooltip>
-              )}
-            </Box>
-            <Typography variant="body2" color="text.secondary" fontWeight="bold">{completedTasks} / {totalTasks} ({progressPercent}%)</Typography>
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 8,
+            zIndex: 1100,
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: 1.25,
+              px: 2,
+              py: 1,
+              borderRadius: 9999,
+              bgcolor: isDark ? alpha('#1E1F20', 0.94) : alpha('#FFFFFF', 0.94),
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: isDark ? '0 8px 28px rgba(0,0,0,0.45)' : '0 8px 24px rgba(0,0,0,0.1)',
+            }}
+          >
+            <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ px: 0.75, display: { xs: 'none', sm: 'block' } }}>
+              Bearbeitungsmodus
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<AddIcon fontSize="small" />}
+              onClick={() => setIsCreatingNew(true)}
+              sx={{ borderRadius: 9999 }}
+            >
+              Neue Aufgabe
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              onClick={() => setIsEditMode(false)}
+              sx={{ borderRadius: 9999 }}
+            >
+              Fertig
+            </Button>
           </Box>
-          <LinearProgress variant="determinate" value={progressPercent} sx={{ height: 10, borderRadius: 5 }} />
         </Box>
       )}
 
-      <Box component="form" onSubmit={handleQuickAdd} sx={{ display: 'flex', gap: 1, mb: 1 }}>
-        <TextField
+      {/* Google One Style Daily Progress Hero Card */}
+      {!vacationMode && totalTasks > 0 && (
+        <Card
+          sx={{
+            p: { xs: 2.25, sm: 3 },
+            borderRadius: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, fontSize: '0.78rem', display: 'block', mb: 0.25 }}>
+                {formattedToday}
+              </Typography>
+              <MuiTooltip title="Dein Tagesziel umfasst nur wiederkehrende Routinen (z.B. täglich oder an bestimmten Tagen). Allgemeine To-Dos werden hier nicht mitgezählt, damit sie deine tägliche Serie nicht blockieren.">
+                <Typography variant="h5" sx={{ fontWeight: 700, cursor: 'help', display: 'inline-block' }}>
+                  Tagesziel
+                </Typography>
+              </MuiTooltip>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: progressPercent === 100 ? 'success.main' : 'primary.main',
+                  fontVariantNumeric: 'tabular-nums',
+                  lineHeight: 1,
+                }}
+              >
+                {progressPercent}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                ({completedTasks}/{totalTasks})
+              </Typography>
+            </Box>
+          </Box>
+
+          <LinearProgress
+            variant="determinate"
+            value={progressPercent}
+            color={progressPercent === 100 ? 'success' : 'primary'}
+            sx={{ height: 10, borderRadius: 9999 }}
+          />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+            <MuiTooltip title={allPerfect ? 'Perfekte Woche!' : 'Perfekte Tage (Letzte 7 Tage)'}>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  px: 1.5,
+                  py: 0.6,
+                  borderRadius: 9999,
+                  bgcolor: 'background.surfaceVariant',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mr: 0.5, fontSize: '0.72rem' }}>
+                  7 Tage
+                </Typography>
+                {perfectDays.map((d) => (
+                  <LocalFireDepartmentIcon
+                    key={d.dateStr}
+                    sx={{
+                      fontSize: '1.05rem',
+                      color: d.perfect ? (allPerfect ? '#F9AB00' : 'warning.main') : (isDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,31,31,0.16)'),
+                      filter: (allPerfect && d.perfect) ? 'drop-shadow(0 0 4px rgba(249, 171, 0, 0.6))' : 'none',
+                      transform: (allPerfect && d.perfect) ? 'scale(1.1)' : 'scale(1)',
+                      transition: 'all 0.25s ease',
+                    }}
+                  />
+                ))}
+              </Box>
+            </MuiTooltip>
+
+            {badgeInfo && (
+              <MuiTooltip title={`Deine Konstanz der letzten 30 Tage liegt bei ${monthScore}%. Klicken für Trophäen-Wand.`}>
+                <Chip
+                  onClick={() => setHistoryModalOpen(true)}
+                  size="small"
+                  icon={<span style={{ fontSize: '13px', marginLeft: 8 }}>{badgeInfo.icon}</span>}
+                  label={`${monthScore}% ${badgeInfo.label}`}
+                  sx={{
+                    height: 30,
+                    px: 0.5,
+                    fontSize: '0.76rem',
+                    bgcolor: alpha(badgeInfo.color, isDark ? 0.18 : 0.16),
+                    color: isDark ? badgeInfo.color : '#5C4200',
+                    border: '1px solid',
+                    borderColor: alpha(badgeInfo.color, 0.35),
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'transform 0.15s ease, background-color 0.2s ease',
+                    '&:hover': {
+                      bgcolor: alpha(badgeInfo.color, isDark ? 0.28 : 0.25),
+                      transform: 'translateY(-1px)',
+                    },
+                  }}
+                />
+              </MuiTooltip>
+            )}
+          </Box>
+        </Card>
+      )}
+
+      {/* Unified Pill Quick-Add Bar */}
+      <Box
+        component="form"
+        onSubmit={handleQuickAdd}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          pl: 2.5,
+          pr: 0.75,
+          py: 0.65,
+          borderRadius: 9999,
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.04)',
+          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+          '&:focus-within': {
+            borderColor: 'primary.main',
+            boxShadow: `0 0 0 3px ${alpha(muiTheme.palette.primary.main, isDark ? 0.2 : 0.12)}`,
+          },
+        }}
+      >
+        <InputBase
           fullWidth
-          size="small"
           placeholder="Schnelle Aufgabe hinzufügen..."
           value={quickAddText}
           onChange={(e) => setQuickAddText(e.target.value)}
-          sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+          sx={{
+            fontSize: '0.94rem',
+            color: 'text.primary',
+            '& input::placeholder': {
+              color: 'text.secondary',
+              opacity: 0.85,
+            },
+          }}
         />
-        <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 2, minWidth: 48, px: 0 }}>
-          <AddIcon />
-        </Button>
-      </Box>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {isEditMode && (
-            <Button 
-              variant="contained" 
-              color="success"
-              onClick={() => setIsEditMode(false)}
-              size="small"
-              sx={{ borderRadius: 8 }}
-            >
-              Fertig (Bearbeiten beenden)
-            </Button>
-          )}
-        </Box>
+        <IconButton
+          type="submit"
+          aria-label="Aufgabe hinzufügen"
+          sx={{
+            width: 38,
+            height: 38,
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+            '&:hover': {
+              bgcolor: 'primary.dark',
+            },
+          }}
+        >
+          <AddIcon fontSize="small" />
+        </IconButton>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6, pointerEvents: !isOnline ? 'none' : 'auto', opacity: !isOnline ? 0.7 : 1 }}>
+      {/* Main Task Categories & Grid */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5, pointerEvents: !isOnline ? 'none' : 'auto', opacity: !isOnline ? 0.7 : 1 }}>
         {vacationMode ? (
-          <Card sx={{ p: 6, textAlign: 'center', bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 4 }}>
-            <Typography variant="h4" gutterBottom>🏖️ Urlaubsmodus ist aktiv</Typography>
-            <Typography variant="body1">
+          <Card
+            sx={{
+              p: { xs: 4, sm: 6 },
+              textAlign: 'center',
+              borderRadius: '24px',
+              bgcolor: alpha(muiTheme.palette.primary.main, isDark ? 0.14 : 0.08),
+              borderColor: alpha(muiTheme.palette.primary.main, 0.25),
+            }}
+          >
+            <Typography variant="h4" gutterBottom sx={{ fontWeight: 700 }}>
+              🏖️ Urlaubsmodus ist aktiv
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 460, mx: 'auto' }}>
               Genieße deinen Urlaub! Aufgaben werden nicht angezeigt und deine Streaks bleiben erhalten.
             </Typography>
           </Card>
         ) : (
           <>
-          {displayGroups.sort((a, b) => {
-            if (a.id === 'uncategorized') return 1;
-            if (b.id === 'uncategorized') return -1;
-            const catA = categories.find(c => c.id === a.id);
-            const catB = categories.find(c => c.id === b.id);
-            return (catA?.order || 0) - (catB?.order || 0);
-          }).map((group, groupIndex, arr) => {
-            const catTasks = activeTasks.filter(t => {
-              if (group.id === 'uncategorized') {
-                return !categories.find(c => c.id === t.categoryId);
-              }
-              return t.categoryId === group.id;
-            });
-          if (catTasks.length === 0) return null;
+            {displayGroups
+              .sort((a, b) => {
+                if (a.id === 'uncategorized') return 1;
+                if (b.id === 'uncategorized') return -1;
+                const catA = categories.find(c => c.id === a.id);
+                const catB = categories.find(c => c.id === b.id);
+                return (catA?.order || 0) - (catB?.order || 0);
+              })
+              .map((group, groupIndex, arr) => {
+                const catTasks = activeTasks.filter(t => {
+                  if (group.id === 'uncategorized') {
+                    return !categories.find(c => c.id === t.categoryId);
+                  }
+                  return t.categoryId === group.id;
+                });
+                if (catTasks.length === 0) return null;
 
-          const isFirstCat = groupIndex === 0;
-          const isLastCat = groupIndex === arr.length - 1 || (groupIndex === arr.length - 2 && arr[arr.length - 1].id === 'uncategorized');
+                const isFirstCat = groupIndex === 0;
+                const isLastCat = groupIndex === arr.length - 1 || (groupIndex === arr.length - 2 && arr[arr.length - 1].id === 'uncategorized');
+                const isCollapsed = !!collapsedCategories[group.id];
 
-          return (
-            <Box key={group.id}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: group.color !== 'text.secondary' ? group.color : 'text.primary', fontWeight: 'bold' }}>
-                  <IconButton size="small" onClick={() => toggleCategory(group.id)} sx={{ p: 0, mr: 0.5, color: 'inherit' }}>
-                    {collapsedCategories[group.id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-                  </IconButton>
-                  {group.label}
-                </Typography>
-                
-                {group.id !== 'uncategorized' && (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton 
-                      size="small" 
-                      disabled={isFirstCat}
-                      onClick={() => {
-                        const prevCat = arr[groupIndex - 1];
-                        if (prevCat) reorderCategories(group.id, prevCat.id);
-                      }}
-                    >
-                      <ArrowUpwardIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      disabled={isLastCat}
-                      onClick={() => {
-                        const nextCat = arr[groupIndex + 1];
-                        if (nextCat && nextCat.id !== 'uncategorized') reorderCategories(group.id, nextCat.id);
-                      }}
-                    >
-                      <ArrowDownwardIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-              </Box>
-
-              <Collapse in={!collapsedCategories[group.id]}>
-                <DndContext 
-                  id={group.id}
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext 
-                    items={catTasks.map(t => t.id)}
-                    strategy={rectSortingStrategy}
-                  >
-                    <Box sx={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                      gap: 2,
-                      borderLeft: group.color !== 'text.secondary' ? 4 : 0,
-                      borderColor: group.color,
-                      pl: group.color !== 'text.secondary' ? 2 : 0,
-                    }}>
-                      {catTasks.map(task => (
-                        <SortableTaskItem 
-                          key={task.id} 
-                          task={task} 
-                          isWrongDay={task.isWrongDay}
-                          isEditMode={isEditMode}
-                          setGlobalEditMode={setIsEditMode}
-                          onEdit={(t) => setTaskToEdit(t)}
-                          onDelete={(t) => {
-                            if (window.confirm(`Möchtest du die Aufgabe "${t.title}" wirklich löschen?`)) {
-                              deleteTask(t.id);
-                            }
+                return (
+                  <Box key={group.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, px: 0.5 }}>
+                      <Box
+                        onClick={() => toggleCategory(group.id)}
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 1.25,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          py: 0.5,
+                          pr: 1.5,
+                          borderRadius: 9999,
+                          '&:hover': {
+                            bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                          },
+                        }}
+                      >
+                        <ExpandMoreIcon
+                          fontSize="small"
+                          sx={{
+                            color: 'text.secondary',
+                            transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s ease',
                           }}
                         />
-                      ))}
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: '50%',
+                            bgcolor: group.color !== 'text.secondary' ? group.color : 'text.secondary',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary', letterSpacing: '-0.01em' }}>
+                          {group.label}
+                        </Typography>
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.15,
+                            borderRadius: 9999,
+                            bgcolor: 'background.surfaceVariant',
+                            color: 'text.secondary',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {catTasks.length}
+                        </Box>
+                      </Box>
+
+                      {group.id !== 'uncategorized' && (
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            disabled={isFirstCat}
+                            onClick={() => {
+                              const prevCat = arr[groupIndex - 1];
+                              if (prevCat) reorderCategories(group.id, prevCat.id);
+                            }}
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            <ArrowUpwardIcon sx={{ fontSize: 17 }} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            disabled={isLastCat}
+                            onClick={() => {
+                              const nextCat = arr[groupIndex + 1];
+                              if (nextCat && nextCat.id !== 'uncategorized') reorderCategories(group.id, nextCat.id);
+                            }}
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            <ArrowDownwardIcon sx={{ fontSize: 17 }} />
+                          </IconButton>
+                        </Box>
+                      )}
                     </Box>
-                  </SortableContext>
-                </DndContext>
-              </Collapse>
-            </Box>
-          );
-          })}
+
+                    <Collapse in={!isCollapsed} timeout={220}>
+                      <DndContext
+                        id={group.id}
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={catTasks.map(t => t.id)}
+                          strategy={rectSortingStrategy}
+                        >
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
+                              gap: 1.75,
+                            }}
+                          >
+                            {catTasks.map(task => (
+                              <SortableTaskItem
+                                key={task.id}
+                                task={task}
+                                isWrongDay={task.isWrongDay}
+                                isEditMode={isEditMode}
+                                setGlobalEditMode={setIsEditMode}
+                                onEdit={(t) => setTaskToEdit(t)}
+                                onDelete={(t) => {
+                                  if (window.confirm(`Möchtest du die Aufgabe "${t.title}" wirklich löschen?`)) {
+                                    deleteTask(t.id);
+                                  }
+                                }}
+                              />
+                            ))}
+                          </Box>
+                        </SortableContext>
+                      </DndContext>
+                    </Collapse>
+                  </Box>
+                );
+              })}
           </>
         )}
       </Box>
-      
+
       {!vacationMode && activeTasks.length === 0 && tasks.length > 0 && (
-        <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary', bgcolor: 'transparent', boxShadow: 'none' }}>
-          <Typography variant="h6">Alles erledigt für heute! 🎉</Typography>
+        <Card
+          sx={{
+            p: 4,
+            textAlign: 'center',
+            borderRadius: '24px',
+            bgcolor: 'background.paper',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              bgcolor: alpha(muiTheme.palette.success.main, isDark ? 0.18 : 0.12),
+              color: 'success.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 0.5,
+            }}
+          >
+            <DoneAllIcon />
+          </Box>
+          <Typography variant="h6" fontWeight={700}>
+            Alles erledigt für heute!
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Starke Leistung — genieße den Rest deines Tages.
+          </Typography>
         </Card>
       )}
 
       {!vacationMode && tasks.length === 0 && (
-        <Card sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-          <Typography variant="h6">Noch keine Aufgaben vorhanden. Füge eine hinzu!</Typography>
+        <Card sx={{ p: 4, textAlign: 'center', borderRadius: '24px', color: 'text.secondary' }}>
+          <Typography variant="h6" fontWeight={600} color="text.primary" gutterBottom>
+            Noch keine Aufgaben vorhanden
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Füge oben deine erste Aufgabe hinzu, um loszulegen.
+          </Typography>
         </Card>
       )}
 
       {!vacationMode && doneTasks.length > 0 && (
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontWeight: 'bold', mb: 2 }}>
-            <IconButton size="small" onClick={() => setShowCompleted(!showCompleted)} sx={{ p: 0, mr: 0.5, color: 'inherit' }}>
-              {showCompleted ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-            </IconButton>
-            Heute Erledigt ({doneTasks.length})
-          </Typography>
-          <Collapse in={showCompleted}>
+        <Box sx={{ mt: 1 }}>
+          <Box
+            onClick={() => setShowCompleted(!showCompleted)}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              cursor: 'pointer',
+              userSelect: 'none',
+              px: 1.5,
+              py: 0.75,
+              mb: 1.5,
+              borderRadius: 9999,
+              bgcolor: 'background.surfaceVariant',
+              color: 'text.secondary',
+              transition: 'background-color 0.2s ease',
+              '&:hover': {
+                color: 'text.primary',
+              },
+            }}
+          >
+            <ExpandMoreIcon
+              fontSize="small"
+              sx={{
+                transform: showCompleted ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+            <Typography variant="body2" fontWeight={600}>
+              Heute erledigt ({doneTasks.length})
+            </Typography>
+          </Box>
+          <Collapse in={showCompleted} timeout={220}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={() => {}}>
               <SortableContext items={doneTasks.map(t => t.id)} strategy={rectSortingStrategy}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, opacity: 0.7 }}>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' },
+                    gap: 1.75,
+                    opacity: 0.72,
+                  }}
+                >
                   {doneTasks.map(task => (
-                    <SortableTaskItem 
-                      key={task.id} 
-                      task={task} 
+                    <SortableTaskItem
+                      key={task.id}
+                      task={task}
                       isWrongDay={false}
                       isEditMode={isEditMode}
                       setGlobalEditMode={setIsEditMode}
@@ -1029,8 +1513,8 @@ const TaskGrid = () => {
       <Dialog open={!!taskToEdit} onClose={() => setTaskToEdit(null)} maxWidth="sm" fullWidth>
         <DialogContent sx={{ p: 0 }}>
           {taskToEdit && (
-            <TaskCreator 
-              initialEditTaskId={taskToEdit.id} 
+            <TaskCreator
+              initialEditTaskId={taskToEdit.id}
               onClose={() => setTaskToEdit(null)}
               isOverlay={true}
             />
@@ -1041,7 +1525,7 @@ const TaskGrid = () => {
       <Dialog open={isCreatingNew} onClose={() => setIsCreatingNew(false)} maxWidth="sm" fullWidth>
         <DialogContent sx={{ p: 0 }}>
           {isCreatingNew && (
-            <TaskCreator 
+            <TaskCreator
               onClose={() => setIsCreatingNew(false)}
               isOverlay={true}
             />
@@ -1050,24 +1534,41 @@ const TaskGrid = () => {
       </Dialog>
 
       <Dialog open={historyModalOpen} onClose={() => setHistoryModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogContent>
+        <DialogContent sx={{ p: 3 }}>
           <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography variant="h5" fontWeight="bold">Trophäen-Wand</Typography>
-            <Typography variant="body2" color="text.secondary">Deine Leistung der vergangenen Kalendermonate</Typography>
+            <Typography variant="h5" fontWeight={700} gutterBottom>
+              Trophäen-Wand
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Deine Leistung der vergangenen Kalendermonate
+            </Typography>
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
             {getHistoricalMonths().map(m => (
-              <Box key={m.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, borderRadius: 2, bgcolor: 'background.default', border: 1, borderColor: 'divider' }}>
-                <Typography fontWeight="bold">{m.monthName}</Typography>
-                <Chip 
-                  size="small" 
-                  icon={<span style={{ fontSize: '14px', marginLeft: 6 }}>{m.badge.icon}</span>} 
-                  label={`${m.score}% ${m.badge.label}`} 
-                  sx={{ 
-                    bgcolor: `${m.badge.color}22`, 
-                    color: m.badge.color, 
-                    fontWeight: 'bold'
-                  }} 
+              <Box
+                key={m.id}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  px: 2,
+                  py: 1.5,
+                  borderRadius: '16px',
+                  bgcolor: 'background.surfaceVariant',
+                }}
+              >
+                <Typography variant="body2" fontWeight={600}>
+                  {m.monthName}
+                </Typography>
+                <Chip
+                  size="small"
+                  icon={<span style={{ fontSize: '14px', marginLeft: 6 }}>{m.badge.icon}</span>}
+                  label={`${m.score}% ${m.badge.label}`}
+                  sx={{
+                    bgcolor: alpha(m.badge.color, isDark ? 0.2 : 0.18),
+                    color: isDark ? m.badge.color : '#5C4200',
+                    fontWeight: 600,
+                  }}
                 />
               </Box>
             ))}
@@ -1077,7 +1578,12 @@ const TaskGrid = () => {
               </Typography>
             )}
           </Box>
-          <Button fullWidth variant="outlined" sx={{ mt: 3, borderRadius: 8 }} onClick={() => setHistoryModalOpen(false)}>
+          <Button
+            fullWidth
+            variant="outlined"
+            sx={{ mt: 3, borderRadius: 9999 }}
+            onClick={() => setHistoryModalOpen(false)}
+          >
             Schließen
           </Button>
         </DialogContent>

@@ -1,10 +1,42 @@
-/* Cleared out old CSS classes since we are now using Material UI (MUI) */
+/* Modern base styles & subtle utilities */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+
 #root {
   height: 100%;
 }
-@keyframes jiggle { 0% { transform: rotate(-1deg); } 50% { transform: rotate(1.5deg); } 100% { transform: rotate(-1deg); } } .jiggle-mode { animation: jiggle 0.3s infinite; }
+
+/* Subtle modern scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 134, 139, 0.28);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 134, 139, 0.45);
+}
+
+@keyframes jiggle {
+  0% { transform: rotate(-0.8deg); }
+  50% { transform: rotate(0.8deg); }
+  100% { transform: rotate(-0.8deg); }
+}
+
+.jiggle-mode {
+  animation: jiggle 0.32s ease-in-out infinite;
+}

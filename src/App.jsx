@@ -123,39 +123,103 @@ function MainApp() {
       />
       
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'background.default' }}>
-        <AppBar position="static" color="primary" elevation={2} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
-          <Toolbar>
-            {/* Removed Hamburger Menu for Mobile */}
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
+        <AppBar
+          position="static"
+          color="transparent"
+          elevation={0}
+          sx={{
+            bgcolor: 'background.default',
+            color: 'text.primary',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Toolbar sx={{ minHeight: { xs: 60, sm: 68 }, px: { xs: 2, sm: 3.5 } }}>
+            <Typography
+              variant="h5"
+              component="h1"
+              sx={{
+                flexGrow: 1,
+                fontWeight: 700,
+                fontSize: { xs: '1.15rem', sm: '1.3rem' },
+                letterSpacing: '-0.02em',
+                color: 'text.primary',
+              }}
+            >
               {getViewTitle()}
             </Typography>
             
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
               {user ? (
                 <>
                   <IconButton 
                     color="inherit" 
                     onClick={() => setIsInvitationsModalOpen(true)}
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': {
+                        bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                        color: 'text.primary',
+                      },
+                    }}
                   >
                     <Badge badgeContent={pendingCount} color="error">
-                      <NotificationsIcon />
+                      <NotificationsIcon fontSize="small" />
                     </Badge>
                   </IconButton>
                   <Box 
                     onClick={() => setIsProfileModalOpen(true)}
-                    sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: { xs: 1, sm: 1.5 },
+                      py: 0.65,
+                      borderRadius: 9999,
+                      bgcolor: 'background.paper',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      color: 'text.primary',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease, border-color 0.2s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                      },
+                    }}
                   >
-                    <AccountCircleIcon />
-                    <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                    <AccountCircleIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                    <Typography variant="body2" fontWeight={500} sx={{ display: { xs: 'none', sm: 'block' }, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {userDisplayName || user.email}
                     </Typography>
                   </Box>
-                  <Button variant="outlined" color="inherit" onClick={logout} size="small" sx={{ borderRadius: 8, borderColor: 'primary.contrastText', color: 'primary.contrastText' }}>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={logout}
+                    size="small"
+                    sx={{
+                      borderRadius: 9999,
+                      borderColor: 'divider',
+                      color: 'text.secondary',
+                      px: 2,
+                      '&:hover': {
+                        borderColor: 'text.secondary',
+                        color: 'text.primary',
+                        bgcolor: 'transparent',
+                      },
+                    }}
+                  >
                     Logout
                   </Button>
                 </>
               ) : (
-                <Button variant="contained" color="secondary" onClick={() => setIsAuthModalOpen(true)} size="small" sx={{ borderRadius: 8, bgcolor: 'background.paper', color: 'primary.main', '&:hover': { bgcolor: 'background.default' } }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  size="small"
+                  sx={{ borderRadius: 9999, px: 2.5 }}
+                >
                   Einloggen
                 </Button>
               )}
@@ -163,12 +227,34 @@ function MainApp() {
           </Toolbar>
         </AppBar>
         
-        <Box component="main" sx={{ flexGrow: 1, overflow: 'auto', p: { xs: 2, sm: 3 }, pb: { xs: 10, sm: 3 } }}>
-          {renderContent()}
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            overflow: 'auto',
+            px: { xs: 2, sm: 3.5 },
+            pt: { xs: 2.5, sm: 3.5 },
+            pb: { xs: 12, sm: 4 },
+          }}
+        >
+          <Box sx={{ maxWidth: 1120, mx: 'auto', width: '100%' }}>
+            {renderContent()}
+          </Box>
         </Box>
 
         {/* Bottom Navigation for Mobile */}
-        <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, display: { md: 'none' }, zIndex: 1100 }} elevation={8}>
+        <Paper
+          sx={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            display: { md: 'none' },
+            zIndex: 1100,
+            bgcolor: 'transparent',
+          }}
+          elevation={0}
+        >
           <BottomNavigation
             showLabels
             value={currentView}

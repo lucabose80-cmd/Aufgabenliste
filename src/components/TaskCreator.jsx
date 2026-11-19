@@ -165,8 +165,18 @@ const TaskCreator = ({ initialEditTaskId = null, onClose = null, isOverlay = fal
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 800, mx: 'auto' }}>
-      <Card sx={{ p: { xs: 2, sm: 4 } }}>
-        <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
+      <Card
+        sx={{
+          p: { xs: 2.5, sm: 3.5 },
+          ...(isOverlay && {
+            border: 'none',
+            boxShadow: 'none',
+            borderRadius: 0,
+            bgcolor: 'transparent',
+          }),
+        }}
+      >
+        <Typography variant="h5" sx={{ mb: 3, fontWeight: 700 }}>
           {editingTaskId ? 'Aufgabe bearbeiten' : 'Neue Aufgabe erstellen'}
         </Typography>
       
