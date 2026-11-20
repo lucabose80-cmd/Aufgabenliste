@@ -1,6 +1,14 @@
-export const APP_VERSION = '2.1.1';
+export const APP_VERSION = '2.1.2';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.1.2',
+    date: '20.11.2026',
+    title: 'Sauberere Bottom-Navigation ohne graues Rechteck',
+    highlights: [
+      'Der rechteckige graue Tap-/Ripple-Hintergrund auf den Buttons in der unteren Navigationsleiste wurde entfernt — beim Antippen reagiert jetzt nur noch sauber die abgerundete Icon-Pille.',
+    ],
+  },
   {
     version: '2.1.1',
     date: '20.11.2026',

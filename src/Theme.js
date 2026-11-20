@@ -301,12 +301,25 @@ const getDesignTokens = (mode, accentColor) => {
         },
       },
       MuiBottomNavigationAction: {
+        defaultProps: {
+          disableRipple: true,
+        },
         styleOverrides: {
           root: {
             padding: '6px 0',
             minWidth: 'auto',
             color: textSecondary,
+            backgroundColor: 'transparent',
+            WebkitTapHighlightColor: 'transparent',
+            outline: 'none',
             transition: 'color 0.2s ease',
+            '&:hover, &:active, &:focus, &:focus-visible, &.Mui-focusVisible': {
+              backgroundColor: 'transparent',
+              outline: 'none',
+            },
+            '& .MuiTouchRipple-root': {
+              display: 'none',
+            },
             '&.Mui-selected': {
               color: textPrimary,
             },
@@ -324,12 +337,24 @@ const getDesignTokens = (mode, accentColor) => {
               padding: '4px 18px',
               borderRadius: 9999,
               boxSizing: 'content-box',
-              transition: 'background-color 0.2s ease, color 0.2s ease, transform 0.2s ease',
+              transition: 'background-color 0.2s ease, color 0.2s ease, transform 0.16s ease',
+            },
+            '&:active .MuiSvgIcon-root': {
+              transform: 'scale(0.94)',
+            },
+            '&:not(.Mui-selected):active .MuiSvgIcon-root': {
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(31, 31, 31, 0.06)',
+            },
+            '&:focus-visible .MuiSvgIcon-root': {
+              boxShadow: `0 0 0 2px ${alpha(primaryMain, 0.55)}`,
             },
             '&.Mui-selected .MuiSvgIcon-root': {
               backgroundColor: alpha(primaryMain, isDark ? 0.22 : 0.14),
               color: primaryMain,
               transform: 'scale(1.04)',
+            },
+            '&.Mui-selected:active .MuiSvgIcon-root': {
+              transform: 'scale(0.98)',
             },
           },
         },

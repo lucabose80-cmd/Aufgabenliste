@@ -279,7 +279,7 @@ function MainApp() {
             }}
           >
             {Object.entries(NAV_CONFIG).map(([itemId, nav]) => (
-              <BottomNavigationAction key={itemId} label={nav.label} value={itemId} icon={nav.icon} />
+              <BottomNavigationAction key={itemId} disableRipple label={nav.label} value={itemId} icon={nav.icon} />
             ))}
           </BottomNavigation>
         </Paper>
