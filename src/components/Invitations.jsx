@@ -3,8 +3,10 @@ import { useTaskContext } from '../context/TaskContext';
 import { Box, Typography, Button, Card, CardContent, Divider, Stack } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import { CHANGELOG_ENTRIES } from '../data/changelog';
 
 const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
+  const latestRelease = CHANGELOG_ENTRIES[0];
   const { 
     pendingTasks, 
     pendingLists, 
@@ -42,7 +44,7 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
     <Box sx={{ p: { xs: 2.5, sm: 3 } }}>
       <Typography variant="h6" gutterBottom fontWeight={700} sx={{ mb: 2 }}>Benachrichtigungen</Typography>
       <Stack spacing={2}>
-        {hasUpdate && (
+        {hasUpdate && latestRelease && (
           <Card
             sx={{
               borderRadius: '18px',
@@ -52,12 +54,14 @@ const Invitations = ({ onClose, hasUpdate, onClearUpdate }) => {
           >
             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
               <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                App Update · v2.0
+                App Update · v{latestRelease.version}
               </Typography>
-              <Typography variant="h6" fontWeight={700} sx={{ mt: 0.5 }}>Willkommen in der neuen Aufgabenliste!</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, mb: 2, lineHeight: 1.55 }}>
-                Neues einheitliches Google-One-Design, 2-Spalten-Modus für Aufgaben, überarbeitetes Lese-Abteil mit Buchcovern, Cover-Regalen &amp; Lese-Heatmap sowie Android-Widgets, Lockscreen-Timer und automatische OTA-Updates.
-              </Typography>
+              <Typography variant="h6" fontWeight={700} sx={{ mt: 0.5 }}>{latestRelease.title}</Typography>
+              <Box component="ul" sx={{ mt: 1, mb: 2, pl: 2.25, color: 'text.secondary', '& li': { mb: 0.5, fontSize: '0.86rem', lineHeight: 1.5 } }}>
+                {latestRelease.highlights.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button variant="contained" color="primary" size="small" onClick={onClearUpdate}>
                   Verstanden

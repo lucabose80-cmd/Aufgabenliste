@@ -31,8 +31,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { initOfflineFirstOtaUpdater } from './utils/nativeBridge';
+import { APP_VERSION } from './data/changelog';
 
-const CURRENT_APP_VERSION = '2.0.0';
+const CURRENT_APP_VERSION = APP_VERSION;
 
 function MainApp() {
   const [currentView, setCurrentView] = useState('home');

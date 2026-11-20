@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Grid, Button, Select, MenuItem, FormControl, InputLabel, Switch, Divider, CircularProgress } from '@mui/material';
+import { Box, Card, Typography, Grid, Button, Select, MenuItem, FormControl, InputLabel, Switch, Divider, CircularProgress, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -8,8 +8,11 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ViewAgendaIcon from '@mui/icons-material/ViewAgenda';
 import GridViewIcon from '@mui/icons-material/GridView';
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
+import HistoryIcon from '@mui/icons-material/History';
+import CloseIcon from '@mui/icons-material/Close';
 import CategoriesManager from './CategoriesManager';
 import { isNativeAndroid, checkOtaUpdate } from '../utils/nativeBridge';
+import { APP_VERSION, CHANGELOG_ENTRIES } from '../data/changelog';
 
 const COLORS = [
   { name: 'Google Blau', hex: '#1a73e8' },
@@ -38,6 +41,7 @@ const Settings = () => {
   const [otaChecking, setOtaChecking] = useState(false);
   const [otaStatusMsg, setOtaStatusMsg] = useState('');
   const [otaApplyFn, setOtaApplyFn] = useState(null);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   const handleManualOtaCheck = async () => {
     setOtaChecking(true);
@@ -334,21 +338,34 @@ const Settings = () => {
         </Box>
       </Card>
 
-      {/* App-Updates (nur in Android-App) */}
-      {isNativeAndroid() && (
-        <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.75 }}>
-            <Typography variant="h6" fontWeight={700}>
-              App-Updates (OTA)
-            </Typography>
-            <Typography variant="caption" color="primary.main" fontWeight={700}>
-              v2.0.2
-            </Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Prüft auf neue Web-Updates über Vercel und lädt sie direkt ohne neue APK.
+      {/* App-Updates & Verlauf */}
+      <Card sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '24px' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.75 }}>
+          <Typography variant="h6" fontWeight={700}>
+            App-Updates &amp; Verlauf
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box
+            sx={{
+              px: 1.15,
+              py: 0.25,
+              borderRadius: 9999,
+              bgcolor: alpha(muiTheme.palette.primary.main, isDark ? 0.18 : 0.12),
+              color: 'primary.main',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            v{APP_VERSION}
+          </Box>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {isNativeAndroid()
+            ? 'Prüft auf neue Web-Updates über Vercel und lädt sie direkt ohne neue APK.'
+            : 'Übersicht über die aktuellen Neuerungen und Versionen der App.'}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', alignItems: 'center' }}>
+          {isNativeAndroid() && (
             <Button
               variant="outlined"
               startIcon={otaChecking ? <CircularProgress size={16} color="inherit" /> : <SystemUpdateAltIcon fontSize="small" />}
@@ -358,23 +375,31 @@ const Settings = () => {
             >
               {otaChecking ? 'Prüfe...' : 'Nach Updates suchen'}
             </Button>
-            {otaApplyFn && (
-              <Button
-                variant="contained"
-                onClick={() => otaApplyFn()}
-                sx={{ borderRadius: 9999 }}
-              >
-                Update jetzt laden
-              </Button>
-            )}
-          </Box>
-          {otaStatusMsg && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-              {otaStatusMsg}
-            </Typography>
           )}
-        </Card>
-      )}
+          <Button
+            variant="outlined"
+            startIcon={<HistoryIcon fontSize="small" />}
+            onClick={() => setChangelogOpen(true)}
+            sx={{ borderRadius: 9999, borderColor: 'divider', color: 'text.primary' }}
+          >
+            Update-Verlauf
+          </Button>
+          {otaApplyFn && (
+            <Button
+              variant="contained"
+              onClick={() => otaApplyFn()}
+              sx={{ borderRadius: 9999 }}
+            >
+              Update jetzt laden
+            </Button>
+          )}
+        </Box>
+        {otaStatusMsg && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            {otaStatusMsg}
+          </Typography>
+        )}
+      </Card>
 
       {/* Gefahrenzone */}
       <Card
@@ -403,6 +428,76 @@ const Settings = () => {
           Statistiken zurücksetzen
         </Button>
       </Card>
+
+      {/* Update-Verlauf Dialog */}
+      <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          <span>Update-Verlauf</span>
+          <IconButton size="small" onClick={() => setChangelogOpen(false)} sx={{ color: 'text.secondary' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important', pb: 3 }}>
+          {CHANGELOG_ENTRIES.map((entry, idx) => (
+            <Box
+              key={entry.version}
+              sx={{
+                p: 2,
+                borderRadius: '18px',
+                bgcolor: 'background.surfaceVariant',
+                border: idx === 0 ? '1px solid' : 'none',
+                borderColor: idx === 0 ? alpha(muiTheme.palette.primary.main, 0.4) : 'transparent',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 0.75 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    sx={{
+                      px: 1,
+                      py: 0.2,
+                      borderRadius: 9999,
+                      bgcolor: idx === 0
+                        ? alpha(muiTheme.palette.primary.main, isDark ? 0.22 : 0.14)
+                        : 'background.paper',
+                      color: idx === 0 ? 'primary.main' : 'text.secondary',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    v{entry.version}
+                  </Box>
+                  {idx === 0 && (
+                    <Typography variant="caption" color="primary.main" fontWeight={700}>
+                      Aktuell
+                    </Typography>
+                  )}
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {entry.date}
+                </Typography>
+              </Box>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
+                {entry.title}
+              </Typography>
+              <Box
+                component="ul"
+                sx={{
+                  m: 0,
+                  pl: 2.25,
+                  color: 'text.secondary',
+                  '& li': { mb: 0.45, fontSize: '0.84rem', lineHeight: 1.5 },
+                  '& li:last-child': { mb: 0 },
+                }}
+              >
+                {entry.highlights.map((h, i) => (
+                  <li key={i}>{h}</li>
+                ))}
+              </Box>
+            </Box>
+          ))}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
