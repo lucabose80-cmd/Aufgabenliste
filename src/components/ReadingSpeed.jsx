@@ -11,6 +11,14 @@ import ReadingAnalytics from './ReadingAnalytics';
 import BookManager from './BookManager';
 import BookUniverseMap from './BookUniverseMap';
 import BookCover from './BookCover';
+import { LanguagePill } from './LanguageBadge';
+import {
+  PRIMARY_LANGUAGES,
+  normalizeLanguages,
+  getLanguageMeta,
+  getSessionLanguage,
+  formatLanguagesCompact,
+} from '../utils/bookLanguages';
 import TimerIcon from '@mui/icons-material/Timer';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PublicIcon from '@mui/icons-material/Public';
@@ -62,6 +70,7 @@ const ReadingSpeed = () => {
   const [amount, setAmount] = useState('');
   const [endedOnPage, setEndedOnPage] = useState('');
   const [selectedBookId, setSelectedBookId] = useState(widgetSelectedBookId || '');
+  const [sessionLanguage, setSessionLanguage] = useState('');
   const [sessionDate, setSessionDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [sessionTime, setSessionTime] = useState(format(new Date(), 'HH:mm'));
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -76,6 +85,7 @@ const ReadingSpeed = () => {
   const [editAmount, setEditAmount] = useState('');
   const [editEndedOnPage, setEditEndedOnPage] = useState('');
   const [editBookId, setEditBookId] = useState('');
+  const [editLanguage, setEditLanguage] = useState('');
   const [editDate, setEditDate] = useState('');
   const [sessionFilter, setSessionFilter] = useState('all');
 
@@ -136,6 +146,12 @@ const ReadingSpeed = () => {
     syncNativeTimer(false, timerSeconds, selectedBookId);
   };
 
+  const resolveDefaultBookLang = (bookId) => {
+    const book = books.find(b => b.id === bookId);
+    const langs = normalizeLanguages(book);
+    return langs.length === 1 ? langs[0] : '';
+  };
+
   const handleStopTimer = () => {
     if (timerRunning) {
       handlePauseTimer();
@@ -143,6 +159,7 @@ const ReadingSpeed = () => {
       syncNativeTimer(false, timerSeconds, selectedBookId);
     }
     setIsManualEntry(false);
+    setSessionLanguage(resolveDefaultBookLang(selectedBookId));
     setSessionDate(format(new Date(), 'yyyy-MM-dd'));
     setSessionTime(format(new Date(), 'HH:mm'));
     setSaveDialogOpen(true);
@@ -153,6 +170,7 @@ const ReadingSpeed = () => {
     setManualMinutes('30');
     setAmount('');
     setEndedOnPage(selectedBookId ? (getBookLastPage(selectedBookId) || '').toString() : '');
+    setSessionLanguage(resolveDefaultBookLang(selectedBookId));
     setSessionDate(format(new Date(), 'yyyy-MM-dd'));
     setSessionTime(format(new Date(), 'HH:mm'));
     setSaveDialogOpen(true);
@@ -162,6 +180,7 @@ const ReadingSpeed = () => {
     setSelectedBookId(bookId);
     setWidgetSelectedBookId(bookId);
     syncNativeBooks(books, bookId);
+    setSessionLanguage(resolveDefaultBookLang(bookId));
     if (bookId) {
       const lastPage = getBookLastPage(bookId);
       setEndedOnPage(lastPage > 0 ? lastPage.toString() : '');
@@ -253,7 +272,8 @@ const ReadingSpeed = () => {
     });
     setSummaryModalOpen(true);
 
-    saveReadingSession(effectiveSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt);
+    const effectiveLanguage = sessionLanguage || resolveDefaultBookLang(selectedBookId) || null;
+    saveReadingSession(effectiveSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt, effectiveLanguage);
     if (!isManualEntry) {
       setTimerSeconds(0);
       syncNativeTimer(false, 0);
@@ -263,6 +283,7 @@ const ReadingSpeed = () => {
     setAmount('');
     setEndedOnPage('');
     setSelectedBookId('');
+    setSessionLanguage('');
     setSessionDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
@@ -275,6 +296,7 @@ const ReadingSpeed = () => {
     setIsManualEntry(false);
     setAmount('');
     setEndedOnPage('');
+    setSessionLanguage('');
   };
 
   const formatTime = (totalSeconds) => {
@@ -286,11 +308,13 @@ const ReadingSpeed = () => {
   };
 
   const handleEditClick = (session) => {
+    const book = session.bookId ? books.find(b => b.id === session.bookId) : null;
     setEditingSession(session);
     setEditMinutes(Math.round(session.timeSpent / 60));
     setEditAmount(session.amount);
     setEditEndedOnPage(session.endedOnPage || '');
     setEditBookId(session.bookId || '');
+    setEditLanguage(getSessionLanguage(session, book) || '');
     setEditDate(session.date ? session.date.slice(0, 10) : '');
   };
 
@@ -302,7 +326,8 @@ const ReadingSpeed = () => {
       parseFloat(editAmount) || 0,
       editEndedOnPage,
       editBookId,
-      editDate
+      editDate,
+      editLanguage || null
     );
     setEditingSession(null);
   };
@@ -442,9 +467,14 @@ const ReadingSpeed = () => {
                     }}
                   >
                     <MenuItem value="">Aktuelles Buch wählen...</MenuItem>
-                    {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
-                      <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-                    ))}
+                    {books.filter(b => !b.completed || b.id === selectedBookId).map(b => {
+                      const langText = formatLanguagesCompact(b);
+                      return (
+                        <MenuItem key={b.id} value={b.id}>
+                          {langText ? `${b.name} (${langText})` : b.name}
+                        </MenuItem>
+                      );
+                    })}
                   </Select>
 
                   {selectedBook && selectedBookProgress && (
@@ -467,13 +497,16 @@ const ReadingSpeed = () => {
                         borderRadius="10px"
                       />
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                          variant="subtitle2"
-                          fontWeight={700}
-                          sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                        >
-                          {selectedBook.name}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Typography
+                            variant="subtitle2"
+                            fontWeight={700}
+                            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}
+                          >
+                            {selectedBook.name}
+                          </Typography>
+                          <LanguagePill languages={selectedBook} compact />
+                        </Box>
                         {selectedBook.author && (
                           <Typography
                             variant="caption"
@@ -750,6 +783,10 @@ const ReadingSpeed = () => {
                               </Box>
                             </Box>
                           )}
+                          {(() => {
+                            const sLang = getSessionLanguage(session, book);
+                            return sLang ? <LanguagePill languages={[sLang]} compact /> : null;
+                          })()}
                           {session.endedOnPage && (
                             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
                               S. {session.endedOnPage}
@@ -840,11 +877,65 @@ const ReadingSpeed = () => {
               fullWidth
             >
               <MenuItem value="">Kein Buch zugeordnet</MenuItem>
-              {books.filter(b => !b.completed || b.id === selectedBookId).map(b => (
-                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-              ))}
+              {books.filter(b => !b.completed || b.id === selectedBookId).map(b => {
+                const langText = formatLanguagesCompact(b);
+                return (
+                  <MenuItem key={b.id} value={b.id}>
+                    {langText ? `${b.name} (${langText})` : b.name}
+                  </MenuItem>
+                );
+              })}
             </Select>
           )}
+
+          {/* Session language picker (highlighted for bilingual books, optional otherwise) */}
+          {(() => {
+            const bookLangs = normalizeLanguages(selectedBook);
+            const choices = bookLangs.length >= 2
+              ? bookLangs.map((c) => getLanguageMeta(c))
+              : PRIMARY_LANGUAGES;
+            if (bookLangs.length === 1) return null;
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  {bookLangs.length >= 2 ? 'Sprache dieser Session:' : 'Sprache (optional):'}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.75 }}>
+                  {choices.map((lang) => {
+                    const active = sessionLanguage === lang.code;
+                    return (
+                      <Box
+                        key={lang.code}
+                        onClick={() => setSessionLanguage(active ? '' : lang.code)}
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.45,
+                          px: 1.25,
+                          py: 0.4,
+                          borderRadius: 9999,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          fontSize: '0.76rem',
+                          fontWeight: active ? 700 : 500,
+                          bgcolor: active
+                            ? alpha(lang.accent, isDark ? 0.24 : 0.16)
+                            : 'background.surfaceVariant',
+                          color: active ? 'text.primary' : 'text.secondary',
+                          border: '1.5px solid',
+                          borderColor: active ? lang.accent : 'transparent',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span>{lang.flag}</span>
+                        <span>{lang.label}</span>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
+            );
+          })()}
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
             <TextField
@@ -936,17 +1027,65 @@ const ReadingSpeed = () => {
           {books.length > 0 && (
             <Select
               value={editBookId}
-              onChange={(e) => setEditBookId(e.target.value)}
+              onChange={(e) => {
+                const nextId = e.target.value;
+                setEditBookId(nextId);
+                const defLang = resolveDefaultBookLang(nextId);
+                if (defLang) setEditLanguage(defLang);
+              }}
               size="small"
               displayEmpty
               fullWidth
             >
               <MenuItem value="">Kein Buch</MenuItem>
-              {books.filter(b => !b.completed || b.id === editBookId).map(b => (
-                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
-              ))}
+              {books.filter(b => !b.completed || b.id === editBookId).map(b => {
+                const langText = formatLanguagesCompact(b);
+                return (
+                  <MenuItem key={b.id} value={b.id}>
+                    {langText ? `${b.name} (${langText})` : b.name}
+                  </MenuItem>
+                );
+              })}
             </Select>
           )}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={600}>
+              Sprache:
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.75 }}>
+              {PRIMARY_LANGUAGES.map((lang) => {
+                const active = editLanguage === lang.code;
+                return (
+                  <Box
+                    key={lang.code}
+                    onClick={() => setEditLanguage(active ? '' : lang.code)}
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.45,
+                      px: 1.25,
+                      py: 0.4,
+                      borderRadius: 9999,
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      fontSize: '0.76rem',
+                      fontWeight: active ? 700 : 500,
+                      bgcolor: active
+                        ? alpha(lang.accent, isDark ? 0.24 : 0.16)
+                        : 'background.surfaceVariant',
+                      color: active ? 'text.primary' : 'text.secondary',
+                      border: '1.5px solid',
+                      borderColor: active ? lang.accent : 'transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span>{lang.flag}</span>
+                    <span>{lang.label}</span>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setEditingSession(null)} sx={{ borderRadius: 9999 }}>

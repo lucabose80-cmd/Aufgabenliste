@@ -23,11 +23,13 @@ import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import StarIcon from '@mui/icons-material/Star';
 import BookCover from './BookCover';
+import { LanguageCoverBadge, LanguagePill, LanguagePicker } from './LanguageBadge';
 import { searchBookCovers, fetchBestBookCover } from '../utils/bookCoverApi';
+import { normalizeLanguages, getLanguageMeta, isBilingual } from '../utils/bookLanguages';
 
 const BookManager = () => {
   const {
-    books, addBook, updateBook, updateBookCover, updateBookReview, deleteBook,
+    books, addBook, updateBook, updateBookCover, updateBookReview, updateBookLanguages, deleteBook,
     assignBookToUnassignedSessions, readingSessions, renameAuthor, renameSeries
   } = useTaskContext();
 
@@ -35,6 +37,7 @@ const BookManager = () => {
   const isDark = theme.palette.mode === 'dark';
 
   const [expandedCompleted, setExpandedCompleted] = useState(false);
+  const [languageFilter, setLanguageFilter] = useState('all'); // 'all' | 'bilingual' | 'de' | 'en' | ...
 
   // Unified Add / Edit Modal state
   const [bookModalOpen, setBookModalOpen] = useState(false);
@@ -49,6 +52,7 @@ const BookManager = () => {
   const [formCoverUrl, setFormCoverUrl] = useState('');
   const [formRating, setFormRating] = useState(null);
   const [formNotes, setFormNotes] = useState('');
+  const [formLanguages, setFormLanguages] = useState([]);
 
   // Cover & metadata search state inside modal
   const [coverCandidates, setCoverCandidates] = useState([]);
@@ -56,9 +60,10 @@ const BookManager = () => {
   const [coverSearchDone, setCoverSearchDone] = useState(false);
   const [autoFillNotice, setAutoFillNotice] = useState('');
 
-  // Review state inside "Buch abgeschlossen!" modal
+  // Review & language state inside "Buch abgeschlossen!" modal
   const [completedRating, setCompletedRating] = useState(null);
   const [completedNotes, setCompletedNotes] = useState('');
+  const [completedLanguages, setCompletedLanguages] = useState([]);
 
   // Batch fetch missing covers state
   const [isFetchingAllCovers, setIsFetchingAllCovers] = useState(false);
@@ -83,6 +88,11 @@ const BookManager = () => {
   const uniqueAuthors = useMemo(() => Array.from(new Set(books.map(b => b.author).filter(Boolean))), [books]);
   const uniqueSeries = useMemo(() => Array.from(new Set(books.map(b => b.series).filter(Boolean))), [books]);
   const uniqueUniverses = useMemo(() => Array.from(new Set(books.map(b => b.universe).filter(Boolean))), [books]);
+  const availableLanguages = useMemo(() => {
+    const set = new Set();
+    books.forEach(b => normalizeLanguages(b).forEach(c => set.add(c)));
+    return normalizeLanguages(Array.from(set));
+  }, [books]);
 
   const seriesAuthorMap = useMemo(() => {
     return books.reduce((acc, book) => {
@@ -92,16 +102,23 @@ const BookManager = () => {
   }, [books]);
 
   const sortedBooks = useMemo(() => {
-    return [...books].sort((a, b) => {
-      const seriesA = a.series || '';
-      const seriesB = b.series || '';
-      if (seriesA !== seriesB) return seriesA.localeCompare(seriesB);
-      const authorA = a.author || '';
-      const authorB = b.author || '';
-      if (authorA !== authorB) return authorA.localeCompare(authorB);
-      return (a.name || '').localeCompare(b.name || '');
-    });
-  }, [books]);
+    return [...books]
+      .filter((b) => {
+        if (languageFilter === 'all') return true;
+        const langs = normalizeLanguages(b);
+        if (languageFilter === 'bilingual') return isBilingual(langs);
+        return langs.includes(languageFilter);
+      })
+      .sort((a, b) => {
+        const seriesA = a.series || '';
+        const seriesB = b.series || '';
+        if (seriesA !== seriesB) return seriesA.localeCompare(seriesB);
+        const authorA = a.author || '';
+        const authorB = b.author || '';
+        if (authorA !== authorB) return authorA.localeCompare(authorB);
+        return (a.name || '').localeCompare(b.name || '');
+      });
+  }, [books, languageFilter]);
 
   const activeBooks = useMemo(() => sortedBooks.filter(b => !b.completed), [sortedBooks]);
   const completedBooks = useMemo(() => sortedBooks.filter(b => b.completed), [sortedBooks]);
@@ -124,6 +141,7 @@ const BookManager = () => {
     setFormCoverUrl('');
     setFormRating(null);
     setFormNotes('');
+    setFormLanguages([]);
     setCoverCandidates([]);
     setCoverSearchDone(false);
     setAutoFillNotice('');
@@ -142,6 +160,7 @@ const BookManager = () => {
     setFormCoverUrl(book.coverUrl || '');
     setFormRating(book.rating || null);
     setFormNotes(book.notes || '');
+    setFormLanguages(normalizeLanguages(book));
     setCoverCandidates([]);
     setCoverSearchDone(false);
     setAutoFillNotice('');
@@ -271,7 +290,8 @@ const BookManager = () => {
         formTotalPages,
         finalCoverUrl,
         formRating,
-        formNotes
+        formNotes,
+        formLanguages
       );
     } else {
       addBook(
@@ -284,7 +304,8 @@ const BookManager = () => {
         formTotalPages,
         finalCoverUrl,
         formRating,
-        formNotes
+        formNotes,
+        formLanguages
       );
     }
     setBookModalOpen(false);
@@ -307,6 +328,7 @@ const BookManager = () => {
     if (isNowCompleted) {
       setCompletedRating(book.rating || null);
       setCompletedNotes(book.notes || '');
+      setCompletedLanguages(normalizeLanguages(book));
       const sessions = readingSessions.filter(s => s.bookId === book.id);
       if (sessions.length > 0) {
         const bookSeconds = sessions.reduce((acc, s) => acc + s.timeSpent, 0);
@@ -471,6 +493,46 @@ const BookManager = () => {
           </Box>
         </Box>
 
+        {availableLanguages.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', mb: 2, pb: 0.25 }}>
+            {[
+              { id: 'all', label: 'Alle Sprachen' },
+              ...availableLanguages.map((code) => {
+                const meta = getLanguageMeta(code);
+                return { id: code, label: `${meta.flag} ${meta.label}` };
+              }),
+              ...(availableLanguages.length >= 2 ? [{ id: 'bilingual', label: '✨ Beide / Mehrsprachig' }] : []),
+            ].map((opt) => {
+              const active = languageFilter === opt.id;
+              return (
+                <Box
+                  key={opt.id}
+                  onClick={() => setLanguageFilter(opt.id)}
+                  sx={{
+                    px: 1.35,
+                    py: 0.45,
+                    borderRadius: 9999,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    flexShrink: 0,
+                    fontSize: '0.74rem',
+                    fontWeight: active ? 700 : 500,
+                    bgcolor: active
+                      ? alpha(theme.palette.primary.main, isDark ? 0.2 : 0.12)
+                      : 'background.surfaceVariant',
+                    border: '1px solid',
+                    borderColor: active ? 'primary.main' : 'transparent',
+                    color: active ? 'primary.main' : 'text.secondary',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {opt.label}
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+
         {batchCoverFeedback && (
           <Box
             sx={{
@@ -507,7 +569,9 @@ const BookManager = () => {
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              Noch keine aktiven Bücher vorhanden. Füge dein aktuelles Buch hinzu!
+              {languageFilter !== 'all'
+                ? 'Keine aktiven Bücher für diesen Sprachfilter.'
+                : 'Noch keine aktiven Bücher vorhanden. Füge dein aktuelles Buch hinzu!'}
             </Typography>
           </Box>
         ) : (
@@ -545,6 +609,7 @@ const BookManager = () => {
                           height={80}
                           borderRadius="10px"
                         />
+                        <LanguageCoverBadge languages={book} size="sm" />
                         {book.rating && (
                           <Box
                             sx={{
@@ -622,6 +687,7 @@ const BookManager = () => {
 
                       {/* Metadata Pills */}
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+                        <LanguagePill languages={book} />
                         {book.rating && (
                           <Box
                             sx={{
@@ -766,7 +832,7 @@ const BookManager = () => {
                       p: 1.5,
                       borderRadius: '16px',
                       bgcolor: 'background.surfaceVariant',
-                      opacity: 0.82,
+                      opacity: 0.86,
                     }}
                   >
                     <Tooltip title="Cover suchen / ändern">
@@ -799,9 +865,12 @@ const BookManager = () => {
                       </Box>
                     </Tooltip>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={600} sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
-                        {book.name}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" fontWeight={600} sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
+                          {book.name}
+                        </Typography>
+                        <LanguagePill languages={book} compact />
+                      </Box>
                       <Typography variant="caption" color="text.secondary">
                         {[book.author, book.series ? `${book.series}${book.seriesNumber ? ` (Bd. ${book.seriesNumber})` : ''}` : null]
                           .filter(Boolean)
@@ -984,6 +1053,16 @@ const BookManager = () => {
                 fullWidth
               />
             </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.15 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Sprache(n)
+            </Typography>
+            <LanguagePicker
+              value={formLanguages}
+              onChange={setFormLanguages}
+            />
           </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -1305,6 +1384,17 @@ const BookManager = () => {
                   minRows={2}
                   maxRows={4}
                 />
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.25 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Gelesene Sprache(n)
+                  </Typography>
+                  <LanguagePicker
+                    value={completedLanguages}
+                    onChange={setCompletedLanguages}
+                    compact
+                    showHint={false}
+                  />
+                </Box>
               </Box>
             </>
           )}
@@ -1312,14 +1402,17 @@ const BookManager = () => {
             fullWidth
             variant="contained"
             onClick={async () => {
-              if (completedBookStats?.id && (completedRating !== null || completedNotes.trim())) {
-                await updateBookReview(completedBookStats.id, completedRating, completedNotes);
+              if (completedBookStats?.id) {
+                if (completedRating !== null || completedNotes.trim()) {
+                  await updateBookReview(completedBookStats.id, completedRating, completedNotes);
+                }
+                await updateBookLanguages(completedBookStats.id, completedLanguages);
               }
               setCompletedBookStats(null);
             }}
             sx={{ mt: 2.5, borderRadius: 9999, py: 1.1 }}
           >
-            {(completedRating !== null || completedNotes.trim()) ? 'Speichern & Schließen' : 'Super!'}
+            {(completedRating !== null || completedNotes.trim() || completedLanguages.length > 0) ? 'Speichern & Schließen' : 'Super!'}
           </Button>
         </DialogContent>
       </Dialog>

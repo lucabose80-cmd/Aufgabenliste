@@ -20,7 +20,15 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import TranslateIcon from '@mui/icons-material/Translate';
 import BookCover from './BookCover';
+import { LanguagePill } from './LanguageBadge';
+import {
+  normalizeLanguages,
+  getLanguageMeta,
+  getSessionLanguage,
+  isBilingual,
+} from '../utils/bookLanguages';
 
 const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -29,11 +37,61 @@ const ReadingAnalytics = () => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const [filterType, setFilterType] = useState('all'); // 'all', 'book', 'author'
+  const [filterType, setFilterType] = useState('all'); // 'all', 'book', 'author', 'language'
   const [filterValue, setFilterValue] = useState('');
   const [trendView, setTrendView] = useState('months');
   const [trendMetric, setTrendMetric] = useState('speed');
   const [expandedChart, setExpandedChart] = useState(null); // null | 'speed' | 'pages' | 'readingTime' | 'weekday'
+
+  // Available languages across books & sessions
+  const availableLanguages = useMemo(() => {
+    const set = new Set();
+    books.forEach((b) => normalizeLanguages(b).forEach((c) => set.add(c)));
+    readingSessions.forEach((s) => {
+      if (s.language) set.add(String(s.language).trim().toLowerCase());
+    });
+    return normalizeLanguages(Array.from(set));
+  }, [books, readingSessions]);
+
+  // Language comparison summary across all sessions & books
+  const languageSummary = useMemo(() => {
+    const map = {};
+    const bookCounts = {};
+    let bilingualBooksCount = 0;
+
+    books.forEach((b) => {
+      const langs = normalizeLanguages(b);
+      if (isBilingual(langs)) bilingualBooksCount++;
+      langs.forEach((c) => {
+        bookCounts[c] = (bookCounts[c] || 0) + 1;
+        if (!map[c]) map[c] = { code: c, pages: 0, seconds: 0, sessions: 0 };
+      });
+    });
+
+    readingSessions.forEach((s) => {
+      if (!(s.timeSpent > 0 && s.amount > 0)) return;
+      const book = s.bookId ? books.find((b) => b.id === s.bookId) : null;
+      const lang = getSessionLanguage(s, book);
+      if (!lang) return;
+      if (!map[lang]) map[lang] = { code: lang, pages: 0, seconds: 0, sessions: 0 };
+      map[lang].pages += s.amount;
+      map[lang].seconds += s.timeSpent;
+      map[lang].sessions += 1;
+    });
+
+    const items = normalizeLanguages(Object.keys(map)).map((code) => {
+      const entry = map[code];
+      const meta = getLanguageMeta(code);
+      return {
+        ...entry,
+        ...meta,
+        bookCount: bookCounts[code] || 0,
+        speed: entry.seconds > 0 ? Math.round(entry.pages / (entry.seconds / 3600)) : 0,
+      };
+    });
+
+    return { items, bilingualBooksCount };
+  }, [books, readingSessions]);
 
   const {
     totalPages,
@@ -62,6 +120,13 @@ const ReadingAnalytics = () => {
     } else if (filterType === 'author' && filterValue) {
       const authorBooks = books.filter(b => b.author === filterValue).map(b => b.id);
       filteredSessions = readingSessions.filter(s => s.bookId && authorBooks.includes(s.bookId));
+    } else if (filterType === 'language' && filterValue) {
+      filteredSessions = readingSessions.filter((s) => {
+        const book = s.bookId ? books.find((b) => b.id === s.bookId) : null;
+        const sLang = getSessionLanguage(s, book);
+        if (sLang) return sLang === filterValue;
+        return normalizeLanguages(book).includes(filterValue);
+      });
     }
 
     const validSessions = filteredSessions
@@ -230,6 +295,7 @@ const ReadingAnalytics = () => {
           name: book.name,
           author: book.author || '',
           coverUrl: book.coverUrl || null,
+          languages: normalizeLanguages(book),
           pages: stats.pages,
           seconds: stats.seconds,
           speed: stats.seconds > 0 ? Math.round(stats.pages / (stats.seconds / 3600)) : 0,
@@ -500,11 +566,17 @@ const ReadingAnalytics = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.25 }}>
           <PillSwitch
             value={filterType}
-            onChange={handleFilterTypeChange}
+            onChange={(nextType) => {
+              handleFilterTypeChange(nextType);
+              if (nextType === 'language' && availableLanguages.length > 0) {
+                setFilterValue(availableLanguages[0]);
+              }
+            }}
             options={[
               { value: 'all', label: 'Alle' },
               { value: 'book', label: 'Buch' },
               { value: 'author', label: 'Autor' },
+              ...(availableLanguages.length > 0 ? [{ value: 'language', label: 'Sprache' }] : []),
             ]}
           />
 
@@ -554,6 +626,43 @@ const ReadingAnalytics = () => {
             <MenuItem value="" disabled>Autor wählen...</MenuItem>
             {uniqueAuthors.map(author => <MenuItem key={author} value={author}>{author}</MenuItem>)}
           </Select>
+        )}
+
+        {filterType === 'language' && (
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+            {availableLanguages.map((code) => {
+              const meta = getLanguageMeta(code);
+              const active = filterValue === code;
+              return (
+                <Box
+                  key={code}
+                  onClick={() => setFilterValue(code)}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.55,
+                    px: 1.5,
+                    py: 0.55,
+                    borderRadius: 9999,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    fontSize: '0.8rem',
+                    fontWeight: active ? 700 : 500,
+                    bgcolor: active
+                      ? alpha(meta.accent, isDark ? 0.24 : 0.16)
+                      : 'background.surfaceVariant',
+                    color: active ? 'text.primary' : 'text.secondary',
+                    border: '1.5px solid',
+                    borderColor: active ? meta.accent : 'transparent',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{meta.flag}</span>
+                  <span>{meta.label}</span>
+                </Box>
+              );
+            })}
+          </Box>
         )}
       </Card>
 
@@ -738,6 +847,75 @@ const ReadingAnalytics = () => {
         ))}
       </Box>
 
+      {/* Language Breakdown Card */}
+      {languageSummary.items.length > 0 && filterType === 'all' && (
+        <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '22px' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85 }}>
+              <TranslateIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+              <Typography variant="subtitle2" fontWeight={700}>
+                Sprachen-Übersicht
+              </Typography>
+            </Box>
+            {languageSummary.bilingualBooksCount > 0 && (
+              <Box
+                sx={{
+                  px: 1.1,
+                  py: 0.25,
+                  borderRadius: 9999,
+                  background: isDark
+                    ? 'linear-gradient(135deg, rgba(245, 176, 65, 0.22) 0%, rgba(94, 151, 246, 0.24) 100%)'
+                    : 'linear-gradient(135deg, rgba(245, 176, 65, 0.18) 0%, rgba(94, 151, 246, 0.16) 100%)',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: 'text.primary',
+                }}
+              >
+                ✨ {languageSummary.bilingualBooksCount} {languageSummary.bilingualBooksCount === 1 ? 'Buch' : 'Bücher'} mehrsprachig
+              </Box>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {(() => {
+              const maxLangPages = Math.max(...languageSummary.items.map((i) => i.pages), 1);
+              return languageSummary.items.map((item) => (
+                <Box key={item.code} sx={{ display: 'flex', flexDirection: 'column', gap: 0.55 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
+                      <span>{item.flag}</span>
+                      <span>{item.label}</span>
+                      {item.bookCount > 0 && (
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                          ({item.bookCount} {item.bookCount === 1 ? 'Buch' : 'Bücher'})
+                        </Typography>
+                      )}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {item.pages > 0 ? (
+                        <>
+                          <strong>{item.pages} S.</strong> · {formatTime(item.seconds)} · {item.speed} S/h
+                        </>
+                      ) : (
+                        'Noch keine Sessions'
+                      )}
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={item.pages > 0 ? Math.max(4, Math.round((item.pages / maxLangPages) * 100)) : 0}
+                    sx={{
+                      height: 6,
+                      borderRadius: 9999,
+                      '& .MuiLinearProgress-bar': { bgcolor: item.accent },
+                    }}
+                  />
+                </Box>
+              ));
+            })()}
+          </Box>
+        </Card>
+      )}
+
       {/* Top Books Ranking */}
       {topBooks.length > 0 && filterType !== 'book' && (
         <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '22px' }}>
@@ -757,14 +935,17 @@ const ReadingAnalytics = () => {
                 </Typography>
                 <BookCover coverUrl={b.coverUrl} title={b.name} width={34} height={50} borderRadius="6px" />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1, mb: 0.4 }}>
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    >
-                      {b.name}
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.65, minWidth: 0, flex: 1 }}>
+                      <Typography
+                        variant="body2"
+                        fontWeight={600}
+                        sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {b.name}
+                      </Typography>
+                      <LanguagePill languages={b.languages} compact />
+                    </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                       <strong>{b.pages} S.</strong> · {formatTime(b.seconds)} · {b.speed} S/h
                     </Typography>

@@ -1,6 +1,16 @@
-export const APP_VERSION = '2.1.2';
+export const APP_VERSION = '2.2.0';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.2.0',
+    date: '20.11.2026',
+    title: 'Sprachen im Lesebereich & Mehrsprachige Bücher auf der Map',
+    highlights: [
+      'Sprachauswahl (🇩🇪 Deutsch, 🇬🇧 Englisch & optional weitere) für Bücher — Mehrfachauswahl möglich, direkt beim Hinzufügen/Bearbeiten, beim Abschließen oder per 1-Tap im Map-Detail.',
+      'Doppelausgaben-Look in der Map: Bücher, die du auf beiden Sprachen gelesen hast (als ein Eintrag mit DE + EN oder als getrennte Ausgaben desselben Bandes), erscheinen als gestapelte Doppelausgabe mit 🇩🇪·🇬🇧-Badge im Cover-Regal & in der 2D-Map (inkl. Ausgaben-Switcher im Detail-Modal).',
+      'Sprachfilter in Bücher & Map sowie neue Sprachen-Übersicht & Sprachfilter (Seiten, Zeit & Tempo S/h für DE vs. EN) in der Lese-Statistik.',
+    ],
+  },
   {
     version: '2.1.2',
     date: '20.11.2026',

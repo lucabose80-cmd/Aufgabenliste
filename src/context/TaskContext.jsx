@@ -10,6 +10,7 @@ import {
   getNativePendingState,
   clearNativePendingFinish
 } from '../utils/nativeBridge';
+import { normalizeLanguages } from '../utils/bookLanguages';
 
 const TaskContext = createContext();
 
@@ -715,8 +716,9 @@ export const TaskProvider = ({ children }) => {
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'categories', id));
   };
 
-  const saveReadingSession = async (timeSpent, amount, endedOnPage = null, bookId = null, overrideDate = null, overrideCreatedAt = null) => {
+  const saveReadingSession = async (timeSpent, amount, endedOnPage = null, bookId = null, overrideDate = null, overrideCreatedAt = null, language = null) => {
     const date = overrideDate || getTodayDateString();
+    const normalizedLang = language ? String(language).trim().toLowerCase() : null;
     const newSession = { 
       id: uuidv4(), 
       date, 
@@ -724,6 +726,7 @@ export const TaskProvider = ({ children }) => {
       amount: parseFloat(amount) || 0,
       endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null,
       bookId: bookId || null,
+      language: normalizedLang || null,
       createdAt: overrideCreatedAt || new Date().toISOString()
     };
     if (!user) setReadingSessions([...readingSessions, newSession]);
@@ -735,15 +738,19 @@ export const TaskProvider = ({ children }) => {
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'readingSessions', id));
   };
 
-  const updateReadingSession = async (id, timeSpent, amount, endedOnPage = null, bookId = null, overrideDate = null) => {
+  const updateReadingSession = async (id, timeSpent, amount, endedOnPage = null, bookId = null, overrideDate = null, language = undefined) => {
     const session = readingSessions.find(s => s.id === id);
     if (!session) return;
+    const resolvedLanguage = language !== undefined
+      ? (language ? String(language).trim().toLowerCase() : null)
+      : (session.language || null);
     const updatedSession = { 
       ...session, 
       timeSpent, 
       amount: parseFloat(amount) || 0,
       endedOnPage: endedOnPage ? parseInt(endedOnPage, 10) : null,
-      bookId: bookId || null
+      bookId: bookId || null,
+      language: resolvedLanguage
     };
     if (overrideDate) updatedSession.date = overrideDate;
 
@@ -771,7 +778,7 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '') => {
+  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '', languages = []) => {
     const parsedRating = rating !== null && rating !== '' && rating !== undefined ? parseInt(rating, 10) : null;
     const newBook = {
       id: uuidv4(),
@@ -786,13 +793,14 @@ export const TaskProvider = ({ children }) => {
       coverUrl: coverUrl || null,
       rating: parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null,
       notes: (notes || '').trim(),
+      languages: normalizeLanguages(languages),
       createdAt: new Date().toISOString()
     };
     if (!user) setBooks(prev => [...prev, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined, languages = undefined) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const resolvedRating = rating !== undefined
@@ -811,6 +819,7 @@ export const TaskProvider = ({ children }) => {
       coverUrl: coverUrl !== undefined ? (coverUrl || null) : (book.coverUrl || null),
       rating: resolvedRating && resolvedRating >= 1 && resolvedRating <= 10 ? resolvedRating : null,
       notes: notes !== undefined ? (notes || '').trim() : (book.notes || ''),
+      languages: languages !== undefined ? normalizeLanguages(languages) : normalizeLanguages(book),
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
@@ -832,6 +841,17 @@ export const TaskProvider = ({ children }) => {
       ...book,
       rating: parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null,
       notes: (notes || '').trim(),
+    };
+    if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
+  };
+
+  const updateBookLanguages = async (id, languages) => {
+    const book = books.find(b => b.id === id);
+    if (!book) return;
+    const updatedBook = {
+      ...book,
+      languages: normalizeLanguages(languages),
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
@@ -1092,6 +1112,7 @@ export const TaskProvider = ({ children }) => {
       updateBook,
       updateBookCover,
       updateBookReview,
+      updateBookLanguages,
       deleteBook,
       renameAuthor,
       deleteAuthor,
