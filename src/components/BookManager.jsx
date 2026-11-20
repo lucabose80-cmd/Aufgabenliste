@@ -545,6 +545,31 @@ const BookManager = () => {
                           height={80}
                           borderRadius="10px"
                         />
+                        {book.rating && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              bottom: 4,
+                              right: 4,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.2,
+                              px: 0.55,
+                              py: 0.1,
+                              borderRadius: 9999,
+                              bgcolor: 'rgba(19, 19, 20, 0.86)',
+                              color: '#FDD663',
+                              fontSize: '0.6rem',
+                              fontWeight: 700,
+                              lineHeight: 1.25,
+                              fontVariantNumeric: 'tabular-nums',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+                            }}
+                          >
+                            <StarIcon sx={{ fontSize: 9.5 }} />
+                            {book.rating}
+                          </Box>
+                        )}
                       </Box>
                     </Tooltip>
 
@@ -745,8 +770,32 @@ const BookManager = () => {
                     }}
                   >
                     <Tooltip title="Cover suchen / ändern">
-                      <Box onClick={() => openCoverPicker(book)} sx={{ cursor: 'pointer', flexShrink: 0 }}>
+                      <Box onClick={() => openCoverPicker(book)} sx={{ cursor: 'pointer', flexShrink: 0, position: 'relative' }}>
                         <BookCover coverUrl={book.coverUrl} title={book.name} width={38} height={56} borderRadius="8px" />
+                        {book.rating && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              bottom: 3,
+                              right: 3,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.15,
+                              px: 0.45,
+                              py: 0.05,
+                              borderRadius: 9999,
+                              bgcolor: 'rgba(19, 19, 20, 0.88)',
+                              color: '#FDD663',
+                              fontSize: '0.56rem',
+                              fontWeight: 700,
+                              lineHeight: 1.25,
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            <StarIcon sx={{ fontSize: 8.5 }} />
+                            {book.rating}
+                          </Box>
+                        )}
                       </Box>
                     </Tooltip>
                     <Box sx={{ flex: 1, minWidth: 0 }}>

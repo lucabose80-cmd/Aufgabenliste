@@ -173,6 +173,34 @@ const CoverShelfTile = ({ book, onSelect, isDark }) => (
           <CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />
         </Box>
       )}
+
+      {/* Subtle gold rating badge in bottom-right corner */}
+      {book.rating && (
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 6,
+            right: 6,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.25,
+            px: 0.7,
+            py: 0.15,
+            borderRadius: 9999,
+            bgcolor: 'rgba(19, 19, 20, 0.84)',
+            backdropFilter: 'blur(6px)',
+            color: '#FDD663',
+            fontSize: '0.64rem',
+            fontWeight: 700,
+            lineHeight: 1.3,
+            fontVariantNumeric: 'tabular-nums',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+          }}
+        >
+          <StarIcon sx={{ fontSize: 11 }} />
+          {book.rating}
+        </Box>
+      )}
     </Box>
 
     <Typography

@@ -1,6 +1,14 @@
-export const APP_VERSION = '2.1.0';
+export const APP_VERSION = '2.1.1';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.1.1',
+    date: '20.11.2026',
+    title: 'Bewertungs-Badge direkt auf Buchcovern',
+    highlights: [
+      'Buchbewertungen (★ 1–10) werden jetzt direkt als kleines goldenes Badge unten rechts auf den Buchcovern im Regal und in der Bücherliste angezeigt.',
+    ],
+  },
   {
     version: '2.1.0',
     date: '20.11.2026',
