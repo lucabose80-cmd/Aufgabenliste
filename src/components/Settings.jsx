@@ -342,7 +342,7 @@ const Settings = () => {
               App-Updates (OTA)
             </Typography>
             <Typography variant="caption" color="primary.main" fontWeight={700}>
-              v2.0.1
+              v2.0.2
             </Typography>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
