@@ -16,6 +16,7 @@ import {
   computeBookCompletedFromEditions,
 } from '../utils/bookLanguages';
 import { normalizeCategories } from '../utils/bookCategories';
+import { fetchBookCategories } from '../utils/bookCoverApi';
 
 const TaskContext = createContext();
 
@@ -799,6 +800,7 @@ export const TaskProvider = ({ children }) => {
       cleanPages
     );
     const primaryCover = coverUrl || (normalizedLangs.length > 0 ? normalizedEditions[normalizedLangs[0]]?.coverUrl || null : null);
+    const normalizedCats = normalizeCategories(categories);
     const newBook = {
       id: uuidv4(),
       name,
@@ -814,7 +816,8 @@ export const TaskProvider = ({ children }) => {
       notes: cleanNotes,
       languages: normalizedLangs,
       languageEditions: normalizedEditions,
-      categories: normalizeCategories(categories),
+      categories: normalizedCats,
+      categoriesAutoFetched: normalizedCats.length > 0,
       frontLanguage: null,
       createdAt: new Date().toISOString()
     };
@@ -873,6 +876,7 @@ export const TaskProvider = ({ children }) => {
 
     const syncedCover = resolvedCover || (resolvedLangs.length > 0 ? normalizedEditions[resolvedLangs[0]]?.coverUrl || null : null);
     const syncedFrontLang = book.frontLanguage && resolvedLangs.includes(book.frontLanguage) ? book.frontLanguage : null;
+    const manualCategoriesTouched = categories !== undefined && (resolvedCategories.length > 0 || normalizeCategories(book).length > 0);
 
     const updatedBook = { 
       ...book, 
@@ -890,6 +894,7 @@ export const TaskProvider = ({ children }) => {
       languages: resolvedLangs,
       languageEditions: normalizedEditions,
       categories: resolvedCategories,
+      categoriesAutoFetched: manualCategoriesTouched ? true : !!book.categoriesAutoFetched,
       frontLanguage: syncedFrontLang,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
@@ -1082,6 +1087,7 @@ export const TaskProvider = ({ children }) => {
     const updatedBook = {
       ...book,
       categories: normalizeCategories(categories),
+      categoriesAutoFetched: true,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
@@ -1312,6 +1318,88 @@ export const TaskProvider = ({ children }) => {
   useEffect(() => {
     syncNativeBooks(books, widgetSelectedBookId);
   }, [books]);
+
+  // Silent automatic background genre enrichment for books without categories
+  const genreEnrichRunningRef = useRef(false);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || !enableReadingFeature || books.length === 0) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (genreEnrichRunningRef.current) return;
+
+    const storageKey = 'autoGenreEnrichV1';
+    let attemptedSet;
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      attemptedSet = new Set(Array.isArray(saved) ? saved : []);
+    } catch {
+      attemptedSet = new Set();
+    }
+
+    const pending = books.filter(
+      (b) => b.name && normalizeCategories(b).length === 0 && !b.categoriesAutoFetched && !attemptedSet.has(b.id)
+    );
+    if (pending.length === 0) return;
+
+    const uid = user?.uid || null;
+    const timerId = setTimeout(async () => {
+      if (!isMountedRef.current || genreEnrichRunningRef.current) return;
+      genreEnrichRunningRef.current = true;
+      try {
+        for (const book of pending) {
+          if (!isMountedRef.current) break;
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) break;
+
+          attemptedSet.add(book.id);
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(Array.from(attemptedSet)));
+          } catch {
+            // ignore storage quota / private mode errors
+          }
+
+          try {
+            const primaryLang = normalizeLanguages(book)[0] || null;
+            const inferred = await fetchBookCategories(book.name, book.author || '', primaryLang);
+            if (!isMountedRef.current) break;
+
+            if (inferred.length > 0) {
+              if (!uid) {
+                setBooks((prev) =>
+                  prev.map((b) =>
+                    b.id === book.id && normalizeCategories(b).length === 0
+                      ? { ...b, categories: inferred, categoriesAutoFetched: true }
+                      : b
+                  )
+                );
+              } else {
+                await setDoc(
+                  doc(db, 'users', uid, 'books', book.id),
+                  { categories: inferred, categoriesAutoFetched: true },
+                  { merge: true }
+                );
+              }
+            }
+          } catch {
+            // Silently ignore individual API failures so background enrichment never interrupts the user
+          }
+
+          // Polite spacing between sequential API requests
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      } finally {
+        genreEnrichRunningRef.current = false;
+      }
+    }, 1200);
+
+    return () => clearTimeout(timerId);
+  }, [books, isLoading, enableReadingFeature, user?.uid]);
 
   // Pull state from Android Widget / Lockscreen Notification when app becomes active
   useEffect(() => {

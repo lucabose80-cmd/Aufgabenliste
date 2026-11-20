@@ -31,37 +31,46 @@ async function searchAppleBooks(query, country = 'de') {
     .map((item) => {
       const rawUrl = item.artworkUrl100 || item.artworkUrl60;
       const highRes = rawUrl.replace(/100x100bb|60x60bb/gi, '400x600bb');
+      const rawGenres = Array.isArray(item.genres) ? item.genres : [];
+      const description = item.description || '';
       return {
         url: normalizeCoverUrl(highRes),
         title: item.trackName || query,
         author: item.artistName || '',
         pageCount: null,
-        categories: inferCategoriesFromApi(item.genres || []),
+        rawGenres,
+        description,
+        categories: inferCategoriesFromApi(rawGenres, description),
         source: 'Apple Books',
       };
     });
 }
 
-async function searchOpenLibrary(query) {
+async function searchOpenLibrary(query, requireCover = true) {
   const res = await fetch(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=title,author_name,cover_i,number_of_pages_median&limit=8`
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=title,author_name,cover_i,number_of_pages_median,subject&limit=8`
   );
   if (!res.ok) return [];
   const data = await res.json();
   if (!Array.isArray(data.docs)) return [];
   return data.docs
-    .filter((doc) => doc.cover_i)
-    .map((doc) => ({
-      url: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
-      title: doc.title || query,
-      author: Array.isArray(doc.author_name) ? doc.author_name.join(', ') : '',
-      pageCount: Number(doc.number_of_pages_median) > 0 ? Number(doc.number_of_pages_median) : null,
-      categories: [],
-      source: 'Open Library',
-    }));
+    .filter((doc) => !requireCover || doc.cover_i)
+    .map((doc) => {
+      const rawSubjects = Array.isArray(doc.subject) ? doc.subject.slice(0, 25) : [];
+      return {
+        url: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
+        title: doc.title || query,
+        author: Array.isArray(doc.author_name) ? doc.author_name.join(', ') : '',
+        pageCount: Number(doc.number_of_pages_median) > 0 ? Number(doc.number_of_pages_median) : null,
+        rawGenres: rawSubjects,
+        description: '',
+        categories: inferCategoriesFromApi(rawSubjects),
+        source: 'Open Library',
+      };
+    });
 }
 
-async function searchGoogleBooks(query, langCode = null) {
+async function searchGoogleBooks(query, langCode = null, requireCover = true) {
   const langParam = langCode ? `&langRestrict=${encodeURIComponent(langCode)}` : '';
   const res = await fetch(
     `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=6&printType=books${langParam}`
@@ -74,13 +83,17 @@ async function searchGoogleBooks(query, langCode = null) {
       const info = item.volumeInfo || {};
       const links = info.imageLinks || {};
       const thumb = links.thumbnail || links.smallThumbnail;
-      if (!thumb) return null;
+      if (requireCover && !thumb) return null;
+      const rawGenres = Array.isArray(info.categories) ? info.categories : [];
+      const description = info.description || '';
       return {
-        url: normalizeCoverUrl(thumb),
+        url: thumb ? normalizeCoverUrl(thumb) : null,
         title: info.title || query,
         author: Array.isArray(info.authors) ? info.authors.join(', ') : '',
         pageCount: Number(info.pageCount) > 0 ? Number(info.pageCount) : null,
-        categories: inferCategoriesFromApi(info.categories || []),
+        rawGenres,
+        description,
+        categories: inferCategoriesFromApi(rawGenres, description),
         source: 'Google Books',
       };
     })
@@ -107,8 +120,8 @@ export async function searchBookCovers(titleOrQuery, author = '', langCode = nul
 
   const queries = [
     searchAppleBooks(fullQuery, appleCountry),
-    searchOpenLibrary(fullQuery),
-    searchGoogleBooks(fullQuery, normalizedLang),
+    searchOpenLibrary(fullQuery, true),
+    searchGoogleBooks(fullQuery, normalizedLang, true),
   ];
 
   if (normalizedLang === 'en') {
@@ -124,8 +137,8 @@ export async function searchBookCovers(titleOrQuery, author = '', langCode = nul
     const retry = await Promise.allSettled([
       searchAppleBooks(cleanedTitle, appleCountry),
       searchAppleBooks(cleanedTitle, appleCountry === 'us' ? 'de' : 'us'),
-      searchOpenLibrary(cleanedTitle),
-      searchGoogleBooks(cleanedTitle, null),
+      searchOpenLibrary(cleanedTitle, true),
+      searchGoogleBooks(cleanedTitle, null, true),
     ]);
     combined = retry.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
   }
@@ -144,4 +157,69 @@ export async function searchBookCovers(titleOrQuery, author = '', langCode = nul
 export async function fetchBestBookCover(title, author = '', langCode = null) {
   const candidates = await searchBookCovers(title, author, langCode);
   return candidates.length > 0 ? candidates[0].url : null;
+}
+
+const tokenizeWords = (str) =>
+  String(str || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9äöüß\s]/gi, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
+
+const isRelevantMatch = (item, titleWords, authorWords) => {
+  const itemTitle = String(item?.title || '').toLowerCase();
+  const itemAuthor = String(item?.author || '').toLowerCase();
+  const titleHits = titleWords.filter((w) => itemTitle.includes(w)).length;
+  const authorHit = authorWords.length > 0 && authorWords.some((w) => itemAuthor.includes(w));
+  if (titleWords.length === 0) return authorHit;
+  const needed = titleWords.length === 1 ? 1 : Math.max(1, Math.ceil(titleWords.length * 0.45));
+  return titleHits >= needed || (titleHits >= 1 && authorHit);
+};
+
+/**
+ * Fetches and combines genre signals across Open Library (subjects), Apple Books (genres + blurb),
+ * and Google Books (categories + description) for silent background genre classification.
+ */
+export async function fetchBookCategories(title, author = '', langCode = null) {
+  const cleanedTitle = cleanSearchTitle(title);
+  const cleanedAuthor = (author || '').trim();
+  const fullQuery = [cleanedTitle, cleanedAuthor].filter(Boolean).join(' ').trim();
+  if (!fullQuery) return [];
+
+  const normalizedLang = langCode ? String(langCode).trim().toLowerCase() : null;
+  const appleCountry = (normalizedLang && LANG_TO_APPLE_COUNTRY[normalizedLang]) || 'de';
+
+  const settled = await Promise.allSettled([
+    searchOpenLibrary(fullQuery, false),
+    searchAppleBooks(fullQuery, appleCountry),
+    searchGoogleBooks(fullQuery, normalizedLang, false),
+  ]);
+
+  let items = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+
+  // If title + author returned nothing useful, retry with title only (e.g. German/English author spelling differences)
+  if (items.length === 0 && cleanedTitle && cleanedAuthor) {
+    const retry = await Promise.allSettled([
+      searchOpenLibrary(cleanedTitle, false),
+      searchAppleBooks(cleanedTitle, appleCountry === 'de' ? 'us' : 'de'),
+      searchGoogleBooks(cleanedTitle, null, false),
+    ]);
+    items = retry.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  }
+
+  if (items.length === 0) return [];
+
+  const titleWords = tokenizeWords(cleanedTitle);
+  const authorWords = tokenizeWords(cleanedAuthor);
+  const relevant = items.filter((it) => isRelevantMatch(it, titleWords, authorWords));
+  const pool = (relevant.length > 0 ? relevant : items).slice(0, 6);
+
+  const mergedTags = [];
+  const mergedDescriptions = [];
+  pool.forEach((it) => {
+    if (Array.isArray(it.rawGenres)) mergedTags.push(...it.rawGenres);
+    if (it.description) mergedDescriptions.push(it.description);
+  });
+
+  return inferCategoriesFromApi(mergedTags, mergedDescriptions.join(' '));
 }

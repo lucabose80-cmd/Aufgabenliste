@@ -46,39 +46,83 @@ export const normalizeCategories = (input) => {
 };
 
 /**
- * Quietly maps raw API genre strings (from Google Books / Apple Books)
- * to our clean German categories for optional background auto-fill.
+ * Quietly maps raw API genre/subject strings (from Open Library, Google Books & Apple Books)
+ * plus an optional blurb/description to our clean German categories for background auto-fill.
  */
-export const inferCategoriesFromApi = (rawGenres = []) => {
-  const joined = (Array.isArray(rawGenres) ? rawGenres : [rawGenres])
+export const inferCategoriesFromApi = (rawGenres = [], description = '') => {
+  const tagText = (Array.isArray(rawGenres) ? rawGenres : [rawGenres])
     .filter(Boolean)
-    .join(' ')
+    .join(' | ')
     .toLowerCase();
-  if (!joined) return [];
 
+  const descText = String(description || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+  if (!tagText && !descText) return [];
+
+  const combined = `${tagText} ${descText}`;
   const found = [];
-  const hasFantasy = /fantasy|magic|fae|dragon/.test(joined);
-  const hasRomance = /romance|love|liebesroman/.test(joined);
 
-  if (/romantasy/.test(joined) || (hasFantasy && hasRomance)) {
+  // 1. Direct & combined Fantasy / Romance / Romantasy detection
+  const directRomantasy = /romantasy|romantic fantasy|fantasy romance|paranormal romance|dark fantasy romance/.test(combined);
+  const tagHasFantasy = /\bfantasy\b|high fantasy|epic fantasy|urban fantasy|dark fantasy|magic|magie|fae\b|faerie|dragon|drache|witch|hexe|vampire|vampir|shifter|werewolf|sorcer|wizard|zauber|mytholog/.test(tagText);
+  const descHasFantasy = /\bfantasy\b|\bfae\b|\bfaerie\b|\bdragon|\bdrachen|\bmagie\b|\bmagic\b|\bmagisch|\bkingdom\b|\bkönigreich\b|\bhigh lord\b|\bshadow power|\bwyvern\b|\bgriffin\b|\bsorcer|\bwitch\b|\bhexe\b|\bvampir|\bcurse\b|\bfluch\b|\belfen\b|\belven\b|\bdämon|\bdemon\b|\brealm\b|\bprophec/.test(descText);
+
+  const tagHasRomance = /\bromance\b|love stor|liebesroman|new adult|contemporary romance|dark romance|enemies to lovers|fated mates|slow burn|erotica/.test(tagText);
+  const descHasStrongRomance = /romantasy|enemies to lovers|friends to lovers|fated mates|slow burn|forbidden love|verbotene liebe|liebesgeschichte|liebesroman|leidenschaft|seduction|soulmate|seelenverwandt|passionate romance|dark romance|new adult/.test(descText);
+
+  const hasFantasy = tagHasFantasy || descHasFantasy;
+  const hasRomance = tagHasRomance || descHasStrongRomance;
+
+  if (directRomantasy || (hasFantasy && hasRomance)) {
     found.push('Romantasy');
   } else {
-    if (hasFantasy) found.push('Fantasy');
-    if (hasRomance) found.push('Romance');
+    if (tagHasFantasy) found.push('Fantasy');
+    if (tagHasRomance) found.push('Romance');
   }
 
-  if (/sci-fi|science fiction|scifi/.test(joined)) found.push('Sci-Fi');
-  if (/dystop/.test(joined)) found.push('Dystopie');
-  if (/thriller|suspense/.test(joined)) found.push('Thriller');
-  if (/crime|mystery|detective|krimi/.test(joined)) found.push('Krimi');
-  if (/histor/.test(joined)) found.push('Historisch');
-  if (/horror|gothic/.test(joined)) found.push('Horror');
-  if (/classic|klassik/.test(joined)) found.push('Klassiker');
-  if (/biograph|memoir|autobiograph/.test(joined)) found.push('Biografie');
-  if (/manga|graphic novel|comic/.test(joined)) found.push('Manga / Graphic Novel');
-  if (/non-?fiction|sachbuch|self-help|psychology|business|history|science/.test(joined) && found.length === 0) {
+  // 2. Other structured genre matches (prioritize tags, fall back to strong description terms)
+  if (/sci-?fi|science fiction|space opera|cyberpunk|weltraum|time travel|zeitreise|extraterrestrial/.test(tagText) ||
+      (/science fiction|space opera|cyberpunk|raumschiff|galaxis|interstellar/.test(descText) && !hasFantasy)) {
+    found.push('Sci-Fi');
+  }
+  if (/dystop|post-?apocal|postapokal|totalitarian/.test(combined)) {
+    found.push('Dystopie');
+  }
+  if (/thriller|suspense|psychothriller|espionage/.test(tagText) || /psychothriller|thriller/.test(descText)) {
+    found.push('Thriller');
+  }
+  if (/\bcrime\b|\bmystery\b|detective|\bkrimi\b|murder investigation|police procedural|whodunit/.test(tagText) ||
+      /\bkrimi\b|kommissar|ermittler|detektiv|mordfall/.test(descText)) {
+    found.push('Krimi');
+  }
+  if (/historical fiction|historisch|world war|weltkrieg|regency|victorian|medieval fiction|mittelalter/.test(tagText)) {
+    found.push('Historisch');
+  }
+  if (/\bhorror\b|gothic fiction|ghost stor|haunted house|supernatural horror|grusel/.test(tagText) || /\bhorror\b/.test(descText)) {
+    found.push('Horror');
+  }
+  if (/\bclassic|\bklassik|weltliteratur/.test(tagText)) {
+    found.push('Klassiker');
+  }
+  if (/biograph|memoir|autobiograph/.test(tagText)) {
+    found.push('Biografie');
+  }
+  if (/\bmanga\b|graphic novel|\bcomic\b|\bmanhwa\b|\bwebtoon\b/.test(tagText)) {
+    found.push('Manga / Graphic Novel');
+  }
+
+  // Fallback to description Fantasy/Romance only if tags yielded nothing
+  if (found.length === 0) {
+    if (descHasFantasy) found.push('Fantasy');
+    else if (descHasStrongRomance) found.push('Romance');
+  }
+
+  if (found.length === 0 && /non-?fiction|sachbuch|self-help|ratgeber|psychology|psychologie|business|wirtschaft|finance|finanzen|philosophy|philosophie|popular science|wissenschaft|\bhistory\b/.test(tagText)) {
     found.push('Sachbuch');
   }
 
-  return normalizeCategories(found);
+  return normalizeCategories(found).slice(0, 2);
 };

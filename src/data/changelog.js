@@ -1,6 +1,15 @@
-export const APP_VERSION = '2.4.0';
+export const APP_VERSION = '2.4.1';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.4.1',
+    date: '20.11.2026',
+    title: 'Automatische Genre-Erkennung im Hintergrund (inkl. Open Library)',
+    highlights: [
+      'Vollautomatische Genre-Erkennung im Hintergrund: Alle bestehenden und neuen Bücher ohne Kategorie werden jetzt still im Hintergrund über Open Library (`subject`-Tags), Apple Books und Google Books (inkl. Beschreibung) klassifiziert.',
+      'Treffsicherere Erkennung u. a. für Romantasy vs. Fantasy, Romance, Dystopie, Thriller, Krimi & Sci-Fi — manuelle Änderungen werden niemals überschrieben.',
+    ],
+  },
   {
     version: '2.4.0',
     date: '20.11.2026',
