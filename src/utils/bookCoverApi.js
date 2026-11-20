@@ -1,3 +1,5 @@
+import { inferCategoriesFromApi } from './bookCategories';
+
 // Fetches book cover images via Apple Books (iTunes Search API, country=de),
 // Open Library Search API, and Google Books API in parallel.
 // All three APIs are free, CORS-friendly, and require no API key.
@@ -34,6 +36,7 @@ async function searchAppleBooks(query, country = 'de') {
         title: item.trackName || query,
         author: item.artistName || '',
         pageCount: null,
+        categories: inferCategoriesFromApi(item.genres || []),
         source: 'Apple Books',
       };
     });
@@ -53,6 +56,7 @@ async function searchOpenLibrary(query) {
       title: doc.title || query,
       author: Array.isArray(doc.author_name) ? doc.author_name.join(', ') : '',
       pageCount: Number(doc.number_of_pages_median) > 0 ? Number(doc.number_of_pages_median) : null,
+      categories: [],
       source: 'Open Library',
     }));
 }
@@ -76,6 +80,7 @@ async function searchGoogleBooks(query, langCode = null) {
         title: info.title || query,
         author: Array.isArray(info.authors) ? info.authors.join(', ') : '',
         pageCount: Number(info.pageCount) > 0 ? Number(info.pageCount) : null,
+        categories: inferCategoriesFromApi(info.categories || []),
         source: 'Google Books',
       };
     })

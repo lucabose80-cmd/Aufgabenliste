@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import {
   Box, Card, Typography, TextField, Button, IconButton,
   Autocomplete, Checkbox, Tooltip, Dialog, DialogTitle, DialogContent,
-  DialogActions, Collapse, LinearProgress, CircularProgress
+  DialogActions, Collapse, LinearProgress, CircularProgress, Menu, MenuItem, Divider
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -22,6 +22,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import StarIcon from '@mui/icons-material/Star';
+import TuneIcon from '@mui/icons-material/Tune';
 import BookCover from './BookCover';
 import EditionCoverPickerDialog from './EditionCoverPickerDialog';
 import { LanguageCoverBadge, LanguagePill, LanguagePicker } from './LanguageBadge';
@@ -32,8 +33,8 @@ import {
   getBookEditions,
   getLanguageMeta,
   isBilingual,
-  isBookFullyCompleted,
 } from '../utils/bookLanguages';
+import { PRESET_BOOK_CATEGORIES, normalizeCategories } from '../utils/bookCategories';
 
 const BookManager = () => {
   const {
@@ -46,6 +47,9 @@ const BookManager = () => {
 
   const [expandedCompleted, setExpandedCompleted] = useState(false);
   const [languageFilter, setLanguageFilter] = useState('all'); // 'all' | 'bilingual' | 'de' | 'en' | ...
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | '<category>'
+  const [sortBy, setSortBy] = useState('default'); // 'default' | 'category' | 'rating' | 'title'
+  const [sortMenuAnchor, setSortMenuAnchor] = useState(null);
 
   // Unified Add / Edit Modal state
   const [bookModalOpen, setBookModalOpen] = useState(false);
@@ -62,6 +66,8 @@ const BookManager = () => {
   const [formNotes, setFormNotes] = useState('');
   const [formLanguages, setFormLanguages] = useState([]);
   const [formEditions, setFormEditions] = useState({});
+  const [formCategories, setFormCategories] = useState([]);
+  const [formReviewLang, setFormReviewLang] = useState(null);
 
   // Mandatory cover picker for adding English / 2nd+ language or changing an edition cover
   const [editionCoverPicker, setEditionCoverPicker] = useState(null);
@@ -84,6 +90,7 @@ const BookManager = () => {
 
   // Dedicated interactive Cover Search Modal state
   const [coverPickerBook, setCoverPickerBook] = useState(null);
+  const [coverPickerLang, setCoverPickerLang] = useState(null);
   const [pickerQuery, setPickerQuery] = useState('');
   const [pickerResults, setPickerResults] = useState([]);
   const [pickerLoading, setPickerLoading] = useState(false);
@@ -106,6 +113,11 @@ const BookManager = () => {
     books.forEach(b => normalizeLanguages(b).forEach(c => set.add(c)));
     return normalizeLanguages(Array.from(set));
   }, [books]);
+  const availableCategories = useMemo(() => {
+    const set = new Set();
+    books.forEach(b => normalizeCategories(b).forEach(c => set.add(c)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [books]);
 
   const seriesAuthorMap = useMemo(() => {
     return books.reduce((acc, book) => {
@@ -114,27 +126,83 @@ const BookManager = () => {
     }, {});
   }, [books]);
 
-  const sortedBooks = useMemo(() => {
-    return [...books]
-      .filter((b) => {
-        if (languageFilter === 'all') return true;
-        const langs = normalizeLanguages(b);
-        if (languageFilter === 'bilingual') return isBilingual(langs);
-        return langs.includes(languageFilter);
-      })
-      .sort((a, b) => {
-        const seriesA = a.series || '';
-        const seriesB = b.series || '';
-        if (seriesA !== seriesB) return seriesA.localeCompare(seriesB);
-        const authorA = a.author || '';
-        const authorB = b.author || '';
-        if (authorA !== authorB) return authorA.localeCompare(authorB);
-        return (a.name || '').localeCompare(b.name || '');
-      });
-  }, [books, languageFilter]);
+  // Differentiated per-language tracking entries so each language edition can be tracked,
+  // completed, and rated independently in Active & Completed lists.
+  const trackingEntries = useMemo(() => {
+    const rows = [];
+    books.forEach((book) => {
+      const bookCats = normalizeCategories(book);
+      if (categoryFilter !== 'all' && !bookCats.includes(categoryFilter)) return;
 
-  const activeBooks = useMemo(() => sortedBooks.filter(b => !isBookFullyCompleted(b)), [sortedBooks]);
-  const completedBooks = useMemo(() => sortedBooks.filter(b => isBookFullyCompleted(b)), [sortedBooks]);
+      const langs = normalizeLanguages(book);
+      if (languageFilter === 'bilingual' && !isBilingual(langs)) return;
+
+      const eds = getBookEditions(book);
+      if (eds.length >= 2) {
+        eds.forEach((ed) => {
+          if (languageFilter !== 'all' && languageFilter !== 'bilingual' && ed.code !== languageFilter) return;
+          rows.push({
+            key: `${book.id}:${ed.code}`,
+            book,
+            langCode: ed.code,
+            langMeta: ed.meta,
+            isMultiLang: true,
+            coverUrl: ed.coverUrl || book.coverUrl || null,
+            completed: !!ed.completed,
+            rating: ed.rating ?? null,
+            notes: ed.notes || '',
+            totalPages: ed.totalPages || book.totalPages || null,
+            categories: bookCats,
+          });
+        });
+      } else {
+        const singleEd = eds[0] || null;
+        const singleCode = singleEd?.code || null;
+        if (languageFilter !== 'all' && languageFilter !== 'bilingual' && singleCode !== languageFilter) return;
+        rows.push({
+          key: book.id,
+          book,
+          langCode: singleCode,
+          langMeta: singleEd?.meta || null,
+          isMultiLang: false,
+          coverUrl: singleEd?.coverUrl || book.coverUrl || null,
+          completed: singleEd ? !!singleEd.completed : !!book.completed,
+          rating: singleEd ? (singleEd.rating ?? null) : (book.rating ?? null),
+          notes: singleEd ? (singleEd.notes || '') : (book.notes || ''),
+          totalPages: singleEd?.totalPages || book.totalPages || null,
+          categories: bookCats,
+        });
+      }
+    });
+
+    return rows.sort((a, b) => {
+      if (sortBy === 'category') {
+        const catA = a.categories[0] || 'zzz';
+        const catB = b.categories[0] || 'zzz';
+        if (catA !== catB) return catA.localeCompare(catB);
+      } else if (sortBy === 'rating') {
+        const rA = a.rating || 0;
+        const rB = b.rating || 0;
+        if (rA !== rB) return rB - rA;
+      } else if (sortBy === 'title') {
+        const nameCmp = (a.book.name || '').localeCompare(b.book.name || '');
+        if (nameCmp !== 0) return nameCmp;
+      } else {
+        const seriesA = a.book.series || '';
+        const seriesB = b.book.series || '';
+        if (seriesA !== seriesB) return seriesA.localeCompare(seriesB);
+        const authorA = a.book.author || '';
+        const authorB = b.book.author || '';
+        if (authorA !== authorB) return authorA.localeCompare(authorB);
+      }
+      const titleCmp = (a.book.name || '').localeCompare(b.book.name || '');
+      if (titleCmp !== 0) return titleCmp;
+      return (a.langCode || '').localeCompare(b.langCode || '');
+    });
+  }, [books, languageFilter, categoryFilter, sortBy]);
+
+  const activeEntries = useMemo(() => trackingEntries.filter(e => !e.completed), [trackingEntries]);
+  const completedEntries = useMemo(() => trackingEntries.filter(e => e.completed), [trackingEntries]);
   const booksWithoutCover = useMemo(() => books.filter(b => !b.coverUrl), [books]);
 
   const unassignedSessionsCount = useMemo(
@@ -156,14 +224,25 @@ const BookManager = () => {
     setFormNotes('');
     setFormLanguages([]);
     setFormEditions({});
+    setFormCategories([]);
+    setFormReviewLang(null);
     setCoverCandidates([]);
     setCoverSearchDone(false);
     setAutoFillNotice('');
     setBookModalOpen(true);
   };
 
-  const openEditModal = (book) => {
+  const openEditModal = (book, focusLangCode = null) => {
     const langs = normalizeLanguages(book);
+    const normalizedEds = normalizeLanguageEditions(
+      langs,
+      book.languageEditions || {},
+      book.coverUrl || null,
+      !!book.completed,
+      book.rating || null,
+      book.notes || '',
+      book.totalPages || null
+    );
     setEditingBookId(book.id);
     setFormName(book.name || '');
     setFormAuthor(book.author || '');
@@ -176,7 +255,9 @@ const BookManager = () => {
     setFormRating(book.rating || null);
     setFormNotes(book.notes || '');
     setFormLanguages(langs);
-    setFormEditions(normalizeLanguageEditions(langs, book.languageEditions || {}, book.coverUrl || null, !!book.completed));
+    setFormEditions(normalizedEds);
+    setFormCategories(normalizeCategories(book));
+    setFormReviewLang(focusLangCode && langs.includes(focusLangCode) ? focusLangCode : (langs[0] || null));
     setCoverCandidates([]);
     setCoverSearchDone(false);
     setAutoFillNotice('');
@@ -203,6 +284,7 @@ const BookManager = () => {
       setFormEditions((prev) => ({
         ...prev,
         [primaryCode]: {
+          ...prev[primaryCode],
           coverUrl: url,
           completed: prev[primaryCode]?.completed ?? false,
         },
@@ -217,34 +299,45 @@ const BookManager = () => {
       setFormTotalPages(String(cand.pageCount));
       filled.push(`${cand.pageCount} Seiten`);
     }
+    if (Array.isArray(cand.categories) && cand.categories.length > 0 && formCategories.length === 0) {
+      const normalized = normalizeCategories(cand.categories);
+      if (normalized.length > 0) {
+        setFormCategories(normalized);
+        filled.push('Kategorie');
+      }
+    }
     setAutoFillNotice(`Automatisch übernommen: ${filled.join(', ')}`);
   };
 
-  const runPickerSearch = async (queryText) => {
+  const runPickerSearch = async (queryText, langCode = coverPickerLang) => {
     const q = (queryText || '').trim();
     if (!q) return;
     setPickerLoading(true);
     setPickerSearched(false);
-    const results = await searchBookCovers(q);
+    const results = await searchBookCovers(q, '', langCode || null);
     setPickerResults(results);
     setPickerLoading(false);
     setPickerSearched(true);
   };
 
-  const openCoverPicker = (book) => {
+  const openCoverPicker = (book, langCode = null) => {
     const initialQuery = [book.name, book.author].filter(Boolean).join(' ');
+    const eds = getBookEditions(book);
+    const matchedEd = langCode ? eds.find((e) => e.code === langCode) : null;
     setCoverPickerBook(book);
+    setCoverPickerLang(langCode || null);
     setPickerQuery(initialQuery);
-    setPickerCustomUrl(book.coverUrl || '');
+    setPickerCustomUrl(matchedEd?.coverUrl || book.coverUrl || '');
     setPickerResults([]);
     setPickerSearched(false);
-    runPickerSearch(initialQuery);
+    runPickerSearch(initialQuery, langCode || null);
   };
 
   const handleSelectPickedCover = async (url) => {
     if (!coverPickerBook) return;
-    await updateBookCover(coverPickerBook.id, url);
+    await updateBookCover(coverPickerBook.id, url, coverPickerLang || null);
     setCoverPickerBook(null);
+    setCoverPickerLang(null);
   };
 
   const handleFetchMissingCovers = async () => {
@@ -317,11 +410,23 @@ const BookManager = () => {
     }
 
     const editingBook = editingBookId ? books.find((b) => b.id === editingBookId) : null;
+    const primaryCode = formLanguages[0] || null;
+    const primaryRating = primaryCode && formEditions[primaryCode]
+      ? (formEditions[primaryCode].rating ?? null)
+      : formRating;
+    const primaryNotes = primaryCode && formEditions[primaryCode]
+      ? (formEditions[primaryCode].notes ?? '')
+      : formNotes;
+    const parsedTotalPages = formTotalPages ? parseInt(formTotalPages, 10) : null;
+
     const normalizedEditions = normalizeLanguageEditions(
       formLanguages,
       formEditions,
       finalCoverUrl,
-      editingBook ? !!editingBook.completed : false
+      editingBook ? !!editingBook.completed : false,
+      primaryRating,
+      primaryNotes,
+      parsedTotalPages
     );
 
     if (editingBookId) {
@@ -336,10 +441,11 @@ const BookManager = () => {
         formUniverse,
         formTotalPages,
         finalCoverUrl,
-        formRating,
-        formNotes,
+        primaryRating,
+        primaryNotes,
         formLanguages,
-        normalizedEditions
+        normalizedEditions,
+        formCategories
       );
     } else {
       addBook(
@@ -351,34 +457,52 @@ const BookManager = () => {
         formUniverse,
         formTotalPages,
         finalCoverUrl,
-        formRating,
-        formNotes,
+        primaryRating,
+        primaryNotes,
         formLanguages,
-        normalizedEditions
+        normalizedEditions,
+        formCategories
       );
     }
     setBookModalOpen(false);
   };
 
-  const handleToggleCompleted = (book) => {
-    const isNowCompleted = !isBookFullyCompleted(book);
-    updateBook(
-      book.id,
-      book.name,
-      book.author,
-      book.series,
-      isNowCompleted,
-      book.wordsPerPage,
-      book.seriesNumber,
-      book.universe,
-      book.totalPages
-    );
+  const getSessionsForEntry = (book, langCode = null) => {
+    const allBookSessions = readingSessions.filter(s => s.bookId === book.id);
+    const langs = normalizeLanguages(book);
+    if (langCode && langs.length >= 2) {
+      return allBookSessions.filter((s) =>
+        s.language ? s.language.toLowerCase() === langCode : langs[0] === langCode
+      );
+    }
+    return allBookSessions;
+  };
+
+  const handleToggleCompleted = (entry) => {
+    const book = entry.book;
+    const isNowCompleted = !entry.completed;
+
+    if (entry.langCode) {
+      updateBookEdition(book.id, entry.langCode, { completed: isNowCompleted });
+    } else {
+      updateBook(
+        book.id,
+        book.name,
+        book.author,
+        book.series,
+        isNowCompleted,
+        book.wordsPerPage,
+        book.seriesNumber,
+        book.universe,
+        book.totalPages
+      );
+    }
 
     if (isNowCompleted) {
-      setCompletedRating(book.rating || null);
-      setCompletedNotes(book.notes || '');
+      setCompletedRating(entry.rating ?? null);
+      setCompletedNotes(entry.notes || '');
       setCompletedLanguages(normalizeLanguages(book));
-      const sessions = readingSessions.filter(s => s.bookId === book.id);
+      const sessions = getSessionsForEntry(book, entry.langCode);
       if (sessions.length > 0) {
         const bookSeconds = sessions.reduce((acc, s) => acc + s.timeSpent, 0);
         const bookAmount = sessions.reduce((acc, s) => acc + s.amount, 0);
@@ -411,7 +535,9 @@ const BookManager = () => {
         setCompletedBookStats({
           id: book.id,
           name: book.name,
-          coverUrl: book.coverUrl || null,
+          langCode: entry.langCode || null,
+          langMeta: entry.langMeta || null,
+          coverUrl: entry.coverUrl || null,
           timeStr: `${h}h ${m}m`,
           pages: pagesRead,
           speed: Math.round(bookSpeed),
@@ -421,7 +547,9 @@ const BookManager = () => {
         setCompletedBookStats({
           id: book.id,
           name: book.name,
-          coverUrl: book.coverUrl || null,
+          langCode: entry.langCode || null,
+          langMeta: entry.langMeta || null,
+          coverUrl: entry.coverUrl || null,
           timeStr: null,
           pages: null,
           speed: null,
@@ -431,14 +559,27 @@ const BookManager = () => {
     }
   };
 
-  const getBookProgressInfo = (book) => {
-    const sessions = readingSessions.filter(s => s.bookId === book.id);
+  const handleDeleteEntry = (entry) => {
+    if (entry.isMultiLang && entry.langCode) {
+      const label = entry.langMeta?.label || entry.langCode.toUpperCase();
+      if (!window.confirm(`Nur die ${label}-Ausgabe von „${entry.book.name}“ entfernen? Die andere Sprache bleibt erhalten.`)) {
+        return;
+      }
+      const remainingLangs = normalizeLanguages(entry.book).filter((c) => c !== entry.langCode);
+      updateBookLanguages(entry.book.id, remainingLangs);
+      return;
+    }
+    deleteBook(entry.book.id);
+  };
+
+  const getBookProgressInfo = (book, langCode = null, overrideTotalPages = null) => {
+    const sessions = getSessionsForEntry(book, langCode);
     const maxEndedOnPage = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
     const pagesRead = maxEndedOnPage > 0
       ? maxEndedOnPage
       : sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
 
-    const total = Number(book.totalPages) || 0;
+    const total = Number(overrideTotalPages || book.totalPages) || 0;
     const pct = total > 0 ? Math.min(100, Math.round((pagesRead / total) * 100)) : null;
 
     let forecast = null;
@@ -501,12 +642,12 @@ const BookManager = () => {
                 Meine Bücher
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {activeBooks.length} aktiv · {completedBooks.length} abgeschlossen
+                {activeEntries.length} aktiv · {completedEntries.length} abgeschlossen
               </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center' }}>
             {booksWithoutCover.length > 0 && (
               <Tooltip title={`Fehlende Cover (${booksWithoutCover.length}) automatisch über Google Books & Open Library laden`}>
                 <Button
@@ -521,6 +662,86 @@ const BookManager = () => {
                 </Button>
               </Tooltip>
             )}
+            <Tooltip title="Sortieren & nach Kategorie filtern">
+              <IconButton
+                size="small"
+                onClick={(e) => setSortMenuAnchor(e.currentTarget)}
+                sx={{
+                  border: '1px solid',
+                  borderColor: (sortBy !== 'default' || categoryFilter !== 'all') ? 'primary.main' : 'divider',
+                  bgcolor: (sortBy !== 'default' || categoryFilter !== 'all')
+                    ? alpha(theme.palette.primary.main, isDark ? 0.18 : 0.1)
+                    : 'transparent',
+                  color: (sortBy !== 'default' || categoryFilter !== 'all') ? 'primary.main' : 'text.secondary',
+                }}
+              >
+                <TuneIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={sortMenuAnchor}
+              open={Boolean(sortMenuAnchor)}
+              onClose={() => setSortMenuAnchor(null)}
+              PaperProps={{ sx: { borderRadius: '16px', minWidth: 205, maxHeight: 380 } }}
+            >
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 2, py: 0.65, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.66rem' }}>
+                Sortierung
+              </Typography>
+              {[
+                { id: 'default', label: 'Reihe (Standard)' },
+                { id: 'category', label: 'Kategorie' },
+                { id: 'rating', label: 'Bewertung' },
+                { id: 'title', label: 'Titel (A–Z)' },
+              ].map((opt) => (
+                <MenuItem
+                  key={opt.id}
+                  selected={sortBy === opt.id}
+                  onClick={() => {
+                    setSortBy(opt.id);
+                    setSortMenuAnchor(null);
+                  }}
+                  sx={{ fontSize: '0.84rem' }}
+                >
+                  {opt.label}
+                </MenuItem>
+              ))}
+              {availableCategories.length > 0 && [
+                <Divider key="cat-div" sx={{ my: 0.75 }} />,
+                <Typography
+                  key="cat-head"
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={700}
+                  sx={{ px: 2, py: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.66rem' }}
+                >
+                  Kategorie filtern
+                </Typography>,
+                <MenuItem
+                  key="cat-all"
+                  selected={categoryFilter === 'all'}
+                  onClick={() => {
+                    setCategoryFilter('all');
+                    setSortMenuAnchor(null);
+                  }}
+                  sx={{ fontSize: '0.84rem' }}
+                >
+                  Alle Kategorien
+                </MenuItem>,
+                ...availableCategories.map((cat) => (
+                  <MenuItem
+                    key={`cat-${cat}`}
+                    selected={categoryFilter === cat}
+                    onClick={() => {
+                      setCategoryFilter(cat);
+                      setSortMenuAnchor(null);
+                    }}
+                    sx={{ fontSize: '0.84rem' }}
+                  >
+                    {cat}
+                  </MenuItem>
+                )),
+              ]}
+            </Menu>
             <Button
               startIcon={<SettingsIcon fontSize="small" />}
               variant="outlined"
@@ -542,9 +763,9 @@ const BookManager = () => {
           </Box>
         </Box>
 
-        {availableLanguages.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', mb: 2, pb: 0.25 }}>
-            {[
+        {(availableLanguages.length > 0 || categoryFilter !== 'all' || sortBy !== 'default') && (
+          <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', mb: 2, pb: 0.25, alignItems: 'center' }}>
+            {availableLanguages.length > 0 && [
               { id: 'all', label: 'Alle Sprachen' },
               ...availableLanguages.map((code) => {
                 const meta = getLanguageMeta(code);
@@ -579,6 +800,58 @@ const BookManager = () => {
                 </Box>
               );
             })}
+            {categoryFilter !== 'all' && (
+              <Box
+                onClick={() => setCategoryFilter('all')}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.4,
+                  px: 1.2,
+                  py: 0.45,
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  flexShrink: 0,
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  bgcolor: alpha(theme.palette.primary.main, isDark ? 0.16 : 0.1),
+                  border: '1px solid',
+                  borderColor: alpha(theme.palette.primary.main, 0.35),
+                  color: 'primary.main',
+                }}
+              >
+                <span>{categoryFilter}</span>
+                <CloseIcon sx={{ fontSize: 12 }} />
+              </Box>
+            )}
+            {sortBy !== 'default' && (
+              <Box
+                onClick={() => setSortBy('default')}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.4,
+                  px: 1.15,
+                  py: 0.45,
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  flexShrink: 0,
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  bgcolor: 'background.surfaceVariant',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                }}
+              >
+                <span>
+                  Sortiert: {sortBy === 'category' ? 'Kategorie' : sortBy === 'rating' ? 'Bewertung' : 'Titel'}
+                </span>
+                <CloseIcon sx={{ fontSize: 12 }} />
+              </Box>
+            )}
           </Box>
         )}
 
@@ -607,8 +880,8 @@ const BookManager = () => {
           </Box>
         )}
 
-        {/* Active Books List */}
-        {activeBooks.length === 0 ? (
+        {/* Active Books List (differentiated per language edition) */}
+        {activeEntries.length === 0 ? (
           <Box
             sx={{
               p: 4,
@@ -618,22 +891,19 @@ const BookManager = () => {
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              {languageFilter !== 'all'
-                ? 'Keine aktiven Bücher für diesen Sprachfilter.'
+              {(languageFilter !== 'all' || categoryFilter !== 'all')
+                ? 'Keine aktiven Bücher für diesen Filter.'
                 : 'Noch keine aktiven Bücher vorhanden. Füge dein aktuelles Buch hinzu!'}
             </Typography>
           </Box>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {activeBooks.map(book => {
-              const info = getBookProgressInfo(book);
-              const bookEds = getBookEditions(book);
-              const orderedEds = [...bookEds].sort((a, b) => (a.completed === b.completed ? 0 : (a.completed ? 1 : -1)));
-              const frontCoverUrl = orderedEds[0]?.coverUrl || book.coverUrl;
-              const backEd = orderedEds.length > 1 ? orderedEds[1] : null;
+            {activeEntries.map((entry) => {
+              const { book, langCode, langMeta, coverUrl, rating, totalPages, isMultiLang } = entry;
+              const info = getBookProgressInfo(book, langCode, totalPages);
               return (
                 <Box
-                  key={book.id}
+                  key={entry.key}
                   sx={{
                     p: { xs: 1.5, sm: 2 },
                     borderRadius: '18px',
@@ -644,80 +914,52 @@ const BookManager = () => {
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                    {/* Book Cover on the left (stacked preview when 2+ languages) */}
-                    <Tooltip title="Cover suchen / ändern">
+                    {/* Book Cover on the left (edition-specific cover & badge) */}
+                    <Tooltip title={langMeta ? `Cover für ${langMeta.label} suchen / ändern` : 'Cover suchen / ändern'}>
                       <Box
-                        onClick={() => openCoverPicker(book)}
+                        onClick={() => openCoverPicker(book, langCode)}
                         sx={{
                           cursor: 'pointer',
                           flexShrink: 0,
                           position: 'relative',
-                          width: backEd ? 68 : 54,
-                          height: backEd ? 84 : 80,
+                          width: 54,
+                          height: 80,
                           '&:hover': { opacity: 0.9 },
                         }}
                       >
-                        {backEd && (
+                        <BookCover
+                          coverUrl={coverUrl}
+                          title={book.name}
+                          width={54}
+                          height={80}
+                          borderRadius="10px"
+                        />
+                        {langCode && <LanguageCoverBadge languages={[langCode]} size="sm" />}
+                        {rating && (
                           <Box
                             sx={{
                               position: 'absolute',
-                              top: 0,
-                              left: 13,
-                              transform: 'rotate(4deg)',
-                              transformOrigin: 'bottom left',
-                              zIndex: 0,
-                              pointerEvents: 'none',
+                              bottom: 4,
+                              right: 4,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.2,
+                              px: 0.55,
+                              py: 0.1,
+                              borderRadius: 9999,
+                              bgcolor: 'rgba(19, 19, 20, 0.86)',
+                              color: '#FDD663',
+                              fontSize: '0.6rem',
+                              fontWeight: 700,
+                              lineHeight: 1.25,
+                              fontVariantNumeric: 'tabular-nums',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
                             }}
                           >
-                            <BookCover
-                              coverUrl={backEd.coverUrl}
-                              title={book.name}
-                              width={52}
-                              height={76}
-                              borderRadius="10px"
-                              sx={{
-                                border: '1.5px solid',
-                                borderColor: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(0,0,0,0.18)',
-                              }}
-                            />
+                            <StarIcon sx={{ fontSize: 9.5 }} />
+                            {rating}
                           </Box>
                         )}
-                        <Box sx={{ position: 'absolute', bottom: 0, left: 0, zIndex: 1 }}>
-                          <BookCover
-                            coverUrl={frontCoverUrl}
-                            title={book.name}
-                            width={54}
-                            height={80}
-                            borderRadius="10px"
-                            sx={backEd ? { boxShadow: '5px 4px 12px rgba(0,0,0,0.55)' } : {}}
-                          />
-                          <LanguageCoverBadge languages={book} size="sm" />
-                          {book.rating && (
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                bottom: 4,
-                                right: 4,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 0.2,
-                                px: 0.55,
-                                py: 0.1,
-                                borderRadius: 9999,
-                                bgcolor: 'rgba(19, 19, 20, 0.86)',
-                                color: '#FDD663',
-                                fontSize: '0.6rem',
-                                fontWeight: 700,
-                                lineHeight: 1.25,
-                                fontVariantNumeric: 'tabular-nums',
-                                boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
-                              }}
-                            >
-                              <StarIcon sx={{ fontSize: 9.5 }} />
-                              {book.rating}
-                            </Box>
-                          )}
-                        </Box>
                       </Box>
                     </Tooltip>
 
@@ -727,20 +969,23 @@ const BookManager = () => {
                           <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: '0.98rem', lineHeight: 1.3 }}>
                             {book.name}
                           </Typography>
-                          {book.author && (
+                          {(book.author || (sortBy === 'category' && entry.categories.length > 0)) && (
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem', mt: 0.2 }}>
-                              {book.author}
+                              {[
+                                book.author,
+                                sortBy === 'category' && entry.categories.length > 0 ? entry.categories.join(' · ') : null,
+                              ].filter(Boolean).join(' · ')}
                             </Typography>
                           )}
                         </Box>
 
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-                          <Tooltip title={bookEds.length >= 2 ? 'Alle offenen Sprachen abschließen' : 'Buch abschließen'}>
+                          <Tooltip title={isMultiLang && langMeta ? `${langMeta.label}-Ausgabe abschließen` : 'Buch abschließen'}>
                             <Checkbox
                               icon={<CheckCircleOutlinedIcon sx={{ fontSize: 20, color: 'text.secondary', opacity: 0.7 }} />}
                               checkedIcon={<CheckCircleIcon sx={{ fontSize: 20, color: 'success.main' }} />}
-                              checked={isBookFullyCompleted(book)}
-                              onChange={() => handleToggleCompleted(book)}
+                              checked={entry.completed}
+                              onChange={() => handleToggleCompleted(entry)}
                               sx={{ p: 0.5 }}
                             />
                           </Tooltip>
@@ -755,66 +1000,25 @@ const BookManager = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          <IconButton onClick={() => openEditModal(book)} size="small" sx={{ color: 'text.secondary' }}>
+                          <IconButton onClick={() => openEditModal(book, langCode)} size="small" sx={{ color: 'text.secondary' }}>
                             <EditIcon fontSize="small" />
                           </IconButton>
-                          <IconButton
-                            onClick={() => deleteBook(book.id)}
-                            size="small"
-                            sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          <Tooltip title={isMultiLang && langMeta ? `${langMeta.label}-Ausgabe entfernen` : 'Buch löschen'}>
+                            <IconButton
+                              onClick={() => handleDeleteEntry(entry)}
+                              size="small"
+                              sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </Box>
                       </Box>
 
                       {/* Metadata Pills */}
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
-                        {bookEds.length >= 2 ? (
-                          bookEds.map((ed) => (
-                            <Tooltip
-                              key={ed.code}
-                              title={ed.completed ? `${ed.meta.label}: Gelesen (antippen zum Wiederöffnen)` : `${ed.meta.label}: Aktiv (antippen zum Abschließen)`}
-                            >
-                              <Box
-                                onClick={() => updateBookEdition(book.id, ed.code, { completed: !ed.completed })}
-                                sx={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 0.35,
-                                  px: 0.9,
-                                  py: 0.2,
-                                  borderRadius: 9999,
-                                  cursor: 'pointer',
-                                  userSelect: 'none',
-                                  bgcolor: ed.completed
-                                    ? alpha(theme.palette.success.main, isDark ? 0.2 : 0.14)
-                                    : alpha(ed.meta.accent, isDark ? 0.2 : 0.14),
-                                  border: '1px solid',
-                                  borderColor: ed.completed
-                                    ? alpha(theme.palette.success.main, 0.4)
-                                    : alpha(ed.meta.accent, 0.4),
-                                  color: ed.completed ? 'success.main' : 'text.primary',
-                                  fontSize: '0.68rem',
-                                  fontWeight: 700,
-                                  transition: 'transform 0.12s ease',
-                                  '&:active': { transform: 'scale(0.95)' },
-                                }}
-                              >
-                                <span>{ed.meta.flag}</span>
-                                <span>{ed.meta.short}</span>
-                                {ed.completed ? (
-                                  <CheckCircleIcon sx={{ fontSize: 12 }} />
-                                ) : (
-                                  <span>· Aktiv</span>
-                                )}
-                              </Box>
-                            </Tooltip>
-                          ))
-                        ) : (
-                          <LanguagePill languages={book} />
-                        )}
-                        {book.rating && (
+                        {langCode && <LanguagePill languages={[langCode]} />}
+                        {rating && (
                           <Box
                             sx={{
                               display: 'inline-flex',
@@ -831,7 +1035,7 @@ const BookManager = () => {
                             }}
                           >
                             <StarIcon sx={{ fontSize: 12 }} />
-                            {book.rating}/10
+                            {rating}/10
                           </Box>
                         )}
                         {book.series && (
@@ -889,12 +1093,12 @@ const BookManager = () => {
                     </Box>
                   </Box>
 
-                  {/* Book Progress Bar */}
+                  {/* Book Progress Bar (per language edition) */}
                   {info.total > 0 && (
                     <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', fontWeight: 500 }}>
-                          Fortschritt
+                          {isMultiLang && langMeta ? `Fortschritt (${langMeta.short})` : 'Fortschritt'}
                         </Typography>
                         <Typography variant="caption" color="text.primary" sx={{ fontSize: '0.72rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                           {info.pagesRead} / {info.total} S. · {info.pct}%
@@ -910,8 +1114,8 @@ const BookManager = () => {
         )}
       </Card>
 
-      {/* Completed Books Section */}
-      {completedBooks.length > 0 && (
+      {/* Completed Books Section (differentiated per language edition) */}
+      {completedEntries.length > 0 && (
         <Box>
           <Box
             onClick={() => setExpandedCompleted(!expandedCompleted)}
@@ -941,85 +1145,94 @@ const BookManager = () => {
               }}
             />
             <Typography variant="body2" fontWeight={600}>
-              Abgeschlossene Bücher ({completedBooks.length})
+              Abgeschlossene Bücher ({completedEntries.length})
             </Typography>
           </Box>
 
           <Collapse in={expandedCompleted} timeout={220}>
             <Card sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '24px' }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                {completedBooks.map(book => (
-                  <Box
-                    key={book.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      p: 1.5,
-                      borderRadius: '16px',
-                      bgcolor: 'background.surfaceVariant',
-                      opacity: 0.86,
-                    }}
-                  >
-                    <Tooltip title="Cover suchen / ändern">
-                      <Box onClick={() => openCoverPicker(book)} sx={{ cursor: 'pointer', flexShrink: 0, position: 'relative' }}>
-                        <BookCover coverUrl={book.coverUrl} title={book.name} width={38} height={56} borderRadius="8px" />
-                        {book.rating && (
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              bottom: 3,
-                              right: 3,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 0.15,
-                              px: 0.45,
-                              py: 0.05,
-                              borderRadius: 9999,
-                              bgcolor: 'rgba(19, 19, 20, 0.88)',
-                              color: '#FDD663',
-                              fontSize: '0.56rem',
-                              fontWeight: 700,
-                              lineHeight: 1.25,
-                              fontVariantNumeric: 'tabular-nums',
-                            }}
-                          >
-                            <StarIcon sx={{ fontSize: 8.5 }} />
-                            {book.rating}
-                          </Box>
-                        )}
-                      </Box>
-                    </Tooltip>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                        <Typography variant="body2" fontWeight={600} sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
-                          {book.name}
+                {completedEntries.map((entry) => {
+                  const { book, langCode, langMeta, coverUrl, rating, isMultiLang } = entry;
+                  return (
+                    <Box
+                      key={entry.key}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1.5,
+                        borderRadius: '16px',
+                        bgcolor: 'background.surfaceVariant',
+                        opacity: 0.88,
+                      }}
+                    >
+                      <Tooltip title={langMeta ? `Cover für ${langMeta.label} suchen / ändern` : 'Cover suchen / ändern'}>
+                        <Box onClick={() => openCoverPicker(book, langCode)} sx={{ cursor: 'pointer', flexShrink: 0, position: 'relative' }}>
+                          <BookCover coverUrl={coverUrl} title={book.name} width={38} height={56} borderRadius="8px" />
+                          {rating && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                bottom: 3,
+                                right: 3,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.15,
+                                px: 0.45,
+                                py: 0.05,
+                                borderRadius: 9999,
+                                bgcolor: 'rgba(19, 19, 20, 0.88)',
+                                color: '#FDD663',
+                                fontSize: '0.56rem',
+                                fontWeight: 700,
+                                lineHeight: 1.25,
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                            >
+                              <StarIcon sx={{ fontSize: 8.5 }} />
+                              {rating}
+                            </Box>
+                          )}
+                        </Box>
+                      </Tooltip>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                          <Typography variant="body2" fontWeight={600} sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
+                            {book.name}
+                          </Typography>
+                          {langCode && <LanguagePill languages={[langCode]} compact />}
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {[
+                            book.author,
+                            book.series ? `${book.series}${book.seriesNumber ? ` (Bd. ${book.seriesNumber})` : ''}` : null,
+                            sortBy === 'category' && entry.categories.length > 0 ? entry.categories.join(' · ') : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </Typography>
-                        <LanguagePill languages={book} compact />
                       </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        {[book.author, book.series ? `${book.series}${book.seriesNumber ? ` (Bd. ${book.seriesNumber})` : ''}` : null]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </Typography>
+                      <Tooltip title={isMultiLang && langMeta ? `${langMeta.label}-Ausgabe wieder öffnen` : 'Buch wieder öffnen'}>
+                        <Checkbox
+                          icon={<CheckCircleOutlinedIcon />}
+                          checkedIcon={<CheckCircleIcon color="success" />}
+                          checked={entry.completed}
+                          onChange={() => handleToggleCompleted(entry)}
+                          sx={{ p: 0.5 }}
+                        />
+                      </Tooltip>
+                      <IconButton onClick={() => openEditModal(book, langCode)} size="small" sx={{ color: 'text.secondary' }}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <Tooltip title={isMultiLang && langMeta ? `${langMeta.label}-Ausgabe entfernen` : 'Buch löschen'}>
+                        <IconButton onClick={() => handleDeleteEntry(entry)} size="small" sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                    <Tooltip title="Buch wieder öffnen">
-                      <Checkbox
-                        icon={<CheckCircleOutlinedIcon />}
-                        checkedIcon={<CheckCircleIcon color="success" />}
-                        checked={!!book.completed}
-                        onChange={() => handleToggleCompleted(book)}
-                        sx={{ p: 0.5 }}
-                      />
-                    </Tooltip>
-                    <IconButton onClick={() => openEditModal(book)} size="small" sx={{ color: 'text.secondary' }}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton onClick={() => deleteBook(book.id)} size="small" sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
+                  );
+                })}
               </Box>
             </Card>
           </Collapse>
@@ -1196,6 +1409,9 @@ const BookManager = () => {
                     delete copy[code];
                     return copy;
                   });
+                  if (formReviewLang === code) {
+                    setFormReviewLang(nextLangs[0] || null);
+                  }
                   return;
                 }
                 // Selecting English or any 2nd+ language -> require choosing a cover (starts as Aktiv / nicht abgeschlossen!)
@@ -1217,13 +1433,17 @@ const BookManager = () => {
                     [code]: {
                       coverUrl: formCoverUrl.trim() || null,
                       completed: editingBook ? !!editingBook.completed : false,
+                      rating: formRating ?? null,
+                      notes: formNotes || '',
+                      totalPages: formTotalPages ? parseInt(formTotalPages, 10) : null,
                     },
                   }));
+                  setFormReviewLang(code);
                 }
               }}
             />
 
-            {/* Per-language Edition Cover & Completion Status Cards */}
+            {/* Per-language Edition Cover, Pages & Completion Status Cards */}
             {formLanguages.length >= 1 && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 0.25 }}>
                 {formLanguages.map((code, idx) => {
@@ -1231,6 +1451,9 @@ const BookManager = () => {
                   const ed = formEditions[code] || {
                     coverUrl: idx === 0 ? (formCoverUrl.trim() || null) : null,
                     completed: false,
+                    rating: idx === 0 ? formRating : null,
+                    notes: idx === 0 ? formNotes : '',
+                    totalPages: idx === 0 && formTotalPages ? parseInt(formTotalPages, 10) : null,
                   };
                   const edCover = ed.coverUrl || (idx === 0 ? (formCoverUrl.trim() || null) : null);
                   const needsCover = (code === 'en' || idx >= 1) && !edCover;
@@ -1241,7 +1464,8 @@ const BookManager = () => {
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1.5,
+                        flexWrap: 'wrap',
+                        gap: 1.25,
                         p: 1.15,
                         borderRadius: '14px',
                         bgcolor: 'background.surfaceVariant',
@@ -1250,7 +1474,7 @@ const BookManager = () => {
                       }}
                     >
                       <BookCover coverUrl={edCover} title={formName} width={38} height={56} borderRadius="7px" />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ flex: 1, minWidth: 100 }}>
                         <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.84rem' }}>
                           {meta.flag} {meta.label}
                         </Typography>
@@ -1260,12 +1484,35 @@ const BookManager = () => {
                             : (edCover ? 'Cover gewählt' : 'Standard-Cover')}
                         </Typography>
                       </Box>
+                      {formLanguages.length >= 2 && (
+                        <TextField
+                          label="Seiten"
+                          type="number"
+                          size="small"
+                          value={ed.totalPages ?? ''}
+                          placeholder={formTotalPages || '—'}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                            setFormEditions((prev) => ({
+                              ...prev,
+                              [code]: {
+                                ...ed,
+                                coverUrl: edCover,
+                                totalPages: val && val > 0 ? val : null,
+                              },
+                            }));
+                          }}
+                          sx={{ width: 82 }}
+                          inputProps={{ style: { fontSize: '0.78rem', padding: '6px 8px' } }}
+                        />
+                      )}
                       {(editingBookId || formLanguages.length >= 2) && (
                         <Box
                           onClick={() => {
                             setFormEditions((prev) => ({
                               ...prev,
                               [code]: {
+                                ...ed,
                                 coverUrl: edCover,
                                 completed: !ed.completed,
                               },
@@ -1319,7 +1566,7 @@ const BookManager = () => {
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Reihe, Universum &amp; Cover-URL
+              Reihe, Universum &amp; Kategorie
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.5 }}>
               <Autocomplete
@@ -1345,6 +1592,23 @@ const BookManager = () => {
               onInputChange={(e, newValue) => setFormUniverse(newValue)}
               renderInput={(params) => <TextField {...params} label="Universum" size="small" fullWidth />}
             />
+            <Autocomplete
+              multiple
+              freeSolo
+              size="small"
+              options={Array.from(new Set([...PRESET_BOOK_CATEGORIES, ...availableCategories]))}
+              value={formCategories}
+              onChange={(_, val) => setFormCategories(normalizeCategories(val))}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Kategorie / Genre (optional)"
+                  placeholder={formCategories.length === 0 ? 'z. B. Romantasy, Fantasy, Thriller...' : ''}
+                  size="small"
+                  fullWidth
+                />
+              )}
+            />
             <TextField
               label="Cover Bild-URL (optional)"
               value={formCoverUrl}
@@ -1355,61 +1619,151 @@ const BookManager = () => {
             />
           </Box>
 
-          {/* 1-10 Rating & Short Note */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Bewertung &amp; Notiz (optional)
-              </Typography>
-              {formRating && (
-                <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#FDD663' : '#C25E00', fontVariantNumeric: 'tabular-nums' }}>
-                  ★ {formRating} / 10
-                </Typography>
-              )}
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))', gap: 0.5 }}>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                const active = formRating === num;
-                const filled = formRating && num <= formRating;
-                return (
-                  <Box
-                    key={num}
-                    onClick={() => setFormRating(active ? null : num)}
-                    sx={{
-                      py: 0.65,
-                      borderRadius: '10px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      fontVariantNumeric: 'tabular-nums',
-                      bgcolor: filled
-                        ? alpha(theme.palette.warning.main, isDark ? 0.28 : 0.2)
-                        : 'background.surfaceVariant',
-                      color: filled ? (isDark ? '#FDD663' : '#B45309') : 'text.secondary',
-                      border: '1px solid',
-                      borderColor: active ? 'warning.main' : 'transparent',
-                      transition: 'all 0.12s ease',
-                    }}
-                  >
-                    {num}
+          {/* 1-10 Rating & Short Note (separate per language when 2+ languages) */}
+          {(() => {
+            const activeReviewLang = formLanguages.length >= 2
+              ? (formReviewLang && formLanguages.includes(formReviewLang) ? formReviewLang : formLanguages[0])
+              : (formLanguages[0] || null);
+            const activeReviewMeta = activeReviewLang ? getLanguageMeta(activeReviewLang) : null;
+            const currentRating = activeReviewLang && formEditions[activeReviewLang]
+              ? (formEditions[activeReviewLang].rating ?? null)
+              : formRating;
+            const currentNotes = activeReviewLang && formEditions[activeReviewLang]
+              ? (formEditions[activeReviewLang].notes ?? '')
+              : formNotes;
+
+            const handleSetReviewRating = (nextRating) => {
+              if (activeReviewLang) {
+                setFormEditions((prev) => ({
+                  ...prev,
+                  [activeReviewLang]: {
+                    ...prev[activeReviewLang],
+                    rating: nextRating,
+                  },
+                }));
+                if (activeReviewLang === formLanguages[0]) {
+                  setFormRating(nextRating);
+                }
+              } else {
+                setFormRating(nextRating);
+              }
+            };
+
+            const handleSetReviewNotes = (nextNotes) => {
+              if (activeReviewLang) {
+                setFormEditions((prev) => ({
+                  ...prev,
+                  [activeReviewLang]: {
+                    ...prev[activeReviewLang],
+                    notes: nextNotes,
+                  },
+                }));
+                if (activeReviewLang === formLanguages[0]) {
+                  setFormNotes(nextNotes);
+                }
+              } else {
+                setFormNotes(nextNotes);
+              }
+            };
+
+            return (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Bewertung &amp; Notiz{formLanguages.length >= 2 && activeReviewMeta ? ` (${activeReviewMeta.flag} ${activeReviewMeta.short})` : ' (optional)'}
+                  </Typography>
+                  {currentRating && (
+                    <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#FDD663' : '#C25E00', fontVariantNumeric: 'tabular-nums' }}>
+                      ★ {currentRating} / 10
+                    </Typography>
+                  )}
+                </Box>
+                {formLanguages.length >= 2 && (
+                  <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+                    {formLanguages.map((code) => {
+                      const meta = getLanguageMeta(code);
+                      const selected = code === activeReviewLang;
+                      const edRating = formEditions[code]?.rating;
+                      return (
+                        <Box
+                          key={code}
+                          onClick={() => setFormReviewLang(code)}
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.4,
+                            px: 1.1,
+                            py: 0.35,
+                            borderRadius: 9999,
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            fontSize: '0.72rem',
+                            fontWeight: selected ? 700 : 500,
+                            bgcolor: selected
+                              ? alpha(meta.accent, isDark ? 0.24 : 0.16)
+                              : 'background.surfaceVariant',
+                            border: '1.5px solid',
+                            borderColor: selected ? meta.accent : 'transparent',
+                            color: selected ? 'text.primary' : 'text.secondary',
+                          }}
+                        >
+                          <span>{meta.flag}</span>
+                          <span>{meta.label}</span>
+                          {edRating && (
+                            <span style={{ color: isDark ? '#FDD663' : '#B45309', fontWeight: 700 }}>
+                              ★{edRating}
+                            </span>
+                          )}
+                        </Box>
+                      );
+                    })}
                   </Box>
-                );
-              })}
-            </Box>
-            <TextField
-              label="Kurzes Fazit oder Lieblingszitat"
-              value={formNotes}
-              onChange={(e) => setFormNotes(e.target.value)}
-              size="small"
-              fullWidth
-              multiline
-              minRows={2}
-              maxRows={4}
-              placeholder="Was hat dir besonders gefallen?"
-            />
-          </Box>
+                )}
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))', gap: 0.5 }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                    const active = currentRating === num;
+                    const filled = currentRating && num <= currentRating;
+                    return (
+                      <Box
+                        key={num}
+                        onClick={() => handleSetReviewRating(active ? null : num)}
+                        sx={{
+                          py: 0.65,
+                          borderRadius: '10px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          fontVariantNumeric: 'tabular-nums',
+                          bgcolor: filled
+                            ? alpha(theme.palette.warning.main, isDark ? 0.28 : 0.2)
+                            : 'background.surfaceVariant',
+                          color: filled ? (isDark ? '#FDD663' : '#B45309') : 'text.secondary',
+                          border: '1px solid',
+                          borderColor: active ? 'warning.main' : 'transparent',
+                          transition: 'all 0.12s ease',
+                        }}
+                      >
+                        {num}
+                      </Box>
+                    );
+                  })}
+                </Box>
+                <TextField
+                  label="Kurzes Fazit oder Lieblingszitat"
+                  value={currentNotes}
+                  onChange={(e) => handleSetReviewNotes(e.target.value)}
+                  size="small"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  maxRows={4}
+                  placeholder="Was hat dir besonders gefallen?"
+                />
+              </Box>
+            );
+          })()}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5, justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
           {missingEditionCoverLangs.length > 0 ? (
@@ -1551,6 +1905,7 @@ const BookManager = () => {
             <>
               <Typography variant="body2" color="primary.main" fontWeight={600} sx={{ mt: 0.5 }}>
                 {completedBookStats.name}
+                {completedBookStats.langMeta ? ` · ${completedBookStats.langMeta.flag} ${completedBookStats.langMeta.label}` : ''}
               </Typography>
 
               {completedBookStats.timeStr && (
@@ -1591,11 +1946,11 @@ const BookManager = () => {
                 </Box>
               )}
 
-              {/* Quick 1-10 Rating & Fazit right on completion */}
+              {/* Quick 1-10 Rating & Fazit right on completion (per language) */}
               <Box sx={{ mt: 2.5, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 1.25 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Deine Bewertung (1–10)
+                    Deine Bewertung{completedBookStats.langMeta ? ` (${completedBookStats.langMeta.flag} ${completedBookStats.langMeta.short})` : ''} (1–10)
                   </Typography>
                   {completedRating && (
                     <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#FDD663' : '#C25E00', fontVariantNumeric: 'tabular-nums' }}>
@@ -1682,7 +2037,12 @@ const BookManager = () => {
             onClick={async () => {
               if (completedBookStats?.id) {
                 if (completedRating !== null || completedNotes.trim()) {
-                  await updateBookReview(completedBookStats.id, completedRating, completedNotes);
+                  await updateBookReview(
+                    completedBookStats.id,
+                    completedRating,
+                    completedNotes,
+                    completedBookStats.langCode || null
+                  );
                 }
                 const targetBook = books.find((b) => b.id === completedBookStats.id);
                 const existingLangs = normalizeLanguages(targetBook);
@@ -1702,7 +2062,10 @@ const BookManager = () => {
       {/* Interactive Cover Search Menu Dialog */}
       <Dialog
         open={!!coverPickerBook}
-        onClose={() => setCoverPickerBook(null)}
+        onClose={() => {
+          setCoverPickerBook(null);
+          setCoverPickerLang(null);
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -1714,10 +2077,18 @@ const BookManager = () => {
             {coverPickerBook && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {coverPickerBook.name}
+                {coverPickerLang ? ` · ${getLanguageMeta(coverPickerLang).flag} ${getLanguageMeta(coverPickerLang).label}` : ''}
               </Typography>
             )}
           </Box>
-          <IconButton size="small" onClick={() => setCoverPickerBook(null)} sx={{ color: 'text.secondary' }}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setCoverPickerBook(null);
+              setCoverPickerLang(null);
+            }}
+            sx={{ color: 'text.secondary' }}
+          >
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1727,7 +2098,7 @@ const BookManager = () => {
             component="form"
             onSubmit={(e) => {
               e.preventDefault();
-              runPickerSearch(pickerQuery);
+              runPickerSearch(pickerQuery, coverPickerLang);
             }}
             sx={{ display: 'flex', gap: 1 }}
           >
@@ -1769,7 +2140,10 @@ const BookManager = () => {
               }}
             >
               {pickerResults.map((item, idx) => {
-                const isSelected = coverPickerBook?.coverUrl === item.url;
+                const currentCover = coverPickerLang
+                  ? (getBookEditions(coverPickerBook).find((e) => e.code === coverPickerLang)?.coverUrl || coverPickerBook?.coverUrl)
+                  : coverPickerBook?.coverUrl;
+                const isSelected = currentCover === item.url;
                 return (
                   <Box
                     key={idx}
@@ -1851,7 +2225,13 @@ const BookManager = () => {
               Cover entfernen
             </Button>
           ) : <Box />}
-          <Button onClick={() => setCoverPickerBook(null)} sx={{ borderRadius: 9999 }}>
+          <Button
+            onClick={() => {
+              setCoverPickerBook(null);
+              setCoverPickerLang(null);
+            }}
+            sx={{ borderRadius: 9999 }}
+          >
             Schließen
           </Button>
         </DialogActions>
@@ -1877,8 +2257,14 @@ const BookManager = () => {
               [langCode]: {
                 coverUrl: pickedUrl,
                 completed: isNewEdition ? false : !!prev[langCode]?.completed,
+                rating: isNewEdition ? null : (prev[langCode]?.rating ?? null),
+                notes: isNewEdition ? '' : (prev[langCode]?.notes ?? ''),
+                totalPages: isNewEdition ? null : (prev[langCode]?.totalPages ?? null),
               },
             }));
+            if (isNewEdition) {
+              setFormReviewLang(langCode);
+            }
             if (nextLangs[0] === langCode || !formCoverUrl.trim()) {
               setFormCoverUrl(pickedUrl);
             }

@@ -112,11 +112,31 @@ export const formatLanguagesText = (langs) => {
   }).join(' · ');
 };
 
+const parseRatingValue = (val) => {
+  if (val === null || val === undefined || val === '') return null;
+  const n = parseInt(val, 10);
+  return !isNaN(n) && n >= 1 && n <= 10 ? n : null;
+};
+
+const parsePagesValue = (val) => {
+  if (val === null || val === undefined || val === '') return null;
+  const n = parseInt(val, 10);
+  return !isNaN(n) && n > 0 ? n : null;
+};
+
 /**
  * Normalizes a book's per-language edition map so every language in `languages`
- * has `{ coverUrl: string | null, completed: boolean }` with no undefined Firestore values.
+ * has `{ coverUrl, completed, rating, notes, totalPages }` with no undefined Firestore values.
  */
-export const normalizeLanguageEditions = (languages, rawEditions = {}, fallbackCoverUrl = null, fallbackCompleted = false) => {
+export const normalizeLanguageEditions = (
+  languages,
+  rawEditions = {},
+  fallbackCoverUrl = null,
+  fallbackCompleted = false,
+  fallbackRating = null,
+  fallbackNotes = '',
+  fallbackTotalPages = null
+) => {
   const langs = normalizeLanguages(languages);
   const result = {};
   langs.forEach((code, idx) => {
@@ -127,7 +147,16 @@ export const normalizeLanguageEditions = (languages, rawEditions = {}, fallbackC
         : (idx === 0 ? (fallbackCoverUrl || null) : null),
       completed: existing && existing.completed !== undefined
         ? !!existing.completed
-        : !!fallbackCompleted,
+        : (idx === 0 ? !!fallbackCompleted : false),
+      rating: existing && existing.rating !== undefined
+        ? parseRatingValue(existing.rating)
+        : (idx === 0 ? parseRatingValue(fallbackRating) : null),
+      notes: existing && existing.notes !== undefined
+        ? String(existing.notes || '').trim()
+        : (idx === 0 ? String(fallbackNotes || '').trim() : ''),
+      totalPages: existing && existing.totalPages !== undefined
+        ? parsePagesValue(existing.totalPages)
+        : (idx === 0 ? parsePagesValue(fallbackTotalPages) : null),
     };
   });
   return result;
@@ -135,7 +164,7 @@ export const normalizeLanguageEditions = (languages, rawEditions = {}, fallbackC
 
 /**
  * Returns an ordered array of per-language editions for a book:
- * [{ code, coverUrl, completed, meta }]
+ * [{ code, coverUrl, completed, rating, notes, totalPages, meta }]
  */
 export const getBookEditions = (book) => {
   if (!book) return [];
@@ -151,7 +180,16 @@ export const getBookEditions = (book) => {
         : (idx === 0 ? (book.coverUrl || null) : null),
       completed: existing && existing.completed !== undefined
         ? !!existing.completed
-        : !!book.completed,
+        : (idx === 0 ? !!book.completed : false),
+      rating: existing && existing.rating !== undefined
+        ? parseRatingValue(existing.rating)
+        : (idx === 0 ? parseRatingValue(book.rating) : null),
+      notes: existing && existing.notes !== undefined
+        ? String(existing.notes || '').trim()
+        : (idx === 0 ? String(book.notes || '').trim() : ''),
+      totalPages: existing && existing.totalPages !== undefined
+        ? parsePagesValue(existing.totalPages)
+        : (parsePagesValue(book.totalPages) || null),
       meta: getLanguageMeta(code),
     };
   });
@@ -191,7 +229,6 @@ export const getBookCoverForLanguage = (book, langCode = null) => {
     const found = editions.find((ed) => ed.code === langCode);
     if (found?.coverUrl) return found.coverUrl;
   }
-  // Prefer the active edition's cover if available
   const activeEd = editions.find((ed) => !ed.completed && ed.coverUrl);
   if (activeEd) return activeEd.coverUrl;
   const firstWithCover = editions.find((ed) => ed.coverUrl);

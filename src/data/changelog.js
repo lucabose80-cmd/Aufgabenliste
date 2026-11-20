@@ -1,6 +1,17 @@
-export const APP_VERSION = '2.3.0';
+export const APP_VERSION = '2.4.0';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.4.0',
+    date: '20.11.2026',
+    title: 'Getrennte Sprach-Bewertungen, differenziertes Tracking, Map-Vordergrund & dezente Genres',
+    highlights: [
+      'Getrennte Bewertungen & Fazits pro Sprache: Mehrsprachige Bücher können jetzt für Deutsch und Englisch unabhängig mit 1–10 Sternen und eigenem Fazit bewertet werden (im Bearbeiten-Dialog, beim Abschließen & im Map-Detail).',
+      'Differenzierte Einträge pro Sprache: Unter „Bücher“ und im Timer bekommt jede Sprache eines mehrsprachigen Buchs ihren eigenen Eintrag mit eigenem Cover, eigener optionaler Seitenzahl, separatem Fortschrittsbalken und unabhängigem Abschluss-Status.',
+      'Vorderes Cover auf der Map wählbar: Bei Doppelausgaben lässt sich im Map-Detail per 1-Tap (⇄ / „Vorne anzeigen“) festlegen, welche Sprache auf der Map vorne steht.',
+      'Unauffällige Buch-Kategorien / Genres: Im Hintergrund können Genres wie Romantasy, Fantasy, Sci-Fi, Thriller etc. hinterlegt werden (inkl. leisem Auto-Fill bei der Buchsuche) — zum ruhigen Sortieren & Filtern über das dezente Filter-Symbol ohne überladene Badges.',
+    ],
+  },
   {
     version: '2.3.0',
     date: '20.11.2026',

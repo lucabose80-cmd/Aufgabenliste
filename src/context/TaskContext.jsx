@@ -15,6 +15,7 @@ import {
   normalizeLanguageEditions,
   computeBookCompletedFromEditions,
 } from '../utils/bookLanguages';
+import { normalizeCategories } from '../utils/bookCategories';
 
 const TaskContext = createContext();
 
@@ -782,14 +783,20 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '', languages = [], languageEditions = undefined) => {
+  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '', languages = [], languageEditions = undefined, categories = []) => {
     const parsedRating = rating !== null && rating !== '' && rating !== undefined ? parseInt(rating, 10) : null;
+    const cleanRating = parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null;
+    const cleanNotes = (notes || '').trim();
+    const cleanPages = totalPages ? parseInt(totalPages, 10) : null;
     const normalizedLangs = normalizeLanguages(languages);
     const normalizedEditions = normalizeLanguageEditions(
       normalizedLangs,
       languageEditions || {},
       coverUrl || null,
-      false
+      false,
+      cleanRating,
+      cleanNotes,
+      cleanPages
     );
     const primaryCover = coverUrl || (normalizedLangs.length > 0 ? normalizedEditions[normalizedLangs[0]]?.coverUrl || null : null);
     const newBook = {
@@ -801,26 +808,32 @@ export const TaskProvider = ({ children }) => {
       wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null,
       seriesNumber: seriesNumber ? parseInt(seriesNumber, 10) : null,
       universe: universe || '',
-      totalPages: totalPages ? parseInt(totalPages, 10) : null,
+      totalPages: cleanPages,
       coverUrl: primaryCover,
-      rating: parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null,
-      notes: (notes || '').trim(),
+      rating: cleanRating,
+      notes: cleanNotes,
       languages: normalizedLangs,
       languageEditions: normalizedEditions,
+      categories: normalizeCategories(categories),
+      frontLanguage: null,
       createdAt: new Date().toISOString()
     };
     if (!user) setBooks(prev => [...prev, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined, languages = undefined, languageEditions = undefined) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined, languages = undefined, languageEditions = undefined, categories = undefined) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const resolvedRating = rating !== undefined
       ? (rating !== null && rating !== '' ? parseInt(rating, 10) : null)
       : (book.rating || null);
+    const cleanRating = resolvedRating && resolvedRating >= 1 && resolvedRating <= 10 ? resolvedRating : null;
+    const cleanNotes = notes !== undefined ? (notes || '').trim() : (book.notes || '');
+    const resolvedPages = totalPages !== undefined ? (totalPages ? parseInt(totalPages, 10) : null) : book.totalPages;
     const resolvedLangs = languages !== undefined ? normalizeLanguages(languages) : normalizeLanguages(book);
     const resolvedCover = coverUrl !== undefined ? (coverUrl || null) : (book.coverUrl || null);
+    const resolvedCategories = categories !== undefined ? normalizeCategories(categories) : normalizeCategories(book);
 
     let rawEditions = languageEditions !== undefined
       ? languageEditions
@@ -828,7 +841,15 @@ export const TaskProvider = ({ children }) => {
 
     // When toggling overall `completed` directly (without explicit languageEditions), apply to editions
     if (completed !== undefined && languageEditions === undefined && resolvedLangs.length > 0) {
-      const base = normalizeLanguageEditions(resolvedLangs, rawEditions, resolvedCover, !!book.completed);
+      const base = normalizeLanguageEditions(
+        resolvedLangs,
+        rawEditions,
+        resolvedCover,
+        !!book.completed,
+        cleanRating,
+        cleanNotes,
+        resolvedPages
+      );
       const next = {};
       resolvedLangs.forEach((code) => {
         next[code] = { ...base[code], completed: !!completed };
@@ -840,7 +861,10 @@ export const TaskProvider = ({ children }) => {
       resolvedLangs,
       rawEditions,
       resolvedCover,
-      completed !== undefined ? !!completed : !!book.completed
+      completed !== undefined ? !!completed : !!book.completed,
+      cleanRating,
+      cleanNotes,
+      resolvedPages
     );
 
     const resolvedCompleted = resolvedLangs.length > 0
@@ -848,6 +872,7 @@ export const TaskProvider = ({ children }) => {
       : (completed !== undefined ? !!completed : !!book.completed);
 
     const syncedCover = resolvedCover || (resolvedLangs.length > 0 ? normalizedEditions[resolvedLangs[0]]?.coverUrl || null : null);
+    const syncedFrontLang = book.frontLanguage && resolvedLangs.includes(book.frontLanguage) ? book.frontLanguage : null;
 
     const updatedBook = { 
       ...book, 
@@ -858,12 +883,14 @@ export const TaskProvider = ({ children }) => {
       wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null,
       seriesNumber: seriesNumber !== undefined ? (seriesNumber ? parseInt(seriesNumber, 10) : null) : book.seriesNumber,
       universe: universe !== undefined ? universe : (book.universe || ''),
-      totalPages: totalPages !== undefined ? (totalPages ? parseInt(totalPages, 10) : null) : book.totalPages,
+      totalPages: resolvedPages,
       coverUrl: syncedCover,
-      rating: resolvedRating && resolvedRating >= 1 && resolvedRating <= 10 ? resolvedRating : null,
-      notes: notes !== undefined ? (notes || '').trim() : (book.notes || ''),
+      rating: cleanRating,
+      notes: cleanNotes,
       languages: resolvedLangs,
       languageEditions: normalizedEditions,
+      categories: resolvedCategories,
+      frontLanguage: syncedFrontLang,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
@@ -873,7 +900,15 @@ export const TaskProvider = ({ children }) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const langs = normalizeLanguages(book);
-    const editions = normalizeLanguageEditions(langs, book.languageEditions || {}, book.coverUrl || null, !!book.completed);
+    const editions = normalizeLanguageEditions(
+      langs,
+      book.languageEditions || {},
+      book.coverUrl || null,
+      !!book.completed,
+      book.rating || null,
+      book.notes || '',
+      book.totalPages || null
+    );
     const targetLang = langCode || (langs.length === 1 ? langs[0] : null);
     if (targetLang && langs.includes(targetLang)) {
       editions[targetLang] = { ...editions[targetLang], coverUrl: coverUrl || null };
@@ -888,14 +923,45 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
   };
 
-  const updateBookReview = async (id, rating, notes) => {
+  const updateBookReview = async (id, rating, notes, langCode = null) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const parsedRating = rating !== null && rating !== '' && rating !== undefined ? parseInt(rating, 10) : null;
+    const cleanRating = parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null;
+    const cleanNotes = (notes || '').trim();
+    const langs = normalizeLanguages(book);
+    const normalizedLang = langCode ? String(langCode).trim().toLowerCase() : null;
+
+    if (normalizedLang && langs.includes(normalizedLang)) {
+      const editions = normalizeLanguageEditions(
+        langs,
+        book.languageEditions || {},
+        book.coverUrl || null,
+        !!book.completed,
+        book.rating || null,
+        book.notes || '',
+        book.totalPages || null
+      );
+      editions[normalizedLang] = {
+        ...editions[normalizedLang],
+        rating: cleanRating,
+        notes: cleanNotes,
+      };
+      const isPrimary = langs[0] === normalizedLang;
+      const updatedBook = {
+        ...book,
+        languageEditions: editions,
+        ...(isPrimary ? { rating: cleanRating, notes: cleanNotes } : {}),
+      };
+      if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
+      if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
+      return;
+    }
+
     const updatedBook = {
       ...book,
-      rating: parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null,
-      notes: (notes || '').trim(),
+      rating: cleanRating,
+      notes: cleanNotes,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
@@ -906,7 +972,15 @@ export const TaskProvider = ({ children }) => {
     if (!book) return;
     const prevLangs = normalizeLanguages(book);
     const nextLangs = normalizeLanguages(languages);
-    const prevEditions = normalizeLanguageEditions(prevLangs, book.languageEditions || {}, book.coverUrl || null, !!book.completed);
+    const prevEditions = normalizeLanguageEditions(
+      prevLangs,
+      book.languageEditions || {},
+      book.coverUrl || null,
+      !!book.completed,
+      book.rating || null,
+      book.notes || '',
+      book.totalPages || null
+    );
 
     const mergedEditions = {};
     nextLangs.forEach((code) => {
@@ -914,14 +988,20 @@ export const TaskProvider = ({ children }) => {
         mergedEditions[code] = {
           coverUrl: languageEditions[code].coverUrl || null,
           completed: !!languageEditions[code].completed,
+          rating: languageEditions[code].rating ?? null,
+          notes: String(languageEditions[code].notes || '').trim(),
+          totalPages: languageEditions[code].totalPages ? parseInt(languageEditions[code].totalPages, 10) : null,
         };
       } else if (prevEditions[code]) {
         mergedEditions[code] = prevEditions[code];
       } else {
-        // Newly added language starts as NOT completed!
+        // Newly added language starts as NOT completed and with independent empty rating/notes!
         mergedEditions[code] = {
           coverUrl: prevLangs.length === 0 ? (book.coverUrl || null) : null,
           completed: prevLangs.length === 0 ? !!book.completed : false,
+          rating: prevLangs.length === 0 ? (book.rating || null) : null,
+          notes: prevLangs.length === 0 ? (book.notes || '') : '',
+          totalPages: prevLangs.length === 0 ? (book.totalPages || null) : null,
         };
       }
     });
@@ -931,6 +1011,7 @@ export const TaskProvider = ({ children }) => {
       : !!book.completed;
 
     const nextMainCover = book.coverUrl || (nextLangs.length > 0 ? mergedEditions[nextLangs[0]]?.coverUrl || null : null);
+    const nextFrontLang = book.frontLanguage && nextLangs.includes(book.frontLanguage) ? book.frontLanguage : null;
 
     const updatedBook = {
       ...book,
@@ -938,6 +1019,7 @@ export const TaskProvider = ({ children }) => {
       languageEditions: mergedEditions,
       completed: nextCompleted,
       coverUrl: nextMainCover,
+      frontLanguage: nextFrontLang,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
@@ -949,14 +1031,32 @@ export const TaskProvider = ({ children }) => {
     const code = String(langCode).trim().toLowerCase();
     const prevLangs = normalizeLanguages(book);
     const nextLangs = normalizeLanguages([...prevLangs, code]);
-    const prevEditions = normalizeLanguageEditions(prevLangs, book.languageEditions || {}, book.coverUrl || null, !!book.completed);
-    const existing = prevEditions[code] || { coverUrl: null, completed: false };
+    const prevEditions = normalizeLanguageEditions(
+      prevLangs,
+      book.languageEditions || {},
+      book.coverUrl || null,
+      !!book.completed,
+      book.rating || null,
+      book.notes || '',
+      book.totalPages || null
+    );
+    const existing = prevEditions[code] || { coverUrl: null, completed: false, rating: null, notes: '', totalPages: null };
+
+    const parsedPatchRating = patch.rating !== undefined
+      ? (patch.rating !== null && patch.rating !== '' ? parseInt(patch.rating, 10) : null)
+      : existing.rating;
+    const cleanPatchRating = parsedPatchRating && parsedPatchRating >= 1 && parsedPatchRating <= 10 ? parsedPatchRating : null;
 
     const nextEditions = {
       ...prevEditions,
       [code]: {
         coverUrl: patch.coverUrl !== undefined ? (patch.coverUrl || null) : existing.coverUrl,
         completed: patch.completed !== undefined ? !!patch.completed : !!existing.completed,
+        rating: cleanPatchRating,
+        notes: patch.notes !== undefined ? String(patch.notes || '').trim() : (existing.notes || ''),
+        totalPages: patch.totalPages !== undefined
+          ? (patch.totalPages ? parseInt(patch.totalPages, 10) : null)
+          : (existing.totalPages || null),
       },
     };
 
@@ -974,6 +1074,32 @@ export const TaskProvider = ({ children }) => {
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
+  };
+
+  const updateBookCategories = async (id, categories) => {
+    const book = books.find(b => b.id === id);
+    if (!book) return;
+    const updatedBook = {
+      ...book,
+      categories: normalizeCategories(categories),
+    };
+    if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
+  };
+
+  const updateBookFrontLanguage = async (bookIds, frontLanguage) => {
+    const ids = Array.isArray(bookIds) ? bookIds : [bookIds];
+    const cleanLang = frontLanguage ? String(frontLanguage).trim().toLowerCase() : null;
+    if (!user) {
+      setBooks(prev => prev.map(b => ids.includes(b.id) ? { ...b, frontLanguage: cleanLang } : b));
+      return;
+    }
+    const batch = writeBatch(db);
+    ids.forEach((bId) => {
+      const ref = doc(db, 'users', user.uid, 'books', bId);
+      batch.set(ref, { frontLanguage: cleanLang }, { merge: true });
+    });
+    await batch.commit();
   };
 
   const renameAuthor = async (oldName, newName) => {
@@ -1233,6 +1359,8 @@ export const TaskProvider = ({ children }) => {
       updateBookReview,
       updateBookLanguages,
       updateBookEdition,
+      updateBookCategories,
+      updateBookFrontLanguage,
       deleteBook,
       renameAuthor,
       deleteAuthor,

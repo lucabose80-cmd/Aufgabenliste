@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Collapse, LinearProgress, Dialog, DialogContent, IconButton, TextField, Button } from '@mui/material';
+import {
+  Box, Card, Typography, Collapse, LinearProgress, Dialog, DialogContent,
+  IconButton, TextField, Button, Menu, MenuItem, Autocomplete
+} from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import PublicIcon from '@mui/icons-material/Public';
 import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
@@ -12,6 +15,9 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import MapIcon from '@mui/icons-material/Map';
 import StarIcon from '@mui/icons-material/Star';
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
+import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import TuneIcon from '@mui/icons-material/Tune';
 import { ReactFlow, Handle, Position, Background, Controls } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import BookCover from './BookCover';
@@ -24,11 +30,12 @@ import {
   isBilingual,
   isBookFullyCompleted,
 } from '../utils/bookLanguages';
+import { PRESET_BOOK_CATEGORIES, normalizeCategories } from '../utils/bookCategories';
 
 /**
  * Builds visual edition descriptors for a single book or a grouped stack of separate books.
- * Active (uncompleted) editions are ordered in FRONT so you immediately see what you're
- * currently reading, with completed editions peeking clearly behind.
+ * Respects user-selected `frontLanguage` if set; otherwise orders active (uncompleted)
+ * editions in FRONT, then DE first.
  */
 const buildVisualEditionsForGroup = (groupBooks) => {
   const entries = [];
@@ -43,6 +50,9 @@ const buildVisualEditionsForGroup = (groupBooks) => {
           langCode: ed.code,
           coverUrl: ed.coverUrl || book.coverUrl || null,
           completed: !!ed.completed,
+          rating: ed.rating ?? null,
+          notes: ed.notes || '',
+          totalPages: ed.totalPages || book.totalPages || null,
           meta: ed.meta,
         });
       });
@@ -54,13 +64,22 @@ const buildVisualEditionsForGroup = (groupBooks) => {
         langCode: null,
         coverUrl: book.coverUrl || null,
         completed: !!book.completed,
+        rating: book.rating ?? null,
+        notes: book.notes || '',
+        totalPages: book.totalPages || null,
         meta: null,
       });
     }
   });
 
-  // Sort: active (uncompleted) edition in front; within same state prefer DE first
+  const preferredFront = groupBooks.find((b) => b.frontLanguage)?.frontLanguage || null;
+
   return entries.sort((a, b) => {
+    if (preferredFront) {
+      const aFront = a.langCode === preferredFront;
+      const bFront = b.langCode === preferredFront;
+      if (aFront !== bFront) return aFront ? -1 : 1;
+    }
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
     if (a.langCode === 'de' && b.langCode !== 'de') return -1;
     if (b.langCode === 'de' && a.langCode !== 'de') return 1;
@@ -78,13 +97,15 @@ const buildShelfItems = (bookList, allowEditionStacking = false) => {
   const makeItem = (groupBooks) => {
     const visualEditions = buildVisualEditionsForGroup(groupBooks);
     const combinedLangs = normalizeLanguages(groupBooks.flatMap((b) => normalizeLanguages(b)));
+    const combinedCategories = normalizeCategories(groupBooks.flatMap((b) => normalizeCategories(b)));
     const primaryBook = visualEditions[0]?.book || groupBooks[0];
     const doneEditions = visualEditions.filter((e) => e.completed).length;
     const totalEditions = visualEditions.length;
     const fullyCompleted = totalEditions > 0
       ? doneEditions === totalEditions
       : groupBooks.every((b) => isBookFullyCompleted(b));
-    const bestRating = groupBooks.map((b) => b.rating).filter(Boolean).sort((a, b) => b - a)[0] || null;
+    // Show the front edition's rating on the front cover (or fallback if single-book legacy)
+    const frontRating = visualEditions[0]?.rating ?? (visualEditions.length === 1 ? (primaryBook.rating || null) : null);
     const num = primaryBook.seriesNumber ? parseInt(primaryBook.seriesNumber, 10) : null;
 
     return {
@@ -93,12 +114,13 @@ const buildShelfItems = (bookList, allowEditionStacking = false) => {
       editions: groupBooks,
       visualEditions,
       languages: combinedLangs,
+      categories: combinedCategories,
       bilingual: isBilingual(combinedLangs) || visualEditions.length >= 2,
       completed: fullyCompleted,
       doneEditions,
       totalEditions,
       partiallyCompleted: doneEditions > 0 && doneEditions < totalEditions,
-      rating: bestRating,
+      rating: frontRating,
       seriesNumber: num,
     };
   };
@@ -569,13 +591,18 @@ const CoverShelfTile = ({ item, onSelect, isDark }) => {
 };
 
 const BookUniverseMap = () => {
-  const { books, readingSessions, updateBookReview, updateBookLanguages, updateBookEdition, updateBook } = useTaskContext();
+  const {
+    books, readingSessions, updateBookReview, updateBookLanguages,
+    updateBookEdition, updateBook, updateBookCategories, updateBookFrontLanguage
+  } = useTaskContext();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   const [viewMode, setViewMode] = useState('explorer'); // 'explorer' | '2d'
   const [selectedFilter, setSelectedFilter] = useState('all'); // 'all' | 'uni:<name>' | 'series' | 'standalone'
   const [languageFilter, setLanguageFilter] = useState('all'); // 'all' | 'bilingual' | 'de' | 'en' | ...
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | '<categoryName>'
+  const [categoryMenuAnchor, setCategoryMenuAnchor] = useState(null);
   const [collapsedNodes, setCollapsedNodes] = useState({});
   const [selectedEditionIds, setSelectedEditionIds] = useState([]);
   const [activeVisualKey, setActiveVisualKey] = useState(null);
@@ -612,18 +639,17 @@ const BookUniverseMap = () => {
     }
     const ids = item.editions.map((b) => b.id);
     const firstVisual = item.visualEditions[0];
-    const primary = firstVisual?.book || item.primaryBook;
     setSelectedEditionIds(ids);
     setActiveVisualKey(firstVisual?.key || null);
-    setDetailRating(primary.rating || null);
-    setDetailNotes(primary.notes || '');
+    setDetailRating(firstVisual?.rating ?? null);
+    setDetailNotes(firstVisual?.notes || '');
     setReviewSaved(false);
   };
 
   const switchVisualEditionInModal = (ed) => {
     setActiveVisualKey(ed.key);
-    setDetailRating(ed.book.rating || null);
-    setDetailNotes(ed.book.notes || '');
+    setDetailRating(ed.rating ?? null);
+    setDetailNotes(ed.notes || '');
     setReviewSaved(false);
   };
 
@@ -631,11 +657,17 @@ const BookUniverseMap = () => {
     setCollapsedNodes(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Detect which languages are actually in use across all books
+  // Detect which languages & categories are actually in use across all books
   const availableLanguages = useMemo(() => {
     const langSet = new Set();
     books.forEach((b) => normalizeLanguages(b).forEach((c) => langSet.add(c)));
     return normalizeLanguages(Array.from(langSet));
+  }, [books]);
+
+  const availableCategories = useMemo(() => {
+    const catSet = new Set();
+    books.forEach((b) => normalizeCategories(b).forEach((c) => catSet.add(c)));
+    return Array.from(catSet).sort((a, b) => a.localeCompare(b));
   }, [books]);
 
   const hierarchy = useMemo(() => {
@@ -674,39 +706,39 @@ const BookUniverseMap = () => {
       }
     });
 
-    // Convert raw book arrays into ShelfItems (stacking dual-language editions of the same band)
-    // and apply the active languageFilter cleanly
-    const matchesLangFilter = (item) => {
-      if (languageFilter === 'all') return true;
-      if (languageFilter === 'bilingual') return item.bilingual;
-      return item.languages.includes(languageFilter);
+    // Apply both languageFilter and quiet categoryFilter cleanly
+    const matchesFilters = (item) => {
+      if (languageFilter === 'bilingual' && !item.bilingual) return false;
+      if (languageFilter !== 'all' && languageFilter !== 'bilingual' && !item.languages.includes(languageFilter)) return false;
+      if (categoryFilter !== 'all' && !item.categories.includes(categoryFilter)) return false;
+      return true;
     };
 
     const filtered = {
       universes: {},
       standaloneSeries: {},
-      standaloneBooks: buildShelfItems(data.standaloneBooks, false).filter(matchesLangFilter),
+      standaloneBooks: buildShelfItems(data.standaloneBooks, false).filter(matchesFilters),
     };
 
     Object.entries(data.universes).forEach(([uniName, uniData]) => {
       const seriesMap = {};
       Object.entries(uniData.series).forEach(([serName, list]) => {
-        const items = buildShelfItems(list, true).filter(matchesLangFilter);
+        const items = buildShelfItems(list, true).filter(matchesFilters);
         if (items.length > 0) seriesMap[serName] = items;
       });
-      const soloItems = buildShelfItems(uniData.standaloneBooks, false).filter(matchesLangFilter);
+      const soloItems = buildShelfItems(uniData.standaloneBooks, false).filter(matchesFilters);
       if (Object.keys(seriesMap).length > 0 || soloItems.length > 0) {
         filtered.universes[uniName] = { series: seriesMap, standaloneBooks: soloItems };
       }
     });
 
     Object.entries(data.standaloneSeries).forEach(([serName, list]) => {
-      const items = buildShelfItems(list, true).filter(matchesLangFilter);
+      const items = buildShelfItems(list, true).filter(matchesFilters);
       if (items.length > 0) filtered.standaloneSeries[serName] = items;
     });
 
     return filtered;
-  }, [books, languageFilter]);
+  }, [books, languageFilter, categoryFilter]);
 
   const universeNames = useMemo(() => Object.keys(hierarchy.universes).sort((a, b) => a.localeCompare(b)), [hierarchy]);
   const standaloneSeriesNames = useMemo(() => Object.keys(hierarchy.standaloneSeries).sort((a, b) => a.localeCompare(b)), [hierarchy]);
@@ -718,7 +750,6 @@ const BookUniverseMap = () => {
     const activeLang = activeVisualEdition?.langCode || null;
     const bookLangs = normalizeLanguages(selectedBook);
 
-    // If a single book has multiple languages, filter sessions tagged with this language when available
     const sessions = (bookLangs.length >= 2 && activeLang)
       ? allBookSessions.filter((s) => (s.language ? s.language.toLowerCase() === activeLang : bookLangs[0] === activeLang))
       : allBookSessions;
@@ -726,7 +757,7 @@ const BookUniverseMap = () => {
     const totalSec = sessions.reduce((acc, s) => acc + (s.timeSpent || 0), 0);
     const maxEnded = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
     const pagesRead = maxEnded > 0 ? maxEnded : sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
-    const total = Number(selectedBook.totalPages) || 0;
+    const total = Number(activeVisualEdition?.totalPages || selectedBook.totalPages) || 0;
     const pct = total > 0 ? Math.min(100, Math.round((pagesRead / total) * 100)) : null;
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
@@ -902,47 +933,103 @@ const BookUniverseMap = () => {
           })}
         </Box>
 
-        {/* Compact Icon Switch: Shelf vs 2D-Map */}
-        <Box
-          sx={{
-            display: 'inline-flex',
-            p: 0.35,
-            borderRadius: 9999,
-            bgcolor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'divider',
-            flexShrink: 0,
-          }}
-        >
-          {[
-            { id: 'explorer', icon: AccountTreeIcon, title: 'Regal-Ansicht' },
-            { id: '2d', icon: MapIcon, title: '2D-Map' },
-          ].map(({ id, icon: IconComp, title }) => {
-            const active = viewMode === id;
-            return (
+        {/* Compact Right Controls: Subtle Genre Filter + Shelf/2D Switch */}
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+          {availableCategories.length > 0 && (
+            <>
               <IconButton
-                key={id}
                 size="small"
-                title={title}
-                onClick={() => setViewMode(id)}
+                title={categoryFilter === 'all' ? 'Nach Kategorie filtern' : `Kategorie: ${categoryFilter}`}
+                onClick={(e) => setCategoryMenuAnchor(e.currentTarget)}
                 sx={{
-                  width: 30,
-                  height: 30,
-                  bgcolor: active ? alpha(theme.palette.primary.main, isDark ? 0.22 : 0.14) : 'transparent',
-                  color: active ? 'primary.main' : 'text.secondary',
+                  position: 'relative',
+                  width: 34,
+                  height: 34,
+                  bgcolor: categoryFilter !== 'all'
+                    ? alpha(theme.palette.primary.main, isDark ? 0.22 : 0.14)
+                    : 'background.paper',
+                  border: '1px solid',
+                  borderColor: categoryFilter !== 'all' ? 'primary.main' : 'divider',
+                  color: categoryFilter !== 'all' ? 'primary.main' : 'text.secondary',
                 }}
               >
-                <IconComp sx={{ fontSize: 16 }} />
+                <TuneIcon sx={{ fontSize: 16 }} />
               </IconButton>
-            );
-          })}
+              <Menu
+                anchorEl={categoryMenuAnchor}
+                open={Boolean(categoryMenuAnchor)}
+                onClose={() => setCategoryMenuAnchor(null)}
+              >
+                <MenuItem
+                  selected={categoryFilter === 'all'}
+                  onClick={() => {
+                    setCategoryFilter('all');
+                    setSelectedFilter('all');
+                    setCategoryMenuAnchor(null);
+                  }}
+                  sx={{ fontSize: '0.84rem' }}
+                >
+                  Alle Kategorien
+                </MenuItem>
+                {availableCategories.map((cat) => (
+                  <MenuItem
+                    key={cat}
+                    selected={categoryFilter === cat}
+                    onClick={() => {
+                      setCategoryFilter(cat);
+                      setSelectedFilter('all');
+                      setCategoryMenuAnchor(null);
+                    }}
+                    sx={{ fontSize: '0.84rem' }}
+                  >
+                    {cat}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
+
+          <Box
+            sx={{
+              display: 'inline-flex',
+              p: 0.35,
+              borderRadius: 9999,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              flexShrink: 0,
+            }}
+          >
+            {[
+              { id: 'explorer', icon: AccountTreeIcon, title: 'Regal-Ansicht' },
+              { id: '2d', icon: MapIcon, title: '2D-Map' },
+            ].map(({ id, icon: IconComp, title }) => {
+              const active = viewMode === id;
+              return (
+                <IconButton
+                  key={id}
+                  size="small"
+                  title={title}
+                  onClick={() => setViewMode(id)}
+                  sx={{
+                    width: 30,
+                    height: 30,
+                    bgcolor: active ? alpha(theme.palette.primary.main, isDark ? 0.22 : 0.14) : 'transparent',
+                    color: active ? 'primary.main' : 'text.secondary',
+                  }}
+                >
+                  <IconComp sx={{ fontSize: 16 }} />
+                </IconButton>
+              );
+            })}
+          </Box>
         </Box>
       </Box>
 
       {/* Compact Language Filter Row (shown once at least one book has a language) */}
-      {availableLanguages.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', py: 0.15 }}>
-          {[
+      {(availableLanguages.length > 0 || categoryFilter !== 'all') && (
+        <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', py: 0.15, alignItems: 'center' }}>
+          {availableLanguages.length > 0 && [
             { id: 'all', label: 'Alle Sprachen' },
             ...availableLanguages.map((code) => {
               const meta = getLanguageMeta(code);
@@ -980,19 +1067,49 @@ const BookUniverseMap = () => {
               </Box>
             );
           })}
+          {categoryFilter !== 'all' && (
+            <Box
+              onClick={() => setCategoryFilter('all')}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.4,
+                px: 1.2,
+                py: 0.45,
+                borderRadius: 9999,
+                cursor: 'pointer',
+                flexShrink: 0,
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
+                color: 'primary.main',
+              }}
+            >
+              <span>{categoryFilter}</span>
+              <CloseIcon sx={{ fontSize: 12 }} />
+            </Box>
+          )}
         </Box>
       )}
 
       {!hasFilteredResults ? (
         <Card sx={{ p: 4, textAlign: 'center', borderRadius: '24px' }}>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Keine Bücher für diesen Sprachfilter
+            Keine Bücher für diesen Filter
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Tippe ein Buch an, um ihm Sprachen (z. B. Deutsch &amp; Englisch) zuzuweisen.
+            Setze den Sprach- oder Kategoriefilter zurück, um alle Bücher wieder zu sehen.
           </Typography>
-          <Button size="small" variant="outlined" onClick={() => setLanguageFilter('all')} sx={{ borderRadius: 9999 }}>
-            Alle Sprachen anzeigen
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              setLanguageFilter('all');
+              setCategoryFilter('all');
+            }}
+            sx={{ borderRadius: 9999 }}
+          >
+            Filter zurücksetzen
           </Button>
         </Card>
       ) : viewMode === 'explorer' ? (
@@ -1152,55 +1269,103 @@ const BookUniverseMap = () => {
       >
         {selectedBook && activeVisualEdition && (
           <DialogContent sx={{ p: 2.5 }}>
-            {/* Edition switcher when 2+ language editions exist (either on 1 book or stacked separate books) */}
+            {/* Edition switcher + Map front-cover selector when 2+ editions exist */}
             {modalVisualEditions.length > 1 && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  gap: 0.65,
-                  p: 0.45,
-                  mb: 2,
-                  borderRadius: '14px',
-                  bgcolor: 'background.surfaceVariant',
-                }}
-              >
-                {modalVisualEditions.map((ed) => {
-                  const active = ed.key === activeVisualEdition.key;
-                  const label = ed.meta
-                    ? `${ed.meta.flag} ${ed.meta.label}`
-                    : ed.book.name;
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      display: 'flex',
+                      gap: 0.65,
+                      p: 0.45,
+                      borderRadius: '14px',
+                      bgcolor: 'background.surfaceVariant',
+                    }}
+                  >
+                    {modalVisualEditions.map((ed) => {
+                      const active = ed.key === activeVisualEdition.key;
+                      const label = ed.meta
+                        ? `${ed.meta.flag} ${ed.meta.label}`
+                        : ed.book.name;
+                      return (
+                        <Box
+                          key={ed.key}
+                          onClick={() => switchVisualEditionInModal(ed)}
+                          sx={{
+                            flex: 1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 0.5,
+                            py: 0.65,
+                            px: 1,
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            fontSize: '0.78rem',
+                            fontWeight: active ? 700 : 500,
+                            bgcolor: active ? 'background.paper' : 'transparent',
+                            color: active ? 'text.primary' : 'text.secondary',
+                            boxShadow: active ? (isDark ? '0 1px 4px rgba(0,0,0,0.45)' : '0 1px 3px rgba(0,0,0,0.08)') : 'none',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <span>{label}</span>
+                          {ed.completed ? (
+                            <CheckCircleIcon sx={{ fontSize: 13, color: 'success.main' }} />
+                          ) : (
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' }} />
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  <IconButton
+                    size="small"
+                    title="Vorderes Cover in der Map tauschen"
+                    onClick={() => {
+                      const currentFront = modalVisualEditions[0];
+                      const nextFront = modalVisualEditions.find((e) => e.key !== currentFront.key);
+                      if (nextFront?.langCode) {
+                        updateBookFrontLanguage(selectedEditionIds, nextFront.langCode);
+                      }
+                    }}
+                    sx={{
+                      width: 34,
+                      height: 34,
+                      bgcolor: 'background.surfaceVariant',
+                      color: 'text.secondary',
+                      '&:hover': { color: 'primary.main' },
+                    }}
+                  >
+                    <SwapHorizIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Box>
+
+                {/* Explicit 1-tap control to set the viewed edition as the front cover on the Map */}
+                {(() => {
+                  const isCurrentlyFront = modalVisualEditions[0]?.key === activeVisualEdition.key;
                   return (
-                    <Box
-                      key={ed.key}
-                      onClick={() => switchVisualEditionInModal(ed)}
-                      sx={{
-                        flex: 1,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 0.5,
-                        py: 0.65,
-                        px: 1,
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        fontSize: '0.78rem',
-                        fontWeight: active ? 700 : 500,
-                        bgcolor: active ? 'background.paper' : 'transparent',
-                        color: active ? 'text.primary' : 'text.secondary',
-                        boxShadow: active ? (isDark ? '0 1px 4px rgba(0,0,0,0.45)' : '0 1px 3px rgba(0,0,0,0.08)') : 'none',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <span>{label}</span>
-                      {ed.completed ? (
-                        <CheckCircleIcon sx={{ fontSize: 13, color: 'success.main' }} />
-                      ) : (
-                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 0.25 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        {isCurrentlyFront
+                          ? '✓ Wird auf der Map vorne angezeigt'
+                          : 'Liegt auf der Map aktuell hinten'}
+                      </Typography>
+                      {!isCurrentlyFront && activeVisualEdition.langCode && (
+                        <Button
+                          size="small"
+                          startIcon={<FlipToFrontIcon sx={{ fontSize: 14 }} />}
+                          onClick={() => updateBookFrontLanguage(selectedEditionIds, activeVisualEdition.langCode)}
+                          sx={{ borderRadius: 9999, py: 0.2, px: 1.25, fontSize: '0.7rem', minHeight: 0 }}
+                        >
+                          Vorne anzeigen
+                        </Button>
                       )}
                     </Box>
                   );
-                })}
+                })()}
               </Box>
             )}
 
@@ -1421,11 +1586,11 @@ const BookUniverseMap = () => {
               </Box>
             )}
 
-            {/* 1-10 Rating & Short Note / Quote */}
+            {/* Independent 1-10 Rating & Short Note / Quote per language */}
             <Box sx={{ mt: 2.25, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Bewertung &amp; Fazit
+                  Bewertung &amp; Fazit{activeVisualEdition.meta && modalVisualEditions.length > 1 ? ` (${activeVisualEdition.meta.flag} ${activeVisualEdition.meta.short})` : ''}
                 </Typography>
                 {detailRating && (
                   <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, color: isDark ? '#FDD663' : '#C25E00', fontSize: '0.76rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
@@ -1468,7 +1633,11 @@ const BookUniverseMap = () => {
                 })}
               </Box>
               <TextField
-                label="Kurzes Fazit oder Lieblingszitat"
+                label={
+                  activeVisualEdition.meta && modalVisualEditions.length > 1
+                    ? `Fazit / Zitat (${activeVisualEdition.meta.label})`
+                    : 'Kurzes Fazit oder Lieblingszitat'
+                }
                 value={detailNotes}
                 onChange={(e) => {
                   setDetailNotes(e.target.value);
@@ -1489,7 +1658,7 @@ const BookUniverseMap = () => {
                   size="small"
                   variant="contained"
                   onClick={async () => {
-                    await updateBookReview(selectedBook.id, detailRating, detailNotes);
+                    await updateBookReview(selectedBook.id, detailRating, detailNotes, activeVisualEdition.langCode);
                     setReviewSaved(true);
                   }}
                   sx={{ borderRadius: 9999, px: 2.25 }}
@@ -1497,6 +1666,28 @@ const BookUniverseMap = () => {
                   Speichern
                 </Button>
               </Box>
+            </Box>
+
+            {/* Unobtrusive background categories (Romantasy, Fantasy, etc.) */}
+            <Box sx={{ mt: 2, pt: 1.75, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Autocomplete
+                multiple
+                freeSolo
+                size="small"
+                options={Array.from(new Set([...PRESET_BOOK_CATEGORIES, ...availableCategories]))}
+                value={normalizeCategories(selectedBook)}
+                onChange={(_, newValue) => {
+                  updateBookCategories(selectedBook.id, newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Kategorie / Genre (optional)"
+                    placeholder="z. B. Romantasy, Fantasy..."
+                    size="small"
+                  />
+                )}
+              />
             </Box>
           </DialogContent>
         )}
@@ -1518,8 +1709,13 @@ const BookUniverseMap = () => {
             await updateBookEdition(book.id, langCode, {
               coverUrl: pickedCoverUrl,
               completed: false,
+              rating: null,
+              notes: '',
             });
             setActiveVisualKey(`${book.id}:${langCode}`);
+            setDetailRating(null);
+            setDetailNotes('');
+            setReviewSaved(false);
           } else {
             await updateBookEdition(book.id, langCode, {
               coverUrl: pickedCoverUrl,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { format } from 'date-fns';
 import {
@@ -15,6 +15,7 @@ import { LanguagePill } from './LanguageBadge';
 import {
   PRIMARY_LANGUAGES,
   normalizeLanguages,
+  getBookEditions,
   getLanguageMeta,
   getSessionLanguage,
   formatLanguagesCompact,
@@ -92,21 +93,34 @@ const ReadingSpeed = () => {
   const [editDate, setEditDate] = useState('');
   const [sessionFilter, setSessionFilter] = useState('all');
 
-  const getBookLastPage = (bookId) => {
-    if (!bookId) return 0;
+  const getSessionsForBookEdition = (bookId, langCode = null) => {
+    if (!bookId) return [];
     const book = books.find((b) => b.id === bookId);
-    const activeLang = book ? getPrimaryActiveLanguage(book) : null;
     const allBookSessions = readingSessions.filter(s => s.bookId === bookId);
     const langs = normalizeLanguages(book);
-    // On a bilingual book with an active language edition (e.g. DE done, EN active),
-    // track progress separately from sessions in that active language
-    const sessions = (langs.length >= 2 && activeLang)
-      ? allBookSessions.filter((s) => s.language && s.language.toLowerCase() === activeLang)
-      : allBookSessions;
+    if (langs.length >= 2) {
+      const targetLang = (langCode || getPrimaryActiveLanguage(book) || langs[0] || '').toLowerCase();
+      if (targetLang) {
+        return allBookSessions.filter((s) =>
+          s.language ? s.language.toLowerCase() === targetLang : langs[0] === targetLang
+        );
+      }
+    }
+    return allBookSessions;
+  };
+
+  const getBookLastPage = (bookId, langCode = null) => {
+    if (!bookId) return 0;
+    const sessions = getSessionsForBookEdition(bookId, langCode);
     if (sessions.length === 0) return 0;
     const maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
     if (maxEndedOnPage > 0) return maxEndedOnPage;
     return sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
+  };
+
+  const resolveDefaultBookLang = (bookId) => {
+    const book = books.find(b => b.id === bookId);
+    return getPrimaryActiveLanguage(book) || '';
   };
 
   // Sync book selection made on Android widget into ReadingSpeed
@@ -122,8 +136,10 @@ const ReadingSpeed = () => {
       setActiveTab(0);
       setIsManualEntry(false);
       if (pendingWidgetFinish.bookId) {
+        const defLang = resolveDefaultBookLang(pendingWidgetFinish.bookId);
         setSelectedBookId(pendingWidgetFinish.bookId);
-        const lastPage = getBookLastPage(pendingWidgetFinish.bookId);
+        setSessionLanguage(defLang);
+        const lastPage = getBookLastPage(pendingWidgetFinish.bookId, defLang);
         setEndedOnPage(lastPage > 0 ? lastPage.toString() : '');
       }
       setSessionDate(format(new Date(), 'yyyy-MM-dd'));
@@ -138,13 +154,67 @@ const ReadingSpeed = () => {
     [books, selectedBookId]
   );
 
+  const effectiveSelectedLang = useMemo(() => {
+    if (!selectedBook) return sessionLanguage || null;
+    const langs = normalizeLanguages(selectedBook);
+    if (langs.length >= 2) {
+      if (sessionLanguage && langs.includes(sessionLanguage)) return sessionLanguage;
+      return getPrimaryActiveLanguage(selectedBook) || langs[0] || null;
+    }
+    return langs[0] || sessionLanguage || null;
+  }, [selectedBook, sessionLanguage]);
+
+  const timerBookOptions = useMemo(() => {
+    const opts = [];
+    books.forEach((b) => {
+      const eds = getBookEditions(b);
+      if (eds.length >= 2) {
+        eds.forEach((ed) => {
+          const isCurrent = b.id === selectedBookId && ed.code === effectiveSelectedLang;
+          if (!ed.completed || isCurrent) {
+            opts.push({
+              key: `${b.id}::${ed.code}`,
+              bookId: b.id,
+              langCode: ed.code,
+              label: `${b.name} (${ed.meta.flag} ${ed.meta.short})`,
+            });
+          }
+        });
+      } else {
+        const isCurrent = b.id === selectedBookId;
+        if (!isBookFullyCompleted(b) || isCurrent) {
+          const ed = eds[0] || null;
+          opts.push({
+            key: b.id,
+            bookId: b.id,
+            langCode: ed?.code || null,
+            label: ed ? `${b.name} (${ed.meta.flag} ${ed.meta.short})` : b.name,
+          });
+        }
+      }
+    });
+    return opts;
+  }, [books, selectedBookId, effectiveSelectedLang]);
+
+  const selectedTimerKey = useMemo(() => {
+    if (!selectedBookId || !selectedBook) return '';
+    const eds = getBookEditions(selectedBook);
+    if (eds.length >= 2 && effectiveSelectedLang) {
+      return `${selectedBookId}::${effectiveSelectedLang}`;
+    }
+    return selectedBookId;
+  }, [selectedBookId, selectedBook, effectiveSelectedLang]);
+
   const selectedBookProgress = useMemo(() => {
     if (!selectedBook) return null;
-    const lastPage = getBookLastPage(selectedBook.id);
-    const total = Number(selectedBook.totalPages) || 0;
+    const lastPage = getBookLastPage(selectedBook.id, effectiveSelectedLang);
+    const matchedEd = effectiveSelectedLang
+      ? getBookEditions(selectedBook).find((e) => e.code === effectiveSelectedLang)
+      : null;
+    const total = Number(matchedEd?.totalPages || selectedBook.totalPages) || 0;
     const pct = total > 0 ? Math.min(100, Math.round((lastPage / total) * 100)) : null;
     return { lastPage, total, pct };
-  }, [selectedBook, readingSessions]);
+  }, [selectedBook, effectiveSelectedLang, readingSessions]);
 
   const handleStartTimer = () => {
     requestNativeNotificationPermission();
@@ -157,11 +227,6 @@ const ReadingSpeed = () => {
     syncNativeTimer(false, timerSeconds, selectedBookId);
   };
 
-  const resolveDefaultBookLang = (bookId) => {
-    const book = books.find(b => b.id === bookId);
-    return getPrimaryActiveLanguage(book) || '';
-  };
-
   const handleStopTimer = () => {
     if (timerRunning) {
       handlePauseTimer();
@@ -169,7 +234,7 @@ const ReadingSpeed = () => {
       syncNativeTimer(false, timerSeconds, selectedBookId);
     }
     setIsManualEntry(false);
-    setSessionLanguage(resolveDefaultBookLang(selectedBookId));
+    setSessionLanguage(effectiveSelectedLang || resolveDefaultBookLang(selectedBookId));
     setSessionDate(format(new Date(), 'yyyy-MM-dd'));
     setSessionTime(format(new Date(), 'HH:mm'));
     setSaveDialogOpen(true);
@@ -179,30 +244,37 @@ const ReadingSpeed = () => {
     setIsManualEntry(true);
     setManualMinutes('30');
     setAmount('');
-    setEndedOnPage(selectedBookId ? (getBookLastPage(selectedBookId) || '').toString() : '');
-    setSessionLanguage(resolveDefaultBookLang(selectedBookId));
+    const lang = effectiveSelectedLang || resolveDefaultBookLang(selectedBookId);
+    setEndedOnPage(selectedBookId ? (getBookLastPage(selectedBookId, lang) || '').toString() : '');
+    setSessionLanguage(lang);
     setSessionDate(format(new Date(), 'yyyy-MM-dd'));
     setSessionTime(format(new Date(), 'HH:mm'));
     setSaveDialogOpen(true);
   };
 
-  const handleBookSelect = (bookId) => {
+  const handleBookSelect = (rawKey) => {
+    if (!rawKey) {
+      setSelectedBookId('');
+      setWidgetSelectedBookId('');
+      syncNativeBooks(books, '');
+      setSessionLanguage('');
+      setEndedOnPage('');
+      return;
+    }
+    const [bookId, explicitLang] = rawKey.includes('::') ? rawKey.split('::') : [rawKey, null];
+    const resolvedLang = explicitLang || resolveDefaultBookLang(bookId);
     setSelectedBookId(bookId);
     setWidgetSelectedBookId(bookId);
     syncNativeBooks(books, bookId);
-    setSessionLanguage(resolveDefaultBookLang(bookId));
-    if (bookId) {
-      const lastPage = getBookLastPage(bookId);
-      setEndedOnPage(lastPage > 0 ? lastPage.toString() : '');
-    } else {
-      setEndedOnPage('');
-    }
+    setSessionLanguage(resolvedLang);
+    const lastPage = getBookLastPage(bookId, resolvedLang);
+    setEndedOnPage(lastPage > 0 ? lastPage.toString() : '');
   };
 
   const handleAmountChange = (val) => {
     setAmount(val);
     if (selectedBookId) {
-      const prevPage = getBookLastPage(selectedBookId);
+      const prevPage = getBookLastPage(selectedBookId, sessionLanguage || effectiveSelectedLang);
       const parsed = parseFloat(val);
       if (prevPage > 0 && !isNaN(parsed) && parsed > 0) {
         setEndedOnPage(Math.round(prevPage + parsed).toString());
@@ -213,7 +285,7 @@ const ReadingSpeed = () => {
   const handleEndedOnPageChange = (val) => {
     setEndedOnPage(val);
     if (selectedBookId) {
-      const prevPage = getBookLastPage(selectedBookId);
+      const prevPage = getBookLastPage(selectedBookId, sessionLanguage || effectiveSelectedLang);
       const parsedEnd = parseInt(val, 10);
       if (prevPage > 0 && !isNaN(parsedEnd) && parsedEnd > prevPage) {
         setAmount((parsedEnd - prevPage).toString());
@@ -236,13 +308,18 @@ const ReadingSpeed = () => {
     const parsedAmount = parseFloat(amount) || 0;
     const timeInHours = effectiveSeconds / 3600;
     const pagesPerHour = timeInHours > 0 ? parsedAmount / timeInHours : 0;
+    const effectiveLanguage = sessionLanguage || resolveDefaultBookLang(selectedBookId) || null;
 
     let forecast = null;
     if (selectedBookId) {
       const book = books.find(b => b.id === selectedBookId);
-      if (book && book.totalPages) {
-        const sessions = readingSessions.filter(s => s.bookId === book.id);
-        let pagesRead = 0;
+      const matchedEd = book && effectiveLanguage
+        ? getBookEditions(book).find((e) => e.code === effectiveLanguage)
+        : null;
+      const editionTotalPages = Number(matchedEd?.totalPages || book?.totalPages) || 0;
+      if (book && editionTotalPages > 0) {
+        const sessions = getSessionsForBookEdition(book.id, effectiveLanguage);
+        let pagesRead;
         const maxEndedOnPage = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
 
         const currentEndedOnPage = parseInt(endedOnPage, 10);
@@ -254,8 +331,8 @@ const ReadingSpeed = () => {
           pagesRead = sessions.reduce((acc, s) => acc + s.amount, 0) + parsedAmount;
         }
 
-        if (pagesRead < book.totalPages) {
-          const remainingPages = book.totalPages - pagesRead;
+        if (pagesRead < editionTotalPages) {
+          const remainingPages = editionTotalPages - pagesRead;
           const globalReadingSeconds = readingSessions.reduce((acc, s) => acc + s.timeSpent, 0) + effectiveSeconds;
           const globalReadingAmount = readingSessions.reduce((acc, s) => acc + s.amount, 0) + parsedAmount;
           const globalSpeed = globalReadingSeconds > 0 ? globalReadingAmount / (globalReadingSeconds / 3600) : 0;
@@ -272,17 +349,21 @@ const ReadingSpeed = () => {
       }
     }
 
+    const langMeta = effectiveLanguage ? getLanguageMeta(effectiveLanguage) : null;
     setSummaryData({
       timeStr: formatTime(effectiveSeconds),
       amount: parsedAmount,
       endedOnPage,
       pagesPerHour: Math.round(pagesPerHour),
       forecast,
-      bookName: selectedBook?.name || null,
+      bookName: selectedBook
+        ? (langMeta && normalizeLanguages(selectedBook).length >= 2
+          ? `${selectedBook.name} (${langMeta.flag} ${langMeta.short})`
+          : selectedBook.name)
+        : null,
     });
     setSummaryModalOpen(true);
 
-    const effectiveLanguage = sessionLanguage || resolveDefaultBookLang(selectedBookId) || null;
     saveReadingSession(effectiveSeconds, amount, endedOnPage, selectedBookId, finalDate, overrideCreatedAt, effectiveLanguage);
     if (!isManualEntry) {
       setTimerSeconds(0);
@@ -462,7 +543,7 @@ const ReadingSpeed = () => {
               {books.length > 0 && (
                 <Box sx={{ width: '100%', maxWidth: 360, mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.25 }}>
                   <Select
-                    value={selectedBookId}
+                    value={selectedTimerKey}
                     onChange={(e) => handleBookSelect(e.target.value)}
                     size="small"
                     displayEmpty
@@ -477,14 +558,11 @@ const ReadingSpeed = () => {
                     }}
                   >
                     <MenuItem value="">Aktuelles Buch wählen...</MenuItem>
-                    {books.filter(b => !isBookFullyCompleted(b) || b.id === selectedBookId).map(b => {
-                      const langText = formatLanguagesCompact(b);
-                      return (
-                        <MenuItem key={b.id} value={b.id}>
-                          {langText ? `${b.name} (${langText})` : b.name}
-                        </MenuItem>
-                      );
-                    })}
+                    {timerBookOptions.map(opt => (
+                      <MenuItem key={opt.key} value={opt.key}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
                   </Select>
 
                   {selectedBook && selectedBookProgress && (
@@ -500,7 +578,7 @@ const ReadingSpeed = () => {
                       }}
                     >
                       <BookCover
-                        coverUrl={getBookCoverForLanguage(selectedBook, sessionLanguage || getPrimaryActiveLanguage(selectedBook))}
+                        coverUrl={getBookCoverForLanguage(selectedBook, effectiveSelectedLang)}
                         title={selectedBook.name}
                         width={52}
                         height={76}
@@ -515,7 +593,7 @@ const ReadingSpeed = () => {
                           >
                             {selectedBook.name}
                           </Typography>
-                          <LanguagePill languages={selectedBook} compact />
+                          <LanguagePill languages={effectiveSelectedLang ? [effectiveSelectedLang] : selectedBook} compact />
                         </Box>
                         {selectedBook.author && (
                           <Typography
@@ -880,21 +958,18 @@ const ReadingSpeed = () => {
 
           {books.length > 0 && (
             <Select
-              value={selectedBookId}
+              value={selectedTimerKey}
               onChange={(e) => handleBookSelect(e.target.value)}
               size="small"
               displayEmpty
               fullWidth
             >
               <MenuItem value="">Kein Buch zugeordnet</MenuItem>
-              {books.filter(b => !b.completed || b.id === selectedBookId).map(b => {
-                const langText = formatLanguagesCompact(b);
-                return (
-                  <MenuItem key={b.id} value={b.id}>
-                    {langText ? `${b.name} (${langText})` : b.name}
-                  </MenuItem>
-                );
-              })}
+              {timerBookOptions.map(opt => (
+                <MenuItem key={opt.key} value={opt.key}>
+                  {opt.label}
+                </MenuItem>
+              ))}
             </Select>
           )}
 
@@ -916,7 +991,14 @@ const ReadingSpeed = () => {
                     return (
                       <Box
                         key={lang.code}
-                        onClick={() => setSessionLanguage(active ? '' : lang.code)}
+                        onClick={() => {
+                          const nextLang = active ? '' : lang.code;
+                          setSessionLanguage(nextLang);
+                          if (selectedBookId && !amount) {
+                            const lp = getBookLastPage(selectedBookId, nextLang || null);
+                            setEndedOnPage(lp > 0 ? lp.toString() : '');
+                          }
+                        }}
                         sx={{
                           display: 'inline-flex',
                           alignItems: 'center',
