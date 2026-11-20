@@ -23,13 +23,21 @@ import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import StarIcon from '@mui/icons-material/Star';
 import BookCover from './BookCover';
+import EditionCoverPickerDialog from './EditionCoverPickerDialog';
 import { LanguageCoverBadge, LanguagePill, LanguagePicker } from './LanguageBadge';
 import { searchBookCovers, fetchBestBookCover } from '../utils/bookCoverApi';
-import { normalizeLanguages, getLanguageMeta, isBilingual } from '../utils/bookLanguages';
+import {
+  normalizeLanguages,
+  normalizeLanguageEditions,
+  getBookEditions,
+  getLanguageMeta,
+  isBilingual,
+  isBookFullyCompleted,
+} from '../utils/bookLanguages';
 
 const BookManager = () => {
   const {
-    books, addBook, updateBook, updateBookCover, updateBookReview, updateBookLanguages, deleteBook,
+    books, addBook, updateBook, updateBookCover, updateBookReview, updateBookLanguages, updateBookEdition, deleteBook,
     assignBookToUnassignedSessions, readingSessions, renameAuthor, renameSeries
   } = useTaskContext();
 
@@ -53,6 +61,11 @@ const BookManager = () => {
   const [formRating, setFormRating] = useState(null);
   const [formNotes, setFormNotes] = useState('');
   const [formLanguages, setFormLanguages] = useState([]);
+  const [formEditions, setFormEditions] = useState({});
+
+  // Mandatory cover picker for adding English / 2nd+ language or changing an edition cover
+  const [editionCoverPicker, setEditionCoverPicker] = useState(null);
+  // { langCode, isNewEdition, initialCoverUrl, source: 'form' | 'completed', bookId?, bookTitle, bookAuthor }
 
   // Cover & metadata search state inside modal
   const [coverCandidates, setCoverCandidates] = useState([]);
@@ -120,8 +133,8 @@ const BookManager = () => {
       });
   }, [books, languageFilter]);
 
-  const activeBooks = useMemo(() => sortedBooks.filter(b => !b.completed), [sortedBooks]);
-  const completedBooks = useMemo(() => sortedBooks.filter(b => b.completed), [sortedBooks]);
+  const activeBooks = useMemo(() => sortedBooks.filter(b => !isBookFullyCompleted(b)), [sortedBooks]);
+  const completedBooks = useMemo(() => sortedBooks.filter(b => isBookFullyCompleted(b)), [sortedBooks]);
   const booksWithoutCover = useMemo(() => books.filter(b => !b.coverUrl), [books]);
 
   const unassignedSessionsCount = useMemo(
@@ -142,6 +155,7 @@ const BookManager = () => {
     setFormRating(null);
     setFormNotes('');
     setFormLanguages([]);
+    setFormEditions({});
     setCoverCandidates([]);
     setCoverSearchDone(false);
     setAutoFillNotice('');
@@ -149,6 +163,7 @@ const BookManager = () => {
   };
 
   const openEditModal = (book) => {
+    const langs = normalizeLanguages(book);
     setEditingBookId(book.id);
     setFormName(book.name || '');
     setFormAuthor(book.author || '');
@@ -160,7 +175,8 @@ const BookManager = () => {
     setFormCoverUrl(book.coverUrl || '');
     setFormRating(book.rating || null);
     setFormNotes(book.notes || '');
-    setFormLanguages(normalizeLanguages(book));
+    setFormLanguages(langs);
+    setFormEditions(normalizeLanguageEditions(langs, book.languageEditions || {}, book.coverUrl || null, !!book.completed));
     setCoverCandidates([]);
     setCoverSearchDone(false);
     setAutoFillNotice('');
@@ -172,14 +188,26 @@ const BookManager = () => {
     setIsSearchingCovers(true);
     setCoverSearchDone(false);
     setAutoFillNotice('');
-    const results = await searchBookCovers(formName, formAuthor);
+    const primaryLang = formLanguages[0] || null;
+    const results = await searchBookCovers(formName, formAuthor, primaryLang);
     setCoverCandidates(results);
     setIsSearchingCovers(false);
     setCoverSearchDone(true);
   };
 
   const handlePickSearchCandidate = (cand) => {
-    setFormCoverUrl(cand.url || '');
+    const url = cand.url || '';
+    setFormCoverUrl(url);
+    if (formLanguages.length > 0 && url) {
+      const primaryCode = formLanguages[0];
+      setFormEditions((prev) => ({
+        ...prev,
+        [primaryCode]: {
+          coverUrl: url,
+          completed: prev[primaryCode]?.completed ?? false,
+        },
+      }));
+    }
     const filled = ['Cover'];
     if (cand.author && (!formAuthor.trim() || !editingBookId)) {
       setFormAuthor(cand.author);
@@ -227,7 +255,8 @@ const BookManager = () => {
     const total = booksWithoutCover.length;
     try {
       for (const book of booksWithoutCover) {
-        const url = await fetchBestBookCover(book.name, book.author);
+        const primaryLang = normalizeLanguages(book)[0] || null;
+        const url = await fetchBestBookCover(book.name, book.author, primaryLang);
         if (url) {
           await updateBookCover(book.id, url);
           foundCount++;
@@ -252,8 +281,18 @@ const BookManager = () => {
     }
   };
 
+  // Enforce choosing a cover for English or any 2nd+ language in the modal
+  const missingEditionCoverLangs = useMemo(() => {
+    return formLanguages.filter((code, idx) => {
+      const requiresCover = code === 'en' || idx >= 1;
+      if (!requiresCover) return false;
+      const edCover = formEditions[code]?.coverUrl || (idx === 0 ? formCoverUrl.trim() : '');
+      return !edCover;
+    });
+  }, [formLanguages, formEditions, formCoverUrl]);
+
   const handleSaveBook = async () => {
-    if (!formName.trim()) return;
+    if (!formName.trim() || missingEditionCoverLangs.length > 0) return;
 
     let wordsToSave = formWordsPerPage;
     if (!editingBookId && !wordsToSave) {
@@ -271,11 +310,19 @@ const BookManager = () => {
     if (!editingBookId && !finalCoverUrl) {
       // Automatically try to fetch a cover when creating a new book
       try {
-        finalCoverUrl = await fetchBestBookCover(formName, formAuthor);
+        finalCoverUrl = await fetchBestBookCover(formName, formAuthor, formLanguages[0] || null);
       } catch {
         finalCoverUrl = null;
       }
     }
+
+    const editingBook = editingBookId ? books.find((b) => b.id === editingBookId) : null;
+    const normalizedEditions = normalizeLanguageEditions(
+      formLanguages,
+      formEditions,
+      finalCoverUrl,
+      editingBook ? !!editingBook.completed : false
+    );
 
     if (editingBookId) {
       updateBook(
@@ -291,7 +338,8 @@ const BookManager = () => {
         finalCoverUrl,
         formRating,
         formNotes,
-        formLanguages
+        formLanguages,
+        normalizedEditions
       );
     } else {
       addBook(
@@ -305,14 +353,15 @@ const BookManager = () => {
         finalCoverUrl,
         formRating,
         formNotes,
-        formLanguages
+        formLanguages,
+        normalizedEditions
       );
     }
     setBookModalOpen(false);
   };
 
   const handleToggleCompleted = (book) => {
-    const isNowCompleted = !book.completed;
+    const isNowCompleted = !isBookFullyCompleted(book);
     updateBook(
       book.id,
       book.name,
@@ -578,6 +627,10 @@ const BookManager = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {activeBooks.map(book => {
               const info = getBookProgressInfo(book);
+              const bookEds = getBookEditions(book);
+              const orderedEds = [...bookEds].sort((a, b) => (a.completed === b.completed ? 0 : (a.completed ? 1 : -1)));
+              const frontCoverUrl = orderedEds[0]?.coverUrl || book.coverUrl;
+              const backEd = orderedEds.length > 1 ? orderedEds[1] : null;
               return (
                 <Box
                   key={book.id}
@@ -591,7 +644,7 @@ const BookManager = () => {
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                    {/* Book Cover on the left (tap to open Cover Search Menu) */}
+                    {/* Book Cover on the left (stacked preview when 2+ languages) */}
                     <Tooltip title="Cover suchen / ändern">
                       <Box
                         onClick={() => openCoverPicker(book)}
@@ -599,42 +652,72 @@ const BookManager = () => {
                           cursor: 'pointer',
                           flexShrink: 0,
                           position: 'relative',
-                          '&:hover': { opacity: 0.88 },
+                          width: backEd ? 68 : 54,
+                          height: backEd ? 84 : 80,
+                          '&:hover': { opacity: 0.9 },
                         }}
                       >
-                        <BookCover
-                          coverUrl={book.coverUrl}
-                          title={book.name}
-                          width={54}
-                          height={80}
-                          borderRadius="10px"
-                        />
-                        <LanguageCoverBadge languages={book} size="sm" />
-                        {book.rating && (
+                        {backEd && (
                           <Box
                             sx={{
                               position: 'absolute',
-                              bottom: 4,
-                              right: 4,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 0.2,
-                              px: 0.55,
-                              py: 0.1,
-                              borderRadius: 9999,
-                              bgcolor: 'rgba(19, 19, 20, 0.86)',
-                              color: '#FDD663',
-                              fontSize: '0.6rem',
-                              fontWeight: 700,
-                              lineHeight: 1.25,
-                              fontVariantNumeric: 'tabular-nums',
-                              boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+                              top: 0,
+                              left: 13,
+                              transform: 'rotate(4deg)',
+                              transformOrigin: 'bottom left',
+                              zIndex: 0,
+                              pointerEvents: 'none',
                             }}
                           >
-                            <StarIcon sx={{ fontSize: 9.5 }} />
-                            {book.rating}
+                            <BookCover
+                              coverUrl={backEd.coverUrl}
+                              title={book.name}
+                              width={52}
+                              height={76}
+                              borderRadius="10px"
+                              sx={{
+                                border: '1.5px solid',
+                                borderColor: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(0,0,0,0.18)',
+                              }}
+                            />
                           </Box>
                         )}
+                        <Box sx={{ position: 'absolute', bottom: 0, left: 0, zIndex: 1 }}>
+                          <BookCover
+                            coverUrl={frontCoverUrl}
+                            title={book.name}
+                            width={54}
+                            height={80}
+                            borderRadius="10px"
+                            sx={backEd ? { boxShadow: '5px 4px 12px rgba(0,0,0,0.55)' } : {}}
+                          />
+                          <LanguageCoverBadge languages={book} size="sm" />
+                          {book.rating && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                bottom: 4,
+                                right: 4,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.2,
+                                px: 0.55,
+                                py: 0.1,
+                                borderRadius: 9999,
+                                bgcolor: 'rgba(19, 19, 20, 0.86)',
+                                color: '#FDD663',
+                                fontSize: '0.6rem',
+                                fontWeight: 700,
+                                lineHeight: 1.25,
+                                fontVariantNumeric: 'tabular-nums',
+                                boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+                              }}
+                            >
+                              <StarIcon sx={{ fontSize: 9.5 }} />
+                              {book.rating}
+                            </Box>
+                          )}
+                        </Box>
                       </Box>
                     </Tooltip>
 
@@ -652,11 +735,11 @@ const BookManager = () => {
                         </Box>
 
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-                          <Tooltip title="Buch abschließen">
+                          <Tooltip title={bookEds.length >= 2 ? 'Alle offenen Sprachen abschließen' : 'Buch abschließen'}>
                             <Checkbox
                               icon={<CheckCircleOutlinedIcon sx={{ fontSize: 20, color: 'text.secondary', opacity: 0.7 }} />}
                               checkedIcon={<CheckCircleIcon sx={{ fontSize: 20, color: 'success.main' }} />}
-                              checked={!!book.completed}
+                              checked={isBookFullyCompleted(book)}
                               onChange={() => handleToggleCompleted(book)}
                               sx={{ p: 0.5 }}
                             />
@@ -687,7 +770,50 @@ const BookManager = () => {
 
                       {/* Metadata Pills */}
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
-                        <LanguagePill languages={book} />
+                        {bookEds.length >= 2 ? (
+                          bookEds.map((ed) => (
+                            <Tooltip
+                              key={ed.code}
+                              title={ed.completed ? `${ed.meta.label}: Gelesen (antippen zum Wiederöffnen)` : `${ed.meta.label}: Aktiv (antippen zum Abschließen)`}
+                            >
+                              <Box
+                                onClick={() => updateBookEdition(book.id, ed.code, { completed: !ed.completed })}
+                                sx={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 0.35,
+                                  px: 0.9,
+                                  py: 0.2,
+                                  borderRadius: 9999,
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  bgcolor: ed.completed
+                                    ? alpha(theme.palette.success.main, isDark ? 0.2 : 0.14)
+                                    : alpha(ed.meta.accent, isDark ? 0.2 : 0.14),
+                                  border: '1px solid',
+                                  borderColor: ed.completed
+                                    ? alpha(theme.palette.success.main, 0.4)
+                                    : alpha(ed.meta.accent, 0.4),
+                                  color: ed.completed ? 'success.main' : 'text.primary',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  transition: 'transform 0.12s ease',
+                                  '&:active': { transform: 'scale(0.95)' },
+                                }}
+                              >
+                                <span>{ed.meta.flag}</span>
+                                <span>{ed.meta.short}</span>
+                                {ed.completed ? (
+                                  <CheckCircleIcon sx={{ fontSize: 12 }} />
+                                ) : (
+                                  <span>· Aktiv</span>
+                                )}
+                              </Box>
+                            </Tooltip>
+                          ))
+                        ) : (
+                          <LanguagePill languages={book} />
+                        )}
                         {book.rating && (
                           <Box
                             sx={{
@@ -1057,12 +1183,138 @@ const BookManager = () => {
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.15 }}>
             <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Sprache(n)
+              Sprache(n) &amp; Ausgaben
             </Typography>
             <LanguagePicker
               value={formLanguages}
-              onChange={setFormLanguages}
+              onToggleLanguage={(code, isActive) => {
+                if (isActive) {
+                  const nextLangs = formLanguages.filter((c) => c !== code);
+                  setFormLanguages(nextLangs);
+                  setFormEditions((prev) => {
+                    const copy = { ...prev };
+                    delete copy[code];
+                    return copy;
+                  });
+                  return;
+                }
+                // Selecting English or any 2nd+ language -> require choosing a cover (starts as Aktiv / nicht abgeschlossen!)
+                if (code === 'en' || formLanguages.length >= 1) {
+                  setEditionCoverPicker({
+                    source: 'form',
+                    langCode: code,
+                    isNewEdition: true,
+                    initialCoverUrl: formEditions[code]?.coverUrl || '',
+                    bookTitle: formName,
+                    bookAuthor: formAuthor,
+                  });
+                } else {
+                  const editingBook = editingBookId ? books.find((b) => b.id === editingBookId) : null;
+                  const nextLangs = normalizeLanguages([...formLanguages, code]);
+                  setFormLanguages(nextLangs);
+                  setFormEditions((prev) => ({
+                    ...prev,
+                    [code]: {
+                      coverUrl: formCoverUrl.trim() || null,
+                      completed: editingBook ? !!editingBook.completed : false,
+                    },
+                  }));
+                }
+              }}
             />
+
+            {/* Per-language Edition Cover & Completion Status Cards */}
+            {formLanguages.length >= 1 && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 0.25 }}>
+                {formLanguages.map((code, idx) => {
+                  const meta = getLanguageMeta(code);
+                  const ed = formEditions[code] || {
+                    coverUrl: idx === 0 ? (formCoverUrl.trim() || null) : null,
+                    completed: false,
+                  };
+                  const edCover = ed.coverUrl || (idx === 0 ? (formCoverUrl.trim() || null) : null);
+                  const needsCover = (code === 'en' || idx >= 1) && !edCover;
+
+                  return (
+                    <Box
+                      key={code}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1.15,
+                        borderRadius: '14px',
+                        bgcolor: 'background.surfaceVariant',
+                        border: '1px solid',
+                        borderColor: needsCover ? 'warning.main' : 'divider',
+                      }}
+                    >
+                      <BookCover coverUrl={edCover} title={formName} width={38} height={56} borderRadius="7px" />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.84rem' }}>
+                          {meta.flag} {meta.label}
+                        </Typography>
+                        <Typography variant="caption" color={needsCover ? 'warning.main' : 'text.secondary'} sx={{ display: 'block', fontSize: '0.7rem' }}>
+                          {needsCover
+                            ? 'Cover erforderlich — bitte auswählen'
+                            : (edCover ? 'Cover gewählt' : 'Standard-Cover')}
+                        </Typography>
+                      </Box>
+                      {(editingBookId || formLanguages.length >= 2) && (
+                        <Box
+                          onClick={() => {
+                            setFormEditions((prev) => ({
+                              ...prev,
+                              [code]: {
+                                coverUrl: edCover,
+                                completed: !ed.completed,
+                              },
+                            }));
+                          }}
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.35,
+                            px: 1,
+                            py: 0.35,
+                            borderRadius: 9999,
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            bgcolor: ed.completed
+                              ? alpha(theme.palette.success.main, isDark ? 0.2 : 0.14)
+                              : alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
+                            color: ed.completed ? 'success.main' : 'primary.main',
+                          }}
+                        >
+                          {ed.completed ? <CheckCircleIcon sx={{ fontSize: 13 }} /> : <CheckCircleOutlinedIcon sx={{ fontSize: 13 }} />}
+                          {ed.completed ? 'Gelesen' : 'Aktiv'}
+                        </Box>
+                      )}
+                      <Button
+                        size="small"
+                        variant={needsCover ? 'contained' : 'outlined'}
+                        color={needsCover ? 'warning' : 'primary'}
+                        onClick={() => {
+                          setEditionCoverPicker({
+                            source: 'form',
+                            langCode: code,
+                            isNewEdition: false,
+                            initialCoverUrl: edCover || '',
+                            bookTitle: formName,
+                            bookAuthor: formAuthor,
+                          });
+                        }}
+                        sx={{ borderRadius: 9999, px: 1.5, minWidth: 'auto', fontSize: '0.72rem' }}
+                      >
+                        {edCover ? 'Cover' : 'Cover wählen'}
+                      </Button>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -1159,19 +1411,26 @@ const BookManager = () => {
             />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setBookModalOpen(false)} sx={{ borderRadius: 9999 }}>
-            Abbrechen
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveBook}
-            disabled={!formName.trim()}
-            startIcon={<SaveIcon />}
-            sx={{ borderRadius: 9999, px: 3 }}
-          >
-            Speichern
-          </Button>
+        <DialogActions sx={{ px: 3, pb: 2.5, justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+          {missingEditionCoverLangs.length > 0 ? (
+            <Typography variant="caption" color="warning.main" fontWeight={600}>
+              Bitte Cover wählen für: {missingEditionCoverLangs.map((c) => getLanguageMeta(c).label).join(', ')}
+            </Typography>
+          ) : <Box />}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={() => setBookModalOpen(false)} sx={{ borderRadius: 9999 }}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSaveBook}
+              disabled={!formName.trim() || missingEditionCoverLangs.length > 0}
+              startIcon={<SaveIcon />}
+              sx={{ borderRadius: 9999, px: 3 }}
+            >
+              Speichern
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
 
@@ -1390,7 +1649,26 @@ const BookManager = () => {
                   </Typography>
                   <LanguagePicker
                     value={completedLanguages}
-                    onChange={setCompletedLanguages}
+                    onToggleLanguage={(code, isActive) => {
+                      if (isActive) {
+                        setCompletedLanguages(completedLanguages.filter((c) => c !== code));
+                        return;
+                      }
+                      const targetBook = completedBookStats?.id ? books.find((b) => b.id === completedBookStats.id) : null;
+                      if (targetBook && (code === 'en' || completedLanguages.length >= 1)) {
+                        setEditionCoverPicker({
+                          source: 'completed',
+                          bookId: targetBook.id,
+                          langCode: code,
+                          isNewEdition: true,
+                          initialCoverUrl: '',
+                          bookTitle: targetBook.name || '',
+                          bookAuthor: targetBook.author || '',
+                        });
+                      } else {
+                        setCompletedLanguages(normalizeLanguages([...completedLanguages, code]));
+                      }
+                    }}
                     compact
                     showHint={false}
                   />
@@ -1406,7 +1684,11 @@ const BookManager = () => {
                 if (completedRating !== null || completedNotes.trim()) {
                   await updateBookReview(completedBookStats.id, completedRating, completedNotes);
                 }
-                await updateBookLanguages(completedBookStats.id, completedLanguages);
+                const targetBook = books.find((b) => b.id === completedBookStats.id);
+                const existingLangs = normalizeLanguages(targetBook);
+                if (JSON.stringify(existingLangs) !== JSON.stringify(normalizeLanguages(completedLanguages))) {
+                  await updateBookLanguages(completedBookStats.id, completedLanguages);
+                }
               }
               setCompletedBookStats(null);
             }}
@@ -1574,6 +1856,42 @@ const BookManager = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Mandatory Cover Picker for English / 2nd+ Language Editions */}
+      <EditionCoverPickerDialog
+        open={!!editionCoverPicker}
+        bookTitle={editionCoverPicker?.bookTitle || ''}
+        bookAuthor={editionCoverPicker?.bookAuthor || ''}
+        langCode={editionCoverPicker?.langCode || 'en'}
+        initialCoverUrl={editionCoverPicker?.initialCoverUrl || ''}
+        isNewEdition={!!editionCoverPicker?.isNewEdition}
+        onClose={() => setEditionCoverPicker(null)}
+        onConfirm={async (pickedUrl) => {
+          if (!editionCoverPicker) return;
+          const { source, langCode, isNewEdition, bookId } = editionCoverPicker;
+          if (source === 'form') {
+            const nextLangs = normalizeLanguages([...formLanguages, langCode]);
+            setFormLanguages(nextLangs);
+            setFormEditions((prev) => ({
+              ...prev,
+              [langCode]: {
+                coverUrl: pickedUrl,
+                completed: isNewEdition ? false : !!prev[langCode]?.completed,
+              },
+            }));
+            if (nextLangs[0] === langCode || !formCoverUrl.trim()) {
+              setFormCoverUrl(pickedUrl);
+            }
+          } else if (source === 'completed' && bookId) {
+            await updateBookEdition(bookId, langCode, {
+              coverUrl: pickedUrl,
+              completed: false,
+            });
+            setCompletedLanguages((prev) => normalizeLanguages([...prev, langCode]));
+          }
+          setEditionCoverPicker(null);
+        }}
+      />
     </Box>
   );
 };

@@ -1,6 +1,16 @@
-export const APP_VERSION = '2.2.0';
+export const APP_VERSION = '2.3.0';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.3.0',
+    date: '20.11.2026',
+    title: 'Eigene Cover & Status pro Sprache + deutlichere Doppelausgaben',
+    highlights: [
+      'Pflicht-Cover für Englisch & jede weitere Sprache: Beim Hinzufügen von Englisch oder einer zweiten Sprache öffnet sich direkt die Cover-Auswahl (inkl. englischer Suche über Apple Books US/GB & Google Books).',
+      'Eigener Abschluss-Status pro Sprache: Eine neu hinzugefügte Sprache startet automatisch als aktiv (nicht abgeschlossen) — das Buch erscheint wieder unter „Aktive Bücher“ & im Timer und zeigt auf der Map 1/2 ✓ statt komplett abgeschlossen.',
+      'Deutlicheres Hintereinander-Stehen in der Map: Beide Cover stehen jetzt klar versetzt und leicht gefächert hintereinander (mit tiefem Schatten & Sprach-Flagge auf dem hinteren Cover) — sowohl im Cover-Regal als auch in der 2D-Map.',
+    ],
+  },
   {
     version: '2.2.0',
     date: '20.11.2026',

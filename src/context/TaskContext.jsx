@@ -10,7 +10,11 @@ import {
   getNativePendingState,
   clearNativePendingFinish
 } from '../utils/nativeBridge';
-import { normalizeLanguages } from '../utils/bookLanguages';
+import {
+  normalizeLanguages,
+  normalizeLanguageEditions,
+  computeBookCompletedFromEditions,
+} from '../utils/bookLanguages';
 
 const TaskContext = createContext();
 
@@ -778,8 +782,16 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '', languages = []) => {
+  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '', languages = [], languageEditions = undefined) => {
     const parsedRating = rating !== null && rating !== '' && rating !== undefined ? parseInt(rating, 10) : null;
+    const normalizedLangs = normalizeLanguages(languages);
+    const normalizedEditions = normalizeLanguageEditions(
+      normalizedLangs,
+      languageEditions || {},
+      coverUrl || null,
+      false
+    );
+    const primaryCover = coverUrl || (normalizedLangs.length > 0 ? normalizedEditions[normalizedLangs[0]]?.coverUrl || null : null);
     const newBook = {
       id: uuidv4(),
       name,
@@ -790,45 +802,88 @@ export const TaskProvider = ({ children }) => {
       seriesNumber: seriesNumber ? parseInt(seriesNumber, 10) : null,
       universe: universe || '',
       totalPages: totalPages ? parseInt(totalPages, 10) : null,
-      coverUrl: coverUrl || null,
+      coverUrl: primaryCover,
       rating: parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null,
       notes: (notes || '').trim(),
-      languages: normalizeLanguages(languages),
+      languages: normalizedLangs,
+      languageEditions: normalizedEditions,
       createdAt: new Date().toISOString()
     };
     if (!user) setBooks(prev => [...prev, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined, languages = undefined) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined, languages = undefined, languageEditions = undefined) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const resolvedRating = rating !== undefined
       ? (rating !== null && rating !== '' ? parseInt(rating, 10) : null)
       : (book.rating || null);
+    const resolvedLangs = languages !== undefined ? normalizeLanguages(languages) : normalizeLanguages(book);
+    const resolvedCover = coverUrl !== undefined ? (coverUrl || null) : (book.coverUrl || null);
+
+    let rawEditions = languageEditions !== undefined
+      ? languageEditions
+      : (book.languageEditions || {});
+
+    // When toggling overall `completed` directly (without explicit languageEditions), apply to editions
+    if (completed !== undefined && languageEditions === undefined && resolvedLangs.length > 0) {
+      const base = normalizeLanguageEditions(resolvedLangs, rawEditions, resolvedCover, !!book.completed);
+      const next = {};
+      resolvedLangs.forEach((code) => {
+        next[code] = { ...base[code], completed: !!completed };
+      });
+      rawEditions = next;
+    }
+
+    const normalizedEditions = normalizeLanguageEditions(
+      resolvedLangs,
+      rawEditions,
+      resolvedCover,
+      completed !== undefined ? !!completed : !!book.completed
+    );
+
+    const resolvedCompleted = resolvedLangs.length > 0
+      ? computeBookCompletedFromEditions(resolvedLangs, normalizedEditions, completed !== undefined ? !!completed : !!book.completed)
+      : (completed !== undefined ? !!completed : !!book.completed);
+
+    const syncedCover = resolvedCover || (resolvedLangs.length > 0 ? normalizedEditions[resolvedLangs[0]]?.coverUrl || null : null);
+
     const updatedBook = { 
       ...book, 
       name, 
       author: author || '', 
       series: series || '', 
-      completed: completed !== undefined ? completed : !!book.completed,
+      completed: resolvedCompleted,
       wordsPerPage: wordsPerPage ? parseInt(wordsPerPage, 10) : null,
       seriesNumber: seriesNumber !== undefined ? (seriesNumber ? parseInt(seriesNumber, 10) : null) : book.seriesNumber,
       universe: universe !== undefined ? universe : (book.universe || ''),
       totalPages: totalPages !== undefined ? (totalPages ? parseInt(totalPages, 10) : null) : book.totalPages,
-      coverUrl: coverUrl !== undefined ? (coverUrl || null) : (book.coverUrl || null),
+      coverUrl: syncedCover,
       rating: resolvedRating && resolvedRating >= 1 && resolvedRating <= 10 ? resolvedRating : null,
       notes: notes !== undefined ? (notes || '').trim() : (book.notes || ''),
-      languages: languages !== undefined ? normalizeLanguages(languages) : normalizeLanguages(book),
+      languages: resolvedLangs,
+      languageEditions: normalizedEditions,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
   };
 
-  const updateBookCover = async (id, coverUrl) => {
+  const updateBookCover = async (id, coverUrl, langCode = null) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
-    const updatedBook = { ...book, coverUrl: coverUrl || null };
+    const langs = normalizeLanguages(book);
+    const editions = normalizeLanguageEditions(langs, book.languageEditions || {}, book.coverUrl || null, !!book.completed);
+    const targetLang = langCode || (langs.length === 1 ? langs[0] : null);
+    if (targetLang && langs.includes(targetLang)) {
+      editions[targetLang] = { ...editions[targetLang], coverUrl: coverUrl || null };
+    }
+    const nextMainCover = (!langCode || langs[0] === langCode) ? (coverUrl || null) : (book.coverUrl || null);
+    const updatedBook = {
+      ...book,
+      coverUrl: nextMainCover,
+      languageEditions: editions,
+    };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
   };
@@ -846,12 +901,76 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
   };
 
-  const updateBookLanguages = async (id, languages) => {
+  const updateBookLanguages = async (id, languages, languageEditions = undefined) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
+    const prevLangs = normalizeLanguages(book);
+    const nextLangs = normalizeLanguages(languages);
+    const prevEditions = normalizeLanguageEditions(prevLangs, book.languageEditions || {}, book.coverUrl || null, !!book.completed);
+
+    const mergedEditions = {};
+    nextLangs.forEach((code) => {
+      if (languageEditions && languageEditions[code]) {
+        mergedEditions[code] = {
+          coverUrl: languageEditions[code].coverUrl || null,
+          completed: !!languageEditions[code].completed,
+        };
+      } else if (prevEditions[code]) {
+        mergedEditions[code] = prevEditions[code];
+      } else {
+        // Newly added language starts as NOT completed!
+        mergedEditions[code] = {
+          coverUrl: prevLangs.length === 0 ? (book.coverUrl || null) : null,
+          completed: prevLangs.length === 0 ? !!book.completed : false,
+        };
+      }
+    });
+
+    const nextCompleted = nextLangs.length > 0
+      ? computeBookCompletedFromEditions(nextLangs, mergedEditions, !!book.completed)
+      : !!book.completed;
+
+    const nextMainCover = book.coverUrl || (nextLangs.length > 0 ? mergedEditions[nextLangs[0]]?.coverUrl || null : null);
+
     const updatedBook = {
       ...book,
-      languages: normalizeLanguages(languages),
+      languages: nextLangs,
+      languageEditions: mergedEditions,
+      completed: nextCompleted,
+      coverUrl: nextMainCover,
+    };
+    if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
+  };
+
+  const updateBookEdition = async (id, langCode, patch = {}) => {
+    const book = books.find(b => b.id === id);
+    if (!book || !langCode) return;
+    const code = String(langCode).trim().toLowerCase();
+    const prevLangs = normalizeLanguages(book);
+    const nextLangs = normalizeLanguages([...prevLangs, code]);
+    const prevEditions = normalizeLanguageEditions(prevLangs, book.languageEditions || {}, book.coverUrl || null, !!book.completed);
+    const existing = prevEditions[code] || { coverUrl: null, completed: false };
+
+    const nextEditions = {
+      ...prevEditions,
+      [code]: {
+        coverUrl: patch.coverUrl !== undefined ? (patch.coverUrl || null) : existing.coverUrl,
+        completed: patch.completed !== undefined ? !!patch.completed : !!existing.completed,
+      },
+    };
+
+    const nextCompleted = computeBookCompletedFromEditions(nextLangs, nextEditions, !!book.completed);
+    const nextMainCover = (nextLangs[0] === code && patch.coverUrl !== undefined)
+      ? (patch.coverUrl || book.coverUrl || null)
+      : (book.coverUrl || nextEditions[nextLangs[0]]?.coverUrl || null);
+
+    const updatedBook = {
+      ...book,
+      languages: nextLangs,
+      languageEditions: nextEditions,
+      completed: nextCompleted,
+      coverUrl: nextMainCover,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
@@ -1113,6 +1232,7 @@ export const TaskProvider = ({ children }) => {
       updateBookCover,
       updateBookReview,
       updateBookLanguages,
+      updateBookEdition,
       deleteBook,
       renameAuthor,
       deleteAuthor,

@@ -128,7 +128,7 @@ export const LanguagePill = ({ languages, compact = false }) => {
 /**
  * Interactive 1-tap multi-select language picker (DE & EN prominent, optional extra languages).
  */
-export const LanguagePicker = ({ value = [], onChange, compact = false, showHint = true }) => {
+export const LanguagePicker = ({ value = [], onChange, onToggleLanguage, compact = false, showHint = true }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const selected = normalizeLanguages(value);
@@ -141,6 +141,14 @@ export const LanguagePicker = ({ value = [], onChange, compact = false, showHint
 
   const bilingual = isBilingual(selected);
 
+  const handlePillClick = (code, isActive) => {
+    if (onToggleLanguage) {
+      onToggleLanguage(code, isActive);
+    } else if (onChange) {
+      onChange(toggleLanguageInList(selected, code));
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85 }}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
@@ -149,7 +157,7 @@ export const LanguagePicker = ({ value = [], onChange, compact = false, showHint
           return (
             <Box
               key={lang.code}
-              onClick={() => onChange(toggleLanguageInList(selected, lang.code))}
+              onClick={() => handlePillClick(lang.code, active)}
               sx={{
                 display: 'inline-flex',
                 alignItems: 'center',

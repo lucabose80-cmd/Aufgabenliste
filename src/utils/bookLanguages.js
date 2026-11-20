@@ -111,3 +111,91 @@ export const formatLanguagesText = (langs) => {
     return `${m.flag} ${m.short}`;
   }).join(' · ');
 };
+
+/**
+ * Normalizes a book's per-language edition map so every language in `languages`
+ * has `{ coverUrl: string | null, completed: boolean }` with no undefined Firestore values.
+ */
+export const normalizeLanguageEditions = (languages, rawEditions = {}, fallbackCoverUrl = null, fallbackCompleted = false) => {
+  const langs = normalizeLanguages(languages);
+  const result = {};
+  langs.forEach((code, idx) => {
+    const existing = rawEditions && typeof rawEditions === 'object' ? rawEditions[code] : null;
+    result[code] = {
+      coverUrl: existing && existing.coverUrl !== undefined
+        ? (existing.coverUrl || null)
+        : (idx === 0 ? (fallbackCoverUrl || null) : null),
+      completed: existing && existing.completed !== undefined
+        ? !!existing.completed
+        : !!fallbackCompleted,
+    };
+  });
+  return result;
+};
+
+/**
+ * Returns an ordered array of per-language editions for a book:
+ * [{ code, coverUrl, completed, meta }]
+ */
+export const getBookEditions = (book) => {
+  if (!book) return [];
+  const langs = normalizeLanguages(book);
+  if (langs.length === 0) return [];
+  const rawMap = book.languageEditions || {};
+  return langs.map((code, idx) => {
+    const existing = rawMap[code];
+    return {
+      code,
+      coverUrl: existing && existing.coverUrl !== undefined
+        ? (existing.coverUrl || null)
+        : (idx === 0 ? (book.coverUrl || null) : null),
+      completed: existing && existing.completed !== undefined
+        ? !!existing.completed
+        : !!book.completed,
+      meta: getLanguageMeta(code),
+    };
+  });
+};
+
+export const computeBookCompletedFromEditions = (languages, languageEditions, fallbackCompleted = false) => {
+  const langs = normalizeLanguages(languages);
+  if (langs.length === 0) return !!fallbackCompleted;
+  return langs.every((code) => {
+    const ed = languageEditions?.[code];
+    return ed && ed.completed !== undefined ? !!ed.completed : !!fallbackCompleted;
+  });
+};
+
+export const isBookFullyCompleted = (book) => {
+  if (!book) return false;
+  const editions = getBookEditions(book);
+  if (editions.length === 0) return !!book.completed;
+  return editions.every((ed) => ed.completed);
+};
+
+/**
+ * Returns the first uncompleted language code on a multi-language book, or the only language on a single-language book.
+ */
+export const getPrimaryActiveLanguage = (book) => {
+  const editions = getBookEditions(book);
+  if (editions.length === 0) return null;
+  if (editions.length === 1) return editions[0].code;
+  const activeEd = editions.find((ed) => !ed.completed);
+  return activeEd ? activeEd.code : null;
+};
+
+export const getBookCoverForLanguage = (book, langCode = null) => {
+  if (!book) return null;
+  const editions = getBookEditions(book);
+  if (langCode) {
+    const found = editions.find((ed) => ed.code === langCode);
+    if (found?.coverUrl) return found.coverUrl;
+  }
+  // Prefer the active edition's cover if available
+  const activeEd = editions.find((ed) => !ed.completed && ed.coverUrl);
+  if (activeEd) return activeEd.coverUrl;
+  const firstWithCover = editions.find((ed) => ed.coverUrl);
+  if (firstWithCover) return firstWithCover.coverUrl;
+  return book.coverUrl || null;
+};
+

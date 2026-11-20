@@ -57,9 +57,10 @@ async function searchOpenLibrary(query) {
     }));
 }
 
-async function searchGoogleBooks(query) {
+async function searchGoogleBooks(query, langCode = null) {
+  const langParam = langCode ? `&langRestrict=${encodeURIComponent(langCode)}` : '';
   const res = await fetch(
-    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=6&printType=books`
+    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=6&printType=books${langParam}`
   );
   if (!res.ok) return [];
   const data = await res.json();
@@ -81,26 +82,45 @@ async function searchGoogleBooks(query) {
     .filter(Boolean);
 }
 
-export async function searchBookCovers(titleOrQuery, author = '') {
+const LANG_TO_APPLE_COUNTRY = {
+  de: 'de',
+  en: 'us',
+  fr: 'fr',
+  es: 'es',
+  it: 'it',
+  ja: 'jp',
+};
+
+export async function searchBookCovers(titleOrQuery, author = '', langCode = null) {
   const cleanedTitle = cleanSearchTitle(titleOrQuery);
   const cleanedAuthor = (author || '').trim();
   const fullQuery = [cleanedTitle, cleanedAuthor].filter(Boolean).join(' ').trim();
   if (!fullQuery) return [];
 
-  const settled = await Promise.allSettled([
-    searchAppleBooks(fullQuery, 'de'),
+  const normalizedLang = langCode ? String(langCode).trim().toLowerCase() : null;
+  const appleCountry = (normalizedLang && LANG_TO_APPLE_COUNTRY[normalizedLang]) || 'de';
+
+  const queries = [
+    searchAppleBooks(fullQuery, appleCountry),
     searchOpenLibrary(fullQuery),
-    searchGoogleBooks(fullQuery),
-  ]);
+    searchGoogleBooks(fullQuery, normalizedLang),
+  ];
+
+  if (normalizedLang === 'en') {
+    queries.push(searchAppleBooks(fullQuery, 'gb'));
+  }
+
+  const settled = await Promise.allSettled(queries);
 
   let combined = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
 
-  // If title + author yielded nothing and author was provided, retry with title only
-  if (combined.length === 0 && cleanedAuthor && cleanedTitle) {
+  // If title + author yielded nothing, retry with title only
+  if (combined.length === 0 && cleanedTitle) {
     const retry = await Promise.allSettled([
-      searchAppleBooks(cleanedTitle, 'de'),
-      searchAppleBooks(cleanedTitle, 'us'),
+      searchAppleBooks(cleanedTitle, appleCountry),
+      searchAppleBooks(cleanedTitle, appleCountry === 'us' ? 'de' : 'us'),
       searchOpenLibrary(cleanedTitle),
+      searchGoogleBooks(cleanedTitle, null),
     ]);
     combined = retry.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
   }
@@ -116,7 +136,7 @@ export async function searchBookCovers(titleOrQuery, author = '') {
   return results.slice(0, 12);
 }
 
-export async function fetchBestBookCover(title, author = '') {
-  const candidates = await searchBookCovers(title, author);
+export async function fetchBestBookCover(title, author = '', langCode = null) {
+  const candidates = await searchBookCovers(title, author, langCode);
   return candidates.length > 0 ? candidates[0].url : null;
 }

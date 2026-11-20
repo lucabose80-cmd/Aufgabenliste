@@ -10,6 +10,7 @@ export default defineConfig({
       manifestFilename: 'manifest.json',
       workbox: {
         globIgnores: ['**/ota-bundle.zip', '**/ota-manifest.json'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       devOptions: {
         enabled: true

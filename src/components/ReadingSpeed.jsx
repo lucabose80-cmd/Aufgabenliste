@@ -18,6 +18,9 @@ import {
   getLanguageMeta,
   getSessionLanguage,
   formatLanguagesCompact,
+  getPrimaryActiveLanguage,
+  getBookCoverForLanguage,
+  isBookFullyCompleted,
 } from '../utils/bookLanguages';
 import TimerIcon from '@mui/icons-material/Timer';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -91,7 +94,15 @@ const ReadingSpeed = () => {
 
   const getBookLastPage = (bookId) => {
     if (!bookId) return 0;
-    const sessions = readingSessions.filter(s => s.bookId === bookId);
+    const book = books.find((b) => b.id === bookId);
+    const activeLang = book ? getPrimaryActiveLanguage(book) : null;
+    const allBookSessions = readingSessions.filter(s => s.bookId === bookId);
+    const langs = normalizeLanguages(book);
+    // On a bilingual book with an active language edition (e.g. DE done, EN active),
+    // track progress separately from sessions in that active language
+    const sessions = (langs.length >= 2 && activeLang)
+      ? allBookSessions.filter((s) => s.language && s.language.toLowerCase() === activeLang)
+      : allBookSessions;
     if (sessions.length === 0) return 0;
     const maxEndedOnPage = Math.max(...sessions.map(s => s.endedOnPage || 0));
     if (maxEndedOnPage > 0) return maxEndedOnPage;
@@ -148,8 +159,7 @@ const ReadingSpeed = () => {
 
   const resolveDefaultBookLang = (bookId) => {
     const book = books.find(b => b.id === bookId);
-    const langs = normalizeLanguages(book);
-    return langs.length === 1 ? langs[0] : '';
+    return getPrimaryActiveLanguage(book) || '';
   };
 
   const handleStopTimer = () => {
@@ -467,7 +477,7 @@ const ReadingSpeed = () => {
                     }}
                   >
                     <MenuItem value="">Aktuelles Buch wählen...</MenuItem>
-                    {books.filter(b => !b.completed || b.id === selectedBookId).map(b => {
+                    {books.filter(b => !isBookFullyCompleted(b) || b.id === selectedBookId).map(b => {
                       const langText = formatLanguagesCompact(b);
                       return (
                         <MenuItem key={b.id} value={b.id}>
@@ -490,7 +500,7 @@ const ReadingSpeed = () => {
                       }}
                     >
                       <BookCover
-                        coverUrl={selectedBook.coverUrl}
+                        coverUrl={getBookCoverForLanguage(selectedBook, sessionLanguage || getPrimaryActiveLanguage(selectedBook))}
                         title={selectedBook.name}
                         width={52}
                         height={76}

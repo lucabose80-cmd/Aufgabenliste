@@ -1,46 +1,110 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import { Box, Card, Typography, Collapse, LinearProgress, Dialog, DialogContent, IconButton, TextField, Button } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import PublicIcon from '@mui/icons-material/Public';
 import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import MapIcon from '@mui/icons-material/Map';
 import StarIcon from '@mui/icons-material/Star';
+import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import { ReactFlow, Handle, Position, Background, Controls } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import BookCover from './BookCover';
+import EditionCoverPickerDialog from './EditionCoverPickerDialog';
 import { LanguageCoverBadge, LanguagePill, LanguagePicker } from './LanguageBadge';
 import {
   normalizeLanguages,
   getLanguageMeta,
+  getBookEditions,
   isBilingual,
+  isBookFullyCompleted,
 } from '../utils/bookLanguages';
+
+/**
+ * Builds visual edition descriptors for a single book or a grouped stack of separate books.
+ * Active (uncompleted) editions are ordered in FRONT so you immediately see what you're
+ * currently reading, with completed editions peeking clearly behind.
+ */
+const buildVisualEditionsForGroup = (groupBooks) => {
+  const entries = [];
+  groupBooks.forEach((book) => {
+    const bookEds = getBookEditions(book);
+    if (bookEds.length > 0) {
+      bookEds.forEach((ed) => {
+        entries.push({
+          key: `${book.id}:${ed.code}`,
+          bookId: book.id,
+          book,
+          langCode: ed.code,
+          coverUrl: ed.coverUrl || book.coverUrl || null,
+          completed: !!ed.completed,
+          meta: ed.meta,
+        });
+      });
+    } else {
+      entries.push({
+        key: `${book.id}:default`,
+        bookId: book.id,
+        book,
+        langCode: null,
+        coverUrl: book.coverUrl || null,
+        completed: !!book.completed,
+        meta: null,
+      });
+    }
+  });
+
+  // Sort: active (uncompleted) edition in front; within same state prefer DE first
+  return entries.sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    if (a.langCode === 'de' && b.langCode !== 'de') return -1;
+    if (b.langCode === 'de' && a.langCode !== 'de') return 1;
+    return 0;
+  });
+};
 
 /**
  * Groups books in a series shelf so two separate editions of the exact same band
  * (same seriesNumber, distinct non-empty languages like DE + EN) automatically stack
  * into one unified dual-edition tile. Single books with multiple languages (['de', 'en'])
- * are also represented cleanly as bilingual ShelfItems.
+ * and per-language `languageEditions` also produce multi-cover stacked ShelfItems.
  */
 const buildShelfItems = (bookList, allowEditionStacking = false) => {
+  const makeItem = (groupBooks) => {
+    const visualEditions = buildVisualEditionsForGroup(groupBooks);
+    const combinedLangs = normalizeLanguages(groupBooks.flatMap((b) => normalizeLanguages(b)));
+    const primaryBook = visualEditions[0]?.book || groupBooks[0];
+    const doneEditions = visualEditions.filter((e) => e.completed).length;
+    const totalEditions = visualEditions.length;
+    const fullyCompleted = totalEditions > 0
+      ? doneEditions === totalEditions
+      : groupBooks.every((b) => isBookFullyCompleted(b));
+    const bestRating = groupBooks.map((b) => b.rating).filter(Boolean).sort((a, b) => b - a)[0] || null;
+    const num = primaryBook.seriesNumber ? parseInt(primaryBook.seriesNumber, 10) : null;
+
+    return {
+      key: groupBooks.length > 1 ? `stack-${groupBooks.map((b) => b.id).join('-')}` : primaryBook.id,
+      primaryBook,
+      editions: groupBooks,
+      visualEditions,
+      languages: combinedLangs,
+      bilingual: isBilingual(combinedLangs) || visualEditions.length >= 2,
+      completed: fullyCompleted,
+      doneEditions,
+      totalEditions,
+      partiallyCompleted: doneEditions > 0 && doneEditions < totalEditions,
+      rating: bestRating,
+      seriesNumber: num,
+    };
+  };
+
   if (!allowEditionStacking) {
-    return bookList.map((book) => {
-      const langs = normalizeLanguages(book);
-      return {
-        key: book.id,
-        primaryBook: book,
-        editions: [book],
-        languages: langs,
-        bilingual: isBilingual(langs),
-        completed: !!book.completed,
-        rating: book.rating || null,
-        seriesNumber: book.seriesNumber || null,
-      };
-    });
+    return bookList.map((book) => makeItem([book]));
   }
 
   const items = [];
@@ -74,42 +138,10 @@ const buildShelfItems = (bookList, allowEditionStacking = false) => {
         }
       }
 
-      // Prefer DE edition or an active edition first for stable cover order
-      const sortedGroup = [...group].sort((a, b) => {
-        const aLang = normalizeLanguages(a)[0] || '';
-        const bLang = normalizeLanguages(b)[0] || '';
-        if (aLang === 'de' && bLang !== 'de') return -1;
-        if (bLang === 'de' && aLang !== 'de') return 1;
-        return 0;
-      });
-      const combinedLangs = normalizeLanguages(Array.from(groupLangSet));
-      const primary = sortedGroup[0];
-      const bestRating = sortedGroup.map((b) => b.rating).filter(Boolean).sort((a, b) => b - a)[0] || null;
-
-      items.push({
-        key: sortedGroup.length > 1 ? `stack-${sortedGroup.map((b) => b.id).join('-')}` : primary.id,
-        primaryBook: primary,
-        editions: sortedGroup,
-        languages: combinedLangs,
-        bilingual: isBilingual(combinedLangs),
-        completed: sortedGroup.every((b) => !!b.completed),
-        anyCompleted: sortedGroup.some((b) => !!b.completed),
-        rating: bestRating,
-        seriesNumber: num,
-      });
+      items.push(makeItem(group));
     } else {
       usedIds.add(book.id);
-      items.push({
-        key: book.id,
-        primaryBook: book,
-        editions: [book],
-        languages: bookLangs,
-        bilingual: isBilingual(bookLangs),
-        completed: !!book.completed,
-        anyCompleted: !!book.completed,
-        rating: book.rating || null,
-        seriesNumber: num,
-      });
+      items.push(makeItem([book]));
     }
   }
 
@@ -171,7 +203,8 @@ const SeriesNode = ({ data }) => {
 const BookNode = ({ data }) => {
   const { item } = data;
   const book = item.primaryBook;
-  const secondEdition = item.editions.length > 1 ? item.editions[1] : null;
+  const frontEd = item.visualEditions[0] || { coverUrl: book.coverUrl, meta: null };
+  const backEd = item.visualEditions.length > 1 ? item.visualEditions[1] : null;
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -182,19 +215,20 @@ const BookNode = ({ data }) => {
         cursor: 'pointer',
       }}
     >
-      {/* Subtle stacked back card for bilingual / dual-edition books */}
+      {/* Prominent offset back card for bilingual / dual-edition books */}
       {item.bilingual && (
         <Box
           sx={{
             position: 'absolute',
             inset: 0,
-            transform: 'translate(5px, -5px)',
+            transform: 'translate(9px, -8px)',
             borderRadius: '16px',
             background: isDark
-              ? 'linear-gradient(135deg, rgba(245, 176, 65, 0.22) 0%, rgba(94, 151, 246, 0.28) 100%)'
-              : 'linear-gradient(135deg, rgba(245, 176, 65, 0.24) 0%, rgba(94, 151, 246, 0.24) 100%)',
-            border: '1px solid',
-            borderColor: isDark ? 'rgba(138, 180, 248, 0.35)' : 'rgba(26, 115, 232, 0.28)',
+              ? 'linear-gradient(135deg, rgba(245, 176, 65, 0.28) 0%, rgba(94, 151, 246, 0.34) 100%)'
+              : 'linear-gradient(135deg, rgba(245, 176, 65, 0.32) 0%, rgba(94, 151, 246, 0.3) 100%)',
+            border: '1.5px solid',
+            borderColor: isDark ? 'rgba(138, 180, 248, 0.5)' : 'rgba(26, 115, 232, 0.38)',
+            boxShadow: isDark ? '0 6px 18px rgba(0,0,0,0.45)' : '0 3px 10px rgba(0,0,0,0.1)',
             zIndex: 0,
             pointerEvents: 'none',
           }}
@@ -205,28 +239,55 @@ const BookNode = ({ data }) => {
           position: 'relative',
           zIndex: 1,
           p: 1.25,
-          width: 245,
+          width: 262,
           borderRadius: '16px',
           bgcolor: 'background.paper',
-          border: '1px solid',
+          border: '1.5px solid',
           borderColor: item.bilingual
-            ? alpha(theme.palette.primary.main, isDark ? 0.45 : 0.35)
+            ? alpha(theme.palette.primary.main, isDark ? 0.55 : 0.42)
             : (item.completed ? alpha(theme.palette.success.main, 0.4) : 'divider'),
-          boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.35)' : '0 2px 10px rgba(0,0,0,0.05)',
+          boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.5)' : '0 3px 12px rgba(0,0,0,0.08)',
           display: 'flex',
           alignItems: 'center',
-          gap: 1.25,
+          gap: 1.5,
         }}
       >
         <Handle type="target" position={Position.Left} style={{ background: item.completed ? theme.palette.success.main : theme.palette.primary.main, border: 'none', width: 8, height: 8 }} />
-        <Box sx={{ position: 'relative', flexShrink: 0 }}>
-          {secondEdition && (
-            <Box sx={{ position: 'absolute', top: -2, left: 4, opacity: 0.75, pointerEvents: 'none' }}>
-              <BookCover coverUrl={secondEdition.coverUrl} title={secondEdition.name} width={36} height={54} borderRadius="7px" />
+        <Box sx={{ position: 'relative', flexShrink: 0, width: backEd ? 52 : 38, height: 58 }}>
+          {backEd && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -2,
+                left: 14,
+                transform: 'rotate(5deg)',
+                transformOrigin: 'bottom left',
+                zIndex: 0,
+                pointerEvents: 'none',
+              }}
+            >
+              <BookCover
+                coverUrl={backEd.coverUrl}
+                title={book.name}
+                width={36}
+                height={52}
+                borderRadius="7px"
+                sx={{
+                  borderWidth: '1.5px',
+                  borderColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.18)',
+                }}
+              />
             </Box>
           )}
-          <Box sx={{ position: 'relative', zIndex: 1 }}>
-            <BookCover coverUrl={book.coverUrl} title={book.name} width={36} height={54} borderRadius="7px" />
+          <Box sx={{ position: 'relative', zIndex: 1, mt: backEd ? 0.5 : 0.25 }}>
+            <BookCover
+              coverUrl={frontEd.coverUrl}
+              title={book.name}
+              width={36}
+              height={54}
+              borderRadius="7px"
+              sx={backEd ? { boxShadow: '4px 4px 12px rgba(0,0,0,0.55)' } : {}}
+            />
           </Box>
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.45 }}>
@@ -234,8 +295,13 @@ const BookNode = ({ data }) => {
             {book.name}
           </Typography>
           {item.languages.length > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
               <LanguagePill languages={item.languages} compact />
+              {item.partiallyCompleted && (
+                <Typography variant="caption" sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'warning.main' }}>
+                  {item.doneEditions}/{item.totalEditions} ✓
+                </Typography>
+              )}
             </Box>
           )}
         </Box>
@@ -251,79 +317,133 @@ const nodeTypes = {
   bookNode: BookNode,
 };
 
-// --- Minimal Cover-First Shelf Tile (supports single & stacked bilingual / dual-edition books) ---
+// --- Cover-First Shelf Tile (dramatic, unmistakable stacked dual covers for bilingual books) ---
 const CoverShelfTile = ({ item, onSelect, isDark }) => {
   const book = item.primaryBook;
-  const secondEdition = item.editions.length > 1 ? item.editions[1] : null;
+  const frontEd = item.visualEditions[0] || { coverUrl: book.coverUrl, completed: item.completed, meta: null };
+  const backEd = item.visualEditions.length > 1 ? item.visualEditions[1] : null;
+  const isStacked = !!backEd;
 
   return (
     <Box
       onClick={() => onSelect(item)}
       sx={{
-        width: item.bilingual ? 102 : 96,
+        width: isStacked ? 122 : 96,
         flexShrink: 0,
         cursor: 'pointer',
         userSelect: 'none',
         display: 'flex',
         flexDirection: 'column',
-        gap: 0.75,
-        pt: item.bilingual ? 0.5 : 0,
-        pr: item.bilingual ? 0.75 : 0,
+        gap: 0.85,
         transition: 'transform 0.16s ease',
-        '&:hover': { transform: 'translateY(-3px)' },
+        '&:hover': { transform: 'translateY(-4px)' },
         '&:active': { transform: 'scale(0.97)' },
       }}
     >
-      <Box sx={{ position: 'relative', width: 96, height: 142 }}>
-        {/* Stacked second-edition card peeking cleanly behind the front cover */}
-        {item.bilingual && (
+      {/* Fixed-height 154px cover stage so single and stacked tiles share the exact same shelf baseline */}
+      <Box sx={{ position: 'relative', width: isStacked ? 122 : 96, height: 154 }}>
+        {/* Back Book Cover (clearly staggered 24px right & 12px higher with gentle fan tilt) */}
+        {isStacked && (
           <Box
             sx={{
               position: 'absolute',
-              top: -4,
-              left: 5,
-              width: 96,
-              height: 142,
+              top: 2,
+              left: 24,
+              width: 90,
+              height: 136,
               borderRadius: '12px',
-              overflow: 'hidden',
-              transform: 'rotate(2.2deg)',
+              transform: 'rotate(4deg)',
               transformOrigin: 'bottom left',
               pointerEvents: 'none',
-              zIndex: 0,
-              ...(!secondEdition?.coverUrl ? {
-                background: isDark
-                  ? 'linear-gradient(155deg, rgba(245, 176, 65, 0.34) 0%, rgba(94, 151, 246, 0.42) 100%)'
-                  : 'linear-gradient(155deg, rgba(245, 176, 65, 0.42) 0%, rgba(94, 151, 246, 0.38) 100%)',
-                border: '1px solid',
-                borderColor: isDark ? 'rgba(138, 180, 248, 0.45)' : 'rgba(26, 115, 232, 0.35)',
-                boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.12)',
-              } : {}),
+              zIndex: 1,
             }}
           >
-            {secondEdition?.coverUrl && (
+            {backEd.coverUrl ? (
               <BookCover
-                coverUrl={secondEdition.coverUrl}
-                title={secondEdition.name}
-                width={96}
-                height={142}
+                coverUrl={backEd.coverUrl}
+                title={book.name}
+                width={90}
+                height={136}
                 borderRadius="12px"
-                sx={{ opacity: 0.85 }}
+                sx={{
+                  border: '1.5px solid',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(31, 31, 31, 0.2)',
+                  boxShadow: isDark ? '0 6px 18px rgba(0,0,0,0.6)' : '0 4px 12px rgba(0,0,0,0.18)',
+                  filter: backEd.completed && !frontEd.completed ? 'brightness(0.86)' : 'brightness(0.95)',
+                }}
               />
+            ) : (
+              <Box
+                sx={{
+                  width: 90,
+                  height: 136,
+                  borderRadius: '12px',
+                  background: isDark
+                    ? 'linear-gradient(155deg, rgba(245, 176, 65, 0.36) 0%, rgba(94, 151, 246, 0.44) 100%)'
+                    : 'linear-gradient(155deg, rgba(245, 176, 65, 0.44) 0%, rgba(94, 151, 246, 0.4) 100%)',
+                  border: '1.5px solid',
+                  borderColor: isDark ? 'rgba(138, 180, 248, 0.5)' : 'rgba(26, 115, 232, 0.38)',
+                  boxShadow: isDark ? '0 6px 18px rgba(0,0,0,0.55)' : '0 4px 12px rgba(0,0,0,0.14)',
+                }}
+              />
+            )}
+
+            {/* Peeking corner badge on the back book showing its language flag (and check if done) */}
+            {backEd.meta && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 5,
+                  right: 5,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.2,
+                  px: 0.55,
+                  py: 0.1,
+                  borderRadius: 9999,
+                  bgcolor: 'rgba(19, 19, 20, 0.88)',
+                  backdropFilter: 'blur(6px)',
+                  color: '#FFFFFF',
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  lineHeight: 1.25,
+                  border: '1px solid',
+                  borderColor: backEd.completed ? 'rgba(129, 201, 149, 0.7)' : 'rgba(255,255,255,0.2)',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.45)',
+                }}
+              >
+                <span>{backEd.meta.flag}</span>
+                {backEd.completed && <CheckCircleIcon sx={{ fontSize: 10, color: 'success.main' }} />}
+              </Box>
             )}
           </Box>
         )}
 
-        <Box sx={{ position: 'relative', zIndex: 1, width: 96, height: 142 }}>
+        {/* Front Book Cover (casts crisp depth shadow onto back cover so layering pops!) */}
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            zIndex: 2,
+            width: isStacked ? 92 : 96,
+            height: isStacked ? 138 : 142,
+          }}
+        >
           <BookCover
-            coverUrl={book.coverUrl}
+            coverUrl={frontEd.coverUrl}
             title={book.name}
-            width={96}
-            height={142}
+            width={isStacked ? 92 : 96}
+            height={isStacked ? 138 : 142}
             borderRadius="12px"
             sx={{
-              opacity: item.completed ? 0.84 : 1,
-              ...(item.bilingual ? {
-                borderColor: isDark ? 'rgba(138, 180, 248, 0.45)' : 'rgba(26, 115, 232, 0.32)',
+              opacity: item.completed ? 0.85 : 1,
+              ...(isStacked ? {
+                border: '1.5px solid',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.85)',
+                boxShadow: isDark
+                  ? '8px 6px 20px rgba(0, 0, 0, 0.78), 0 2px 8px rgba(0, 0, 0, 0.5)'
+                  : '8px 6px 18px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.14)',
               } : {}),
             }}
           />
@@ -338,7 +458,7 @@ const CoverShelfTile = ({ item, onSelect, isDark }) => {
                 px: 0.75,
                 py: 0.15,
                 borderRadius: 9999,
-                bgcolor: isDark ? 'rgba(19, 19, 20, 0.82)' : 'rgba(255, 255, 255, 0.9)',
+                bgcolor: isDark ? 'rgba(19, 19, 20, 0.84)' : 'rgba(255, 255, 255, 0.92)',
                 backdropFilter: 'blur(6px)',
                 color: 'text.primary',
                 fontSize: '0.64rem',
@@ -351,8 +471,8 @@ const CoverShelfTile = ({ item, onSelect, isDark }) => {
             </Box>
           )}
 
-          {/* Subtle completed check badge in top-right corner */}
-          {item.completed && (
+          {/* Completion status in top-right: full green check ONLY when all languages done; partial pill otherwise */}
+          {item.completed ? (
             <Box
               sx={{
                 position: 'absolute',
@@ -365,12 +485,34 @@ const CoverShelfTile = ({ item, onSelect, isDark }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.28)',
               }}
             >
               <CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />
             </Box>
-          )}
+          ) : item.partiallyCompleted ? (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 6,
+                right: 6,
+                px: 0.65,
+                py: 0.12,
+                borderRadius: 9999,
+                bgcolor: 'rgba(19, 19, 20, 0.86)',
+                backdropFilter: 'blur(6px)',
+                color: '#8AB4F8',
+                border: '1px solid rgba(138, 180, 248, 0.5)',
+                fontSize: '0.6rem',
+                fontWeight: 700,
+                lineHeight: 1.25,
+                fontVariantNumeric: 'tabular-nums',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+              }}
+            >
+              {item.doneEditions}/{item.totalEditions} ✓
+            </Box>
+          ) : null}
 
           {/* Language badge in bottom-left corner */}
           <LanguageCoverBadge languages={item.languages} />
@@ -411,6 +553,7 @@ const CoverShelfTile = ({ item, onSelect, isDark }) => {
         sx={{
           fontSize: '0.76rem',
           lineHeight: 1.25,
+          width: isStacked ? 104 : 96,
           color: item.completed ? 'text.secondary' : 'text.primary',
           display: '-webkit-box',
           WebkitLineClamp: 2,
@@ -426,7 +569,7 @@ const CoverShelfTile = ({ item, onSelect, isDark }) => {
 };
 
 const BookUniverseMap = () => {
-  const { books, readingSessions, updateBookReview, updateBookLanguages } = useTaskContext();
+  const { books, readingSessions, updateBookReview, updateBookLanguages, updateBookEdition, updateBook } = useTaskContext();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -435,40 +578,52 @@ const BookUniverseMap = () => {
   const [languageFilter, setLanguageFilter] = useState('all'); // 'all' | 'bilingual' | 'de' | 'en' | ...
   const [collapsedNodes, setCollapsedNodes] = useState({});
   const [selectedEditionIds, setSelectedEditionIds] = useState([]);
-  const [activeEditionId, setActiveEditionId] = useState(null);
+  const [activeVisualKey, setActiveVisualKey] = useState(null);
   const [detailRating, setDetailRating] = useState(null);
   const [detailNotes, setDetailNotes] = useState('');
   const [reviewSaved, setReviewSaved] = useState(false);
 
-  const selectedEditions = useMemo(
+  // Mandatory Cover Picker when adding English / 2nd language or changing an edition cover
+  const [coverPickerState, setCoverPickerState] = useState(null);
+  // { book, langCode, isNewEdition, initialCoverUrl }
+
+  const selectedBookGroup = useMemo(
     () => selectedEditionIds.map((id) => books.find((b) => b.id === id)).filter(Boolean),
     [books, selectedEditionIds]
   );
 
-  const selectedBook = useMemo(
-    () => selectedEditions.find((b) => b.id === activeEditionId) || selectedEditions[0] || null,
-    [selectedEditions, activeEditionId]
+  const modalVisualEditions = useMemo(
+    () => buildVisualEditionsForGroup(selectedBookGroup),
+    [selectedBookGroup]
   );
+
+  const activeVisualEdition = useMemo(
+    () => modalVisualEditions.find((e) => e.key === activeVisualKey) || modalVisualEditions[0] || null,
+    [modalVisualEditions, activeVisualKey]
+  );
+
+  const selectedBook = activeVisualEdition?.book || selectedBookGroup[0] || null;
 
   const openItemModal = (item) => {
     if (!item) {
       setSelectedEditionIds([]);
-      setActiveEditionId(null);
+      setActiveVisualKey(null);
       return;
     }
     const ids = item.editions.map((b) => b.id);
-    const primary = item.primaryBook;
+    const firstVisual = item.visualEditions[0];
+    const primary = firstVisual?.book || item.primaryBook;
     setSelectedEditionIds(ids);
-    setActiveEditionId(primary.id);
+    setActiveVisualKey(firstVisual?.key || null);
     setDetailRating(primary.rating || null);
     setDetailNotes(primary.notes || '');
     setReviewSaved(false);
   };
 
-  const switchEditionInModal = (book) => {
-    setActiveEditionId(book.id);
-    setDetailRating(book.rating || null);
-    setDetailNotes(book.notes || '');
+  const switchVisualEditionInModal = (ed) => {
+    setActiveVisualKey(ed.key);
+    setDetailRating(ed.book.rating || null);
+    setDetailNotes(ed.book.notes || '');
     setReviewSaved(false);
   };
 
@@ -556,10 +711,18 @@ const BookUniverseMap = () => {
   const universeNames = useMemo(() => Object.keys(hierarchy.universes).sort((a, b) => a.localeCompare(b)), [hierarchy]);
   const standaloneSeriesNames = useMemo(() => Object.keys(hierarchy.standaloneSeries).sort((a, b) => a.localeCompare(b)), [hierarchy]);
 
-  // Compute reading stats for the selected book modal (plus combined time if multi-edition)
+  // Compute reading stats for the selected book / active language edition (plus combined time if multi-edition)
   const selectedBookStats = useMemo(() => {
     if (!selectedBook) return null;
-    const sessions = readingSessions.filter(s => s.bookId === selectedBook.id);
+    const allBookSessions = readingSessions.filter(s => s.bookId === selectedBook.id);
+    const activeLang = activeVisualEdition?.langCode || null;
+    const bookLangs = normalizeLanguages(selectedBook);
+
+    // If a single book has multiple languages, filter sessions tagged with this language when available
+    const sessions = (bookLangs.length >= 2 && activeLang)
+      ? allBookSessions.filter((s) => (s.language ? s.language.toLowerCase() === activeLang : bookLangs[0] === activeLang))
+      : allBookSessions;
+
     const totalSec = sessions.reduce((acc, s) => acc + (s.timeSpent || 0), 0);
     const maxEnded = Math.max(0, ...sessions.map(s => s.endedOnPage || 0));
     const pagesRead = maxEnded > 0 ? maxEnded : sessions.reduce((acc, s) => acc + (s.amount || 0), 0);
@@ -570,8 +733,8 @@ const BookUniverseMap = () => {
     const timeStr = totalSec > 0 ? (h > 0 ? `${h}h ${m}m` : `${m}m`) : null;
 
     let combinedTimeStr = null;
-    if (selectedEditions.length > 1) {
-      const allIds = new Set(selectedEditions.map((b) => b.id));
+    if (modalVisualEditions.length > 1) {
+      const allIds = new Set(selectedBookGroup.map((b) => b.id));
       const allSec = readingSessions
         .filter((s) => s.bookId && allIds.has(s.bookId))
         .reduce((acc, s) => acc + (s.timeSpent || 0), 0);
@@ -583,7 +746,7 @@ const BookUniverseMap = () => {
     }
 
     return { pagesRead, total, pct, timeStr, combinedTimeStr, sessionsCount: sessions.length };
-  }, [selectedBook, selectedEditions, readingSessions]);
+  }, [selectedBook, activeVisualEdition, modalVisualEditions, selectedBookGroup, readingSessions]);
 
   // 2D ReactFlow layout (only computed when 2D-Map is active)
   const { nodes, edges } = useMemo(() => {
@@ -987,10 +1150,10 @@ const BookUniverseMap = () => {
         maxWidth="xs"
         fullWidth
       >
-        {selectedBook && (
+        {selectedBook && activeVisualEdition && (
           <DialogContent sx={{ p: 2.5 }}>
-            {/* Edition switcher when 2+ separate language editions are stacked */}
-            {selectedEditions.length > 1 && (
+            {/* Edition switcher when 2+ language editions exist (either on 1 book or stacked separate books) */}
+            {modalVisualEditions.length > 1 && (
               <Box
                 sx={{
                   display: 'flex',
@@ -1001,22 +1164,21 @@ const BookUniverseMap = () => {
                   bgcolor: 'background.surfaceVariant',
                 }}
               >
-                {selectedEditions.map((ed) => {
-                  const active = ed.id === selectedBook.id;
-                  const edLangs = normalizeLanguages(ed);
-                  const label = edLangs.length > 0
-                    ? edLangs.map((c) => {
-                        const m = getLanguageMeta(c);
-                        return `${m.flag} ${m.label}`;
-                      }).join(' / ')
-                    : ed.name;
+                {modalVisualEditions.map((ed) => {
+                  const active = ed.key === activeVisualEdition.key;
+                  const label = ed.meta
+                    ? `${ed.meta.flag} ${ed.meta.label}`
+                    : ed.book.name;
                   return (
                     <Box
-                      key={ed.id}
-                      onClick={() => switchEditionInModal(ed)}
+                      key={ed.key}
+                      onClick={() => switchVisualEditionInModal(ed)}
                       sx={{
                         flex: 1,
-                        textAlign: 'center',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 0.5,
                         py: 0.65,
                         px: 1,
                         borderRadius: '10px',
@@ -1030,7 +1192,12 @@ const BookUniverseMap = () => {
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      {label}
+                      <span>{label}</span>
+                      {ed.completed ? (
+                        <CheckCircleIcon sx={{ fontSize: 13, color: 'success.main' }} />
+                      ) : (
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' }} />
+                      )}
                     </Box>
                   );
                 })}
@@ -1039,13 +1206,46 @@ const BookUniverseMap = () => {
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
               <Box sx={{ display: 'flex', gap: 2, minWidth: 0, flex: 1 }}>
-                <BookCover
-                  coverUrl={selectedBook.coverUrl}
-                  title={selectedBook.name}
-                  width={76}
-                  height={114}
-                  borderRadius="12px"
-                />
+                <Box
+                  onClick={() => {
+                    const targetLang = activeVisualEdition.langCode || normalizeLanguages(selectedBook)[0] || 'de';
+                    setCoverPickerState({
+                      book: selectedBook,
+                      langCode: targetLang,
+                      isNewEdition: false,
+                      initialCoverUrl: activeVisualEdition.coverUrl || '',
+                    });
+                  }}
+                  sx={{ position: 'relative', cursor: 'pointer', flexShrink: 0, '&:hover': { opacity: 0.88 } }}
+                  title="Cover dieser Ausgabe ändern"
+                >
+                  <BookCover
+                    coverUrl={activeVisualEdition.coverUrl}
+                    title={selectedBook.name}
+                    width={76}
+                    height={114}
+                    borderRadius="12px"
+                  />
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: 5,
+                      right: 5,
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      bgcolor: 'rgba(19, 19, 20, 0.84)',
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                    }}
+                  >
+                    <ImageSearchIcon sx={{ fontSize: 13 }} />
+                  </Box>
+                </Box>
+
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.25 }}>
                     {selectedBook.name}
@@ -1057,22 +1257,57 @@ const BookUniverseMap = () => {
                   )}
 
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.65, mt: 1.25 }}>
+                    {/* Interactive completion toggle for the currently viewed edition */}
                     <Box
+                      onClick={() => {
+                        if (activeVisualEdition.langCode) {
+                          updateBookEdition(selectedBook.id, activeVisualEdition.langCode, {
+                            completed: !activeVisualEdition.completed,
+                          });
+                        } else {
+                          updateBook(
+                            selectedBook.id,
+                            selectedBook.name,
+                            selectedBook.author,
+                            selectedBook.series,
+                            !selectedBook.completed,
+                            selectedBook.wordsPerPage,
+                            selectedBook.seriesNumber,
+                            selectedBook.universe,
+                            selectedBook.totalPages
+                          );
+                        }
+                      }}
                       sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.4,
                         px: 1,
-                        py: 0.2,
+                        py: 0.25,
                         borderRadius: 9999,
-                        bgcolor: selectedBook.completed
-                          ? alpha(theme.palette.success.main, isDark ? 0.18 : 0.12)
-                          : alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12),
-                        color: selectedBook.completed ? 'success.main' : 'primary.main',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        bgcolor: activeVisualEdition.completed
+                          ? alpha(theme.palette.success.main, isDark ? 0.2 : 0.14)
+                          : alpha(theme.palette.primary.main, isDark ? 0.2 : 0.14),
+                        color: activeVisualEdition.completed ? 'success.main' : 'primary.main',
+                        border: '1px solid',
+                        borderColor: activeVisualEdition.completed
+                          ? alpha(theme.palette.success.main, 0.4)
+                          : alpha(theme.palette.primary.main, 0.35),
                         fontSize: '0.7rem',
                         fontWeight: 700,
+                        transition: 'transform 0.12s ease',
+                        '&:active': { transform: 'scale(0.96)' },
                       }}
                     >
-                      {selectedBook.completed ? 'Gelesen' : 'Aktiv'}
+                      {activeVisualEdition.completed
+                        ? <CheckCircleIcon sx={{ fontSize: 13 }} />
+                        : <CheckCircleOutlinedIcon sx={{ fontSize: 13 }} />}
+                      {activeVisualEdition.completed
+                        ? (activeVisualEdition.meta ? `${activeVisualEdition.meta.short} Gelesen` : 'Gelesen')
+                        : (activeVisualEdition.meta ? `${activeVisualEdition.meta.short} Aktiv` : 'Aktiv')}
                     </Box>
-                    <LanguagePill languages={selectedBook} compact />
                     {selectedBook.series && (
                       <Box
                         sx={{
@@ -1111,14 +1346,36 @@ const BookUniverseMap = () => {
               </IconButton>
             </Box>
 
-            {/* Quick 1-tap Language Toggle right inside the Map Detail Modal */}
+            {/* Quick Language Toggle: adding English or a 2nd+ language requires choosing its cover & starts active */}
             <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.85 }}>
               <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Gelesene Sprache(n)
+                Sprachen &amp; Ausgaben
               </Typography>
               <LanguagePicker
                 value={normalizeLanguages(selectedBook)}
-                onChange={(nextLangs) => updateBookLanguages(selectedBook.id, nextLangs)}
+                onToggleLanguage={(code, isActive) => {
+                  const currentLangs = normalizeLanguages(selectedBook);
+                  if (isActive) {
+                    const remaining = currentLangs.filter((c) => c !== code);
+                    updateBookLanguages(selectedBook.id, remaining);
+                    if (activeVisualEdition.langCode === code) {
+                      setActiveVisualKey(remaining[0] ? `${selectedBook.id}:${remaining[0]}` : null);
+                    }
+                    return;
+                  }
+                  // Adding English or any 2nd+ language -> require choosing cover (starts as NOT completed!)
+                  if (code === 'en' || currentLangs.length >= 1) {
+                    setCoverPickerState({
+                      book: selectedBook,
+                      langCode: code,
+                      isNewEdition: true,
+                      initialCoverUrl: '',
+                    });
+                  } else {
+                    updateBookLanguages(selectedBook.id, [...currentLangs, code]);
+                    setActiveVisualKey(`${selectedBook.id}:${code}`);
+                  }
+                }}
                 compact
                 showHint={false}
               />
@@ -1130,7 +1387,7 @@ const BookUniverseMap = () => {
                   <Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                       <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        Fortschritt
+                        Fortschritt{activeVisualEdition.meta && modalVisualEditions.length > 1 ? ` (${activeVisualEdition.meta.short})` : ''}
                       </Typography>
                       <Typography variant="caption" color="text.primary" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
                         {selectedBookStats.pagesRead} / {selectedBookStats.total} S. · {selectedBookStats.pct}%
@@ -1151,7 +1408,7 @@ const BookUniverseMap = () => {
                   </Box>
                 )}
 
-                {selectedBookStats.combinedTimeStr && selectedEditions.length > 1 && (
+                {selectedBookStats.combinedTimeStr && modalVisualEditions.length > 1 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" color="text.secondary">
                       Gesamt über alle Ausgaben
@@ -1244,6 +1501,33 @@ const BookUniverseMap = () => {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Mandatory Cover Picker when adding English / 2nd language or changing an edition cover */}
+      <EditionCoverPickerDialog
+        open={!!coverPickerState}
+        bookTitle={coverPickerState?.book?.name || ''}
+        bookAuthor={coverPickerState?.book?.author || ''}
+        langCode={coverPickerState?.langCode || 'en'}
+        initialCoverUrl={coverPickerState?.initialCoverUrl || ''}
+        isNewEdition={!!coverPickerState?.isNewEdition}
+        onClose={() => setCoverPickerState(null)}
+        onConfirm={async (pickedCoverUrl) => {
+          if (!coverPickerState?.book) return;
+          const { book, langCode, isNewEdition } = coverPickerState;
+          if (isNewEdition) {
+            await updateBookEdition(book.id, langCode, {
+              coverUrl: pickedCoverUrl,
+              completed: false,
+            });
+            setActiveVisualKey(`${book.id}:${langCode}`);
+          } else {
+            await updateBookEdition(book.id, langCode, {
+              coverUrl: pickedCoverUrl,
+            });
+          }
+          setCoverPickerState(null);
+        }}
+      />
     </Box>
   );
 };
