@@ -1,6 +1,16 @@
-export const APP_VERSION = '2.0.5';
+export const APP_VERSION = '2.1.0';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.1.0',
+    date: '20.11.2026',
+    title: 'Schnell-Chips, Buch-Auto-Fill & 1–10 Bewertung',
+    highlights: [
+      'Einkaufsliste: Neue „Häufig gekauft“-Schnell-Chips für deine bis zu 8 meistgekauften Artikel zum 1-Tap-Hinzufügen.',
+      'Bücher Auto-Fill: Beim Suchen eines Buchs werden jetzt neben dem Cover automatisch auch Autor & Gesamtseiten übernommen.',
+      'Bewertung & Notizen: Optional 1–10 Sterne und ein kurzes Fazit oder Lieblingszitat — direkt beim Bearbeiten, beim Abschließen oder im Cover-Regal-Detail.',
+    ],
+  },
   {
     version: '2.0.5',
     date: '20.11.2026',

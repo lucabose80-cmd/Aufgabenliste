@@ -21,12 +21,13 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import StarIcon from '@mui/icons-material/Star';
 import BookCover from './BookCover';
 import { searchBookCovers, fetchBestBookCover } from '../utils/bookCoverApi';
 
 const BookManager = () => {
   const {
-    books, addBook, updateBook, updateBookCover, deleteBook,
+    books, addBook, updateBook, updateBookCover, updateBookReview, deleteBook,
     assignBookToUnassignedSessions, readingSessions, renameAuthor, renameSeries
   } = useTaskContext();
 
@@ -46,11 +47,18 @@ const BookManager = () => {
   const [formTotalPages, setFormTotalPages] = useState('');
   const [formWordsPerPage, setFormWordsPerPage] = useState('');
   const [formCoverUrl, setFormCoverUrl] = useState('');
+  const [formRating, setFormRating] = useState(null);
+  const [formNotes, setFormNotes] = useState('');
 
-  // Cover search state inside modal
+  // Cover & metadata search state inside modal
   const [coverCandidates, setCoverCandidates] = useState([]);
   const [isSearchingCovers, setIsSearchingCovers] = useState(false);
   const [coverSearchDone, setCoverSearchDone] = useState(false);
+  const [autoFillNotice, setAutoFillNotice] = useState('');
+
+  // Review state inside "Buch abgeschlossen!" modal
+  const [completedRating, setCompletedRating] = useState(null);
+  const [completedNotes, setCompletedNotes] = useState('');
 
   // Batch fetch missing covers state
   const [isFetchingAllCovers, setIsFetchingAllCovers] = useState(false);
@@ -114,8 +122,11 @@ const BookManager = () => {
     setFormTotalPages('');
     setFormWordsPerPage('');
     setFormCoverUrl('');
+    setFormRating(null);
+    setFormNotes('');
     setCoverCandidates([]);
     setCoverSearchDone(false);
+    setAutoFillNotice('');
     setBookModalOpen(true);
   };
 
@@ -129,8 +140,11 @@ const BookManager = () => {
     setFormTotalPages(book.totalPages ? book.totalPages.toString() : '');
     setFormWordsPerPage(book.wordsPerPage ? book.wordsPerPage.toString() : '');
     setFormCoverUrl(book.coverUrl || '');
+    setFormRating(book.rating || null);
+    setFormNotes(book.notes || '');
     setCoverCandidates([]);
     setCoverSearchDone(false);
+    setAutoFillNotice('');
     setBookModalOpen(true);
   };
 
@@ -138,10 +152,25 @@ const BookManager = () => {
     if (!formName.trim()) return;
     setIsSearchingCovers(true);
     setCoverSearchDone(false);
+    setAutoFillNotice('');
     const results = await searchBookCovers(formName, formAuthor);
     setCoverCandidates(results);
     setIsSearchingCovers(false);
     setCoverSearchDone(true);
+  };
+
+  const handlePickSearchCandidate = (cand) => {
+    setFormCoverUrl(cand.url || '');
+    const filled = ['Cover'];
+    if (cand.author && (!formAuthor.trim() || !editingBookId)) {
+      setFormAuthor(cand.author);
+      filled.push('Autor');
+    }
+    if (cand.pageCount && (!formTotalPages || !editingBookId)) {
+      setFormTotalPages(String(cand.pageCount));
+      filled.push(`${cand.pageCount} Seiten`);
+    }
+    setAutoFillNotice(`Automatisch übernommen: ${filled.join(', ')}`);
   };
 
   const runPickerSearch = async (queryText) => {
@@ -240,7 +269,9 @@ const BookManager = () => {
         formSeriesNumber,
         formUniverse,
         formTotalPages,
-        finalCoverUrl
+        finalCoverUrl,
+        formRating,
+        formNotes
       );
     } else {
       addBook(
@@ -251,7 +282,9 @@ const BookManager = () => {
         formSeriesNumber,
         formUniverse,
         formTotalPages,
-        finalCoverUrl
+        finalCoverUrl,
+        formRating,
+        formNotes
       );
     }
     setBookModalOpen(false);
@@ -272,6 +305,8 @@ const BookManager = () => {
     );
 
     if (isNowCompleted) {
+      setCompletedRating(book.rating || null);
+      setCompletedNotes(book.notes || '');
       const sessions = readingSessions.filter(s => s.bookId === book.id);
       if (sessions.length > 0) {
         const bookSeconds = sessions.reduce((acc, s) => acc + s.timeSpent, 0);
@@ -303,12 +338,23 @@ const BookManager = () => {
         const m = Math.floor((bookSeconds % 3600) / 60);
 
         setCompletedBookStats({
+          id: book.id,
           name: book.name,
           coverUrl: book.coverUrl || null,
           timeStr: `${h}h ${m}m`,
           pages: pagesRead,
           speed: Math.round(bookSpeed),
           precisionStr
+        });
+      } else {
+        setCompletedBookStats({
+          id: book.id,
+          name: book.name,
+          coverUrl: book.coverUrl || null,
+          timeStr: null,
+          pages: null,
+          speed: null,
+          precisionStr: ''
         });
       }
     }
@@ -551,6 +597,26 @@ const BookManager = () => {
 
                       {/* Metadata Pills */}
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+                        {book.rating && (
+                          <Box
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.3,
+                              px: 0.9,
+                              py: 0.2,
+                              borderRadius: 9999,
+                              bgcolor: alpha(theme.palette.warning.main, isDark ? 0.2 : 0.14),
+                              color: isDark ? '#FDD663' : '#C25E00',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            <StarIcon sx={{ fontSize: 12 }} />
+                            {book.rating}/10
+                          </Box>
+                        )}
                         {book.series && (
                           <Box
                             sx={{
@@ -725,7 +791,7 @@ const BookManager = () => {
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.25, pt: '12px !important' }}>
-          {/* Cover Preview & Search Row */}
+          {/* Cover & Auto-Fill Search Row */}
           <Box
             sx={{
               display: 'flex',
@@ -739,7 +805,7 @@ const BookManager = () => {
             <BookCover coverUrl={formCoverUrl} title={formName} width={56} height={84} borderRadius="10px" />
             <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                Buchcover (Google Books & Open Library)
+                Auto-Fill: Cover, Autor &amp; Seitenzahl suchen
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Button
@@ -750,7 +816,7 @@ const BookManager = () => {
                   disabled={!formName.trim() || isSearchingCovers}
                   sx={{ borderRadius: 9999 }}
                 >
-                  {isSearchingCovers ? 'Suche...' : 'Cover suchen'}
+                  {isSearchingCovers ? 'Suche...' : 'Buch & Cover suchen'}
                 </Button>
                 {formCoverUrl && (
                   <Button
@@ -766,11 +832,17 @@ const BookManager = () => {
             </Box>
           </Box>
 
-          {/* Cover Search Results Strip */}
+          {autoFillNotice && (
+            <Typography variant="caption" color="success.main" fontWeight={600}>
+              ✓ {autoFillNotice}
+            </Typography>
+          )}
+
+          {/* Auto-Fill Search Results Strip */}
           {coverCandidates.length > 0 && (
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Passendes Cover antippen:
+                Treffer antippen (übernimmt Cover, Autor &amp; Seitenzahl):
               </Typography>
               <Box sx={{ display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5 }}>
                 {coverCandidates.map((cand, idx) => {
@@ -778,19 +850,42 @@ const BookManager = () => {
                   return (
                     <Box
                       key={idx}
-                      onClick={() => setFormCoverUrl(cand.url)}
+                      onClick={() => handlePickSearchCandidate(cand)}
                       sx={{
                         cursor: 'pointer',
-                        p: 0.5,
-                        borderRadius: '12px',
+                        p: 1,
+                        width: 108,
+                        borderRadius: '14px',
                         border: '2px solid',
                         borderColor: selected ? 'primary.main' : 'transparent',
-                        bgcolor: selected ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
+                        bgcolor: selected ? alpha(theme.palette.primary.main, 0.14) : 'background.surfaceVariant',
                         flexShrink: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        gap: 0.5,
                         transition: 'border-color 0.15s ease',
                       }}
                     >
-                      <BookCover coverUrl={cand.url} title={cand.title} width={56} height={84} borderRadius="8px" />
+                      <BookCover coverUrl={cand.url} title={cand.title} width={54} height={80} borderRadius="7px" />
+                      <Typography
+                        variant="caption"
+                        fontWeight={600}
+                        sx={{
+                          fontSize: '0.68rem',
+                          lineHeight: 1.15,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {cand.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.62rem', lineHeight: 1.1 }}>
+                        {cand.pageCount ? `${cand.pageCount} S.` : cand.source}
+                      </Typography>
                     </Box>
                   );
                 })}
@@ -799,7 +894,7 @@ const BookManager = () => {
           )}
           {coverSearchDone && coverCandidates.length === 0 && (
             <Typography variant="caption" color="text.secondary">
-              Kein passendes Cover gefunden. Du kannst auch unten direkt eine Bild-URL einfügen.
+              Kein passender Treffer gefunden. Du kannst auch unten direkt eine Bild-URL einfügen.
             </Typography>
           )}
 
@@ -844,7 +939,7 @@ const BookManager = () => {
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Reihe, Universum & Cover-URL
+              Reihe, Universum &amp; Cover-URL
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1.5 }}>
               <Autocomplete
@@ -877,6 +972,62 @@ const BookManager = () => {
               size="small"
               fullWidth
               placeholder="https://..."
+            />
+          </Box>
+
+          {/* 1-10 Rating & Short Note */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Bewertung &amp; Notiz (optional)
+              </Typography>
+              {formRating && (
+                <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#FDD663' : '#C25E00', fontVariantNumeric: 'tabular-nums' }}>
+                  ★ {formRating} / 10
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))', gap: 0.5 }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                const active = formRating === num;
+                const filled = formRating && num <= formRating;
+                return (
+                  <Box
+                    key={num}
+                    onClick={() => setFormRating(active ? null : num)}
+                    sx={{
+                      py: 0.65,
+                      borderRadius: '10px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums',
+                      bgcolor: filled
+                        ? alpha(theme.palette.warning.main, isDark ? 0.28 : 0.2)
+                        : 'background.surfaceVariant',
+                      color: filled ? (isDark ? '#FDD663' : '#B45309') : 'text.secondary',
+                      border: '1px solid',
+                      borderColor: active ? 'warning.main' : 'transparent',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    {num}
+                  </Box>
+                );
+              })}
+            </Box>
+            <TextField
+              label="Kurzes Fazit oder Lieblingszitat"
+              value={formNotes}
+              onChange={(e) => setFormNotes(e.target.value)}
+              size="small"
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={4}
+              placeholder="Was hat dir besonders gefallen?"
             />
           </Box>
         </DialogContent>
@@ -1015,50 +1166,111 @@ const BookManager = () => {
                 {completedBookStats.name}
               </Typography>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.25, mt: 2.5 }}>
-                <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
-                  <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {completedBookStats.timeStr}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">Lesezeit</Typography>
+              {completedBookStats.timeStr && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.25, mt: 2.5 }}>
+                  <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
+                    <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {completedBookStats.timeStr}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">Lesezeit</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
+                    <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {completedBookStats.pages}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">Seiten</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
+                    <Typography variant="h6" fontWeight={700} color="primary.main" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {completedBookStats.speed}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">Seiten/h</Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
-                  <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {completedBookStats.pages}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">Seiten</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: 'background.surfaceVariant' }}>
-                  <Typography variant="h6" fontWeight={700} color="primary.main" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {completedBookStats.speed}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">Seiten/h</Typography>
-                </Box>
-              </Box>
+              )}
 
               {completedBookStats.precisionStr && (
                 <Box
                   sx={{
                     mt: 2,
-                    p: 1.75,
+                    p: 1.5,
                     borderRadius: '16px',
                     bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.08),
                   }}
                 >
-                  <Typography variant="body2" fontWeight={600} color="text.primary">
+                  <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: '0.84rem' }}>
                     {completedBookStats.precisionStr}
                   </Typography>
                 </Box>
               )}
+
+              {/* Quick 1-10 Rating & Fazit right on completion */}
+              <Box sx={{ mt: 2.5, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Deine Bewertung (1–10)
+                  </Typography>
+                  {completedRating && (
+                    <Typography variant="caption" fontWeight={700} sx={{ color: isDark ? '#FDD663' : '#C25E00', fontVariantNumeric: 'tabular-nums' }}>
+                      ★ {completedRating}/10
+                    </Typography>
+                  )}
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))', gap: 0.4 }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                    const active = completedRating === num;
+                    const filled = completedRating && num <= completedRating;
+                    return (
+                      <Box
+                        key={num}
+                        onClick={() => setCompletedRating(active ? null : num)}
+                        sx={{
+                          py: 0.6,
+                          borderRadius: '8px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          fontVariantNumeric: 'tabular-nums',
+                          bgcolor: filled
+                            ? alpha(theme.palette.warning.main, isDark ? 0.28 : 0.2)
+                            : 'background.surfaceVariant',
+                          color: filled ? (isDark ? '#FDD663' : '#B45309') : 'text.secondary',
+                          border: '1px solid',
+                          borderColor: active ? 'warning.main' : 'transparent',
+                        }}
+                      >
+                        {num}
+                      </Box>
+                    );
+                  })}
+                </Box>
+                <TextField
+                  label="Kurzes Fazit / Lieblingszitat (optional)"
+                  value={completedNotes}
+                  onChange={(e) => setCompletedNotes(e.target.value)}
+                  size="small"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  maxRows={4}
+                />
+              </Box>
             </>
           )}
           <Button
             fullWidth
             variant="contained"
-            onClick={() => setCompletedBookStats(null)}
-            sx={{ mt: 3, borderRadius: 9999, py: 1.1 }}
+            onClick={async () => {
+              if (completedBookStats?.id && (completedRating !== null || completedNotes.trim())) {
+                await updateBookReview(completedBookStats.id, completedRating, completedNotes);
+              }
+              setCompletedBookStats(null);
+            }}
+            sx={{ mt: 2.5, borderRadius: 9999, py: 1.1 }}
           >
-            Super!
+            {(completedRating !== null || completedNotes.trim()) ? 'Speichern & Schließen' : 'Super!'}
           </Button>
         </DialogContent>
       </Dialog>

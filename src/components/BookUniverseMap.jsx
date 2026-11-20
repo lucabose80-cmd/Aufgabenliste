@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
-import { Box, Card, Typography, Collapse, LinearProgress, Dialog, DialogContent, IconButton } from '@mui/material';
+import { Box, Card, Typography, Collapse, LinearProgress, Dialog, DialogContent, IconButton, TextField, Button } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import PublicIcon from '@mui/icons-material/Public';
 import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
@@ -9,6 +9,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import MapIcon from '@mui/icons-material/Map';
+import StarIcon from '@mui/icons-material/Star';
 import { ReactFlow, Handle, Position, Background, Controls } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import BookCover from './BookCover';
@@ -194,14 +195,33 @@ const CoverShelfTile = ({ book, onSelect, isDark }) => (
 );
 
 const BookUniverseMap = () => {
-  const { books, readingSessions } = useTaskContext();
+  const { books, readingSessions, updateBookReview } = useTaskContext();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   const [viewMode, setViewMode] = useState('explorer'); // 'explorer' | '2d'
   const [selectedFilter, setSelectedFilter] = useState('all'); // 'all' | 'uni:<name>' | 'series' | 'standalone'
   const [collapsedNodes, setCollapsedNodes] = useState({});
-  const [selectedBook, setSelectedBook] = useState(null);
+  const [selectedBookId, setSelectedBookId] = useState(null);
+  const [detailRating, setDetailRating] = useState(null);
+  const [detailNotes, setDetailNotes] = useState('');
+  const [reviewSaved, setReviewSaved] = useState(false);
+
+  const selectedBook = useMemo(
+    () => books.find(b => b.id === selectedBookId) || null,
+    [books, selectedBookId]
+  );
+
+  const setSelectedBook = (book) => {
+    if (book) {
+      setSelectedBookId(book.id);
+      setDetailRating(book.rating || null);
+      setDetailNotes(book.notes || '');
+      setReviewSaved(false);
+    } else {
+      setSelectedBookId(null);
+    }
+  };
 
   const toggleNode = (key) => {
     setCollapsedNodes(prev => ({ ...prev, [key]: !prev[key] }));
@@ -699,6 +719,84 @@ const BookUniverseMap = () => {
                 )}
               </Box>
             )}
+
+            {/* 1-10 Rating & Short Note / Quote */}
+            <Box sx={{ mt: 2.25, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Bewertung &amp; Fazit
+                </Typography>
+                {detailRating && (
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, color: isDark ? '#FDD663' : '#C25E00', fontSize: '0.76rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    <StarIcon sx={{ fontSize: 14 }} />
+                    {detailRating}/10
+                  </Box>
+                )}
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))', gap: 0.4 }}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                  const active = detailRating === num;
+                  const filled = detailRating && num <= detailRating;
+                  return (
+                    <Box
+                      key={num}
+                      onClick={() => {
+                        setDetailRating(active ? null : num);
+                        setReviewSaved(false);
+                      }}
+                      sx={{
+                        py: 0.6,
+                        borderRadius: '8px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        fontVariantNumeric: 'tabular-nums',
+                        bgcolor: filled
+                          ? alpha(theme.palette.warning.main, isDark ? 0.28 : 0.2)
+                          : 'background.surfaceVariant',
+                        color: filled ? (isDark ? '#FDD663' : '#B45309') : 'text.secondary',
+                        border: '1px solid',
+                        borderColor: active ? 'warning.main' : 'transparent',
+                      }}
+                    >
+                      {num}
+                    </Box>
+                  );
+                })}
+              </Box>
+              <TextField
+                label="Kurzes Fazit oder Lieblingszitat"
+                value={detailNotes}
+                onChange={(e) => {
+                  setDetailNotes(e.target.value);
+                  setReviewSaved(false);
+                }}
+                size="small"
+                fullWidth
+                multiline
+                minRows={2}
+                maxRows={4}
+                placeholder="Gedanken oder Zitat zum Buch..."
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" color="success.main" fontWeight={600}>
+                  {reviewSaved ? '✓ Gespeichert' : ''}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={async () => {
+                    await updateBookReview(selectedBook.id, detailRating, detailNotes);
+                    setReviewSaved(true);
+                  }}
+                  sx={{ borderRadius: 9999, px: 2.25 }}
+                >
+                  Speichern
+                </Button>
+              </Box>
+            </Box>
           </DialogContent>
         )}
       </Dialog>

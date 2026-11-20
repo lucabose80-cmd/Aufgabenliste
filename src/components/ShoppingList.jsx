@@ -285,22 +285,56 @@ const ShoppingList = () => {
     }
   };
 
-  const handleAddItem = async (e) => {
-    e.preventDefault();
-    if (!newItemText.trim() || !user || !activeList) return;
+  const addItemToList = async (text, quantity = '1', unit = 'x', category = 'daily') => {
+    const cleanText = (text || '').trim();
+    if (!cleanText || !user || !activeList) return;
     let myName = user.email;
     try {
       const snap = await getDocs(query(collection(db, 'users'), where('uid', '==', user.uid)));
       if (!snap.empty && snap.docs[0].data().displayName) myName = snap.docs[0].data().displayName;
     } catch {}
-    const catItems = items.filter(i => (i.category || 'daily') === newCategory);
+    const catItems = items.filter(i => (i.category || 'daily') === category);
     const maxOrder = catItems.reduce((m, i) => Math.max(m, i.order || 0), 0);
     const id = uuidv4();
     await setDoc(doc(db, 'shared_lists', activeList.id, 'items', id), {
-      text: newItemText.trim(), quantity: newQuantity.trim() || '1', unit: newUnit,
-      completed: false, createdAt: serverTimestamp(), addedBy: myName,
-      category: newCategory, order: maxOrder + 10
+      text: cleanText,
+      quantity: (quantity || '1').toString().trim() || '1',
+      unit: unit || 'x',
+      completed: false,
+      createdAt: serverTimestamp(),
+      addedBy: myName,
+      category,
+      order: maxOrder + 10
     });
+
+    // Track frequency for "Häufig gekauft" quick-add chips
+    try {
+      const key = cleanText.toLowerCase().replace(/[.#$/\[\]]/g, '_');
+      const existingFreq = activeList.frequentItems || {};
+      const prev = existingFreq[key];
+      await setDoc(
+        doc(db, 'shared_lists', activeList.id),
+        {
+          frequentItems: {
+            [key]: {
+              text: cleanText,
+              count: (prev?.count || 0) + 1,
+              category,
+              unit: unit || 'x',
+              quantity: (quantity || '1').toString().trim() || '1',
+              lastUsed: new Date().toISOString(),
+            },
+          },
+        },
+        { merge: true }
+      );
+    } catch {}
+  };
+
+  const handleAddItem = async (e) => {
+    e.preventDefault();
+    if (!newItemText.trim() || !user || !activeList) return;
+    await addItemToList(newItemText, newQuantity, newUnit, newCategory);
     setNewItemText('');
     setNewQuantity('1');
   };
@@ -476,6 +510,80 @@ const ShoppingList = () => {
         </Box>
       ) : (
         <>
+          {/* Schnell-Chips: Häufig gekauft */}
+          {(() => {
+            const openTextSet = new Set(
+              items.filter(i => !i.completed).map(i => (i.text || '').trim().toLowerCase())
+            );
+            const freqMap = activeList.frequentItems || {};
+            let suggestions = Object.values(freqMap)
+              .filter(entry => entry?.text && !openTextSet.has(entry.text.trim().toLowerCase()))
+              .sort((a, b) => (b.count || 0) - (a.count || 0))
+              .slice(0, 8);
+
+            // Seed from recently completed items if frequentItems is still empty
+            if (suggestions.length === 0 && completedItems.length > 0) {
+              const seen = new Set();
+              suggestions = completedItems
+                .filter(i => {
+                  const k = (i.text || '').trim().toLowerCase();
+                  if (!k || openTextSet.has(k) || seen.has(k)) return false;
+                  seen.add(k);
+                  return true;
+                })
+                .slice(0, 8)
+                .map(i => ({ text: i.text, category: i.category || 'daily', unit: i.unit || 'x', quantity: i.quantity || '1' }));
+            }
+
+            if (suggestions.length === 0) return null;
+
+            return (
+              <Box sx={{ mb: 2.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={700}
+                  sx={{ display: 'block', mb: 1, px: 0.5, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.68rem' }}
+                >
+                  Häufig gekauft
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.85, flexWrap: 'wrap' }}>
+                  {suggestions.map((entry) => (
+                    <Box
+                      key={entry.text}
+                      onClick={() => addItemToList(entry.text, entry.quantity || '1', entry.unit || 'x', entry.category || 'daily')}
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        px: 1.4,
+                        py: 0.55,
+                        borderRadius: 9999,
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        color: 'text.primary',
+                        fontSize: '0.78rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        transition: 'border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.08),
+                        },
+                        '&:active': { transform: 'scale(0.95)' },
+                      }}
+                    >
+                      <AddIcon sx={{ fontSize: 14, color: 'primary.main' }} />
+                      {entry.text}
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            );
+          })()}
+
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}

@@ -33,6 +33,7 @@ async function searchAppleBooks(query, country = 'de') {
         url: normalizeCoverUrl(highRes),
         title: item.trackName || query,
         author: item.artistName || '',
+        pageCount: null,
         source: 'Apple Books',
       };
     });
@@ -40,7 +41,7 @@ async function searchAppleBooks(query, country = 'de') {
 
 async function searchOpenLibrary(query) {
   const res = await fetch(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=title,author_name,cover_i&limit=8`
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=title,author_name,cover_i,number_of_pages_median&limit=8`
   );
   if (!res.ok) return [];
   const data = await res.json();
@@ -51,6 +52,7 @@ async function searchOpenLibrary(query) {
       url: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
       title: doc.title || query,
       author: Array.isArray(doc.author_name) ? doc.author_name.join(', ') : '',
+      pageCount: Number(doc.number_of_pages_median) > 0 ? Number(doc.number_of_pages_median) : null,
       source: 'Open Library',
     }));
 }
@@ -72,6 +74,7 @@ async function searchGoogleBooks(query) {
         url: normalizeCoverUrl(thumb),
         title: info.title || query,
         author: Array.isArray(info.authors) ? info.authors.join(', ') : '',
+        pageCount: Number(info.pageCount) > 0 ? Number(info.pageCount) : null,
         source: 'Google Books',
       };
     })

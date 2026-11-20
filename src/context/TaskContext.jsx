@@ -771,7 +771,8 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null) => {
+  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '') => {
+    const parsedRating = rating !== null && rating !== '' && rating !== undefined ? parseInt(rating, 10) : null;
     const newBook = {
       id: uuidv4(),
       name,
@@ -783,15 +784,20 @@ export const TaskProvider = ({ children }) => {
       universe: universe || '',
       totalPages: totalPages ? parseInt(totalPages, 10) : null,
       coverUrl: coverUrl || null,
+      rating: parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null,
+      notes: (notes || '').trim(),
       createdAt: new Date().toISOString()
     };
     if (!user) setBooks(prev => [...prev, newBook]);
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
+    const resolvedRating = rating !== undefined
+      ? (rating !== null && rating !== '' ? parseInt(rating, 10) : null)
+      : (book.rating || null);
     const updatedBook = { 
       ...book, 
       name, 
@@ -803,6 +809,8 @@ export const TaskProvider = ({ children }) => {
       universe: universe !== undefined ? universe : (book.universe || ''),
       totalPages: totalPages !== undefined ? (totalPages ? parseInt(totalPages, 10) : null) : book.totalPages,
       coverUrl: coverUrl !== undefined ? (coverUrl || null) : (book.coverUrl || null),
+      rating: resolvedRating && resolvedRating >= 1 && resolvedRating <= 10 ? resolvedRating : null,
+      notes: notes !== undefined ? (notes || '').trim() : (book.notes || ''),
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook);
@@ -812,6 +820,19 @@ export const TaskProvider = ({ children }) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const updatedBook = { ...book, coverUrl: coverUrl || null };
+    if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
+  };
+
+  const updateBookReview = async (id, rating, notes) => {
+    const book = books.find(b => b.id === id);
+    if (!book) return;
+    const parsedRating = rating !== null && rating !== '' && rating !== undefined ? parseInt(rating, 10) : null;
+    const updatedBook = {
+      ...book,
+      rating: parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null,
+      notes: (notes || '').trim(),
+    };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
   };
@@ -1070,6 +1091,7 @@ export const TaskProvider = ({ children }) => {
       addBook,
       updateBook,
       updateBookCover,
+      updateBookReview,
       deleteBook,
       renameAuthor,
       deleteAuthor,
