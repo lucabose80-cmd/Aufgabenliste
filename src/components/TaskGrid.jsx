@@ -1329,21 +1329,21 @@ const TaskGrid = () => {
       {!isOnline && (
         <Box
           sx={{
-            px: 2.5,
-            py: 1.5,
-            bgcolor: alpha(muiTheme.palette.error.main, isDark ? 0.18 : 0.1),
-            color: 'error.main',
+            px: 2.25,
+            py: 1.25,
+            bgcolor: alpha(muiTheme.palette.warning.main, isDark ? 0.14 : 0.1),
+            color: 'warning.main',
             border: '1px solid',
-            borderColor: alpha(muiTheme.palette.error.main, 0.3),
+            borderColor: alpha(muiTheme.palette.warning.main, 0.35),
             borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
-            gap: 1.5,
+            gap: 1.25,
           }}
         >
           <WifiOffIcon fontSize="small" />
-          <Typography variant="body2" fontWeight={600}>
-            Du bist offline. Aufgaben können derzeit nicht synchronisiert werden. Nur die Lesegeschwindigkeit ist verfügbar.
+          <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.84rem' }}>
+            Offline-Modus aktiv — Änderungen werden lokal gespeichert und automatisch synchronisiert, sobald du wieder online bist.
           </Typography>
         </Box>
       )}

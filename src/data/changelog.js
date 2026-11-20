@@ -1,6 +1,14 @@
-export const APP_VERSION = '2.0.4';
+export const APP_VERSION = '2.0.5';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.0.5',
+    date: '20.11.2026',
+    title: 'Offline-Hinweis aktualisiert',
+    highlights: [
+      'Der veraltete rote Offline-Fehlerbanner auf der Aufgabenseite wurde durch einen dezenten Hinweis ersetzt, dass Änderungen lokal gespeichert und später automatisch synchronisiert werden.',
+    ],
+  },
   {
     version: '2.0.4',
     date: '19.11.2026',
