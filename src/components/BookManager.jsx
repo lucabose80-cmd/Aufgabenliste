@@ -34,7 +34,7 @@ import {
   getLanguageMeta,
   isBilingual,
 } from '../utils/bookLanguages';
-import { PRESET_BOOK_CATEGORIES, normalizeCategories } from '../utils/bookCategories';
+import { PRESET_BOOK_CATEGORIES, normalizeCategories, PRESET_BOOK_TAGS, normalizeTags } from '../utils/bookCategories';
 
 const BookManager = () => {
   const {
@@ -48,6 +48,7 @@ const BookManager = () => {
   const [expandedCompleted, setExpandedCompleted] = useState(false);
   const [languageFilter, setLanguageFilter] = useState('all'); // 'all' | 'bilingual' | 'de' | 'en' | ...
   const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | '<category>'
+  const [tagFilter, setTagFilter] = useState('all'); // 'all' | '<tag>'
   const [sortBy, setSortBy] = useState('default'); // 'default' | 'category' | 'rating' | 'title'
   const [sortMenuAnchor, setSortMenuAnchor] = useState(null);
 
@@ -67,6 +68,7 @@ const BookManager = () => {
   const [formLanguages, setFormLanguages] = useState([]);
   const [formEditions, setFormEditions] = useState({});
   const [formCategories, setFormCategories] = useState([]);
+  const [formTags, setFormTags] = useState([]);
   const [formReviewLang, setFormReviewLang] = useState(null);
 
   // Mandatory cover picker for adding English / 2nd+ language or changing an edition cover
@@ -118,6 +120,11 @@ const BookManager = () => {
     books.forEach(b => normalizeCategories(b).forEach(c => set.add(c)));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [books]);
+  const availableTags = useMemo(() => {
+    const set = new Set();
+    books.forEach(b => normalizeTags(b).forEach(t => set.add(t)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [books]);
 
   const seriesAuthorMap = useMemo(() => {
     return books.reduce((acc, book) => {
@@ -133,6 +140,8 @@ const BookManager = () => {
     books.forEach((book) => {
       const bookCats = normalizeCategories(book);
       if (categoryFilter !== 'all' && !bookCats.includes(categoryFilter)) return;
+      const bookTags = normalizeTags(book);
+      if (tagFilter !== 'all' && !bookTags.includes(tagFilter)) return;
 
       const langs = normalizeLanguages(book);
       if (languageFilter === 'bilingual' && !isBilingual(langs)) return;
@@ -153,6 +162,7 @@ const BookManager = () => {
             notes: ed.notes || '',
             totalPages: ed.totalPages || book.totalPages || null,
             categories: bookCats,
+            tags: bookTags,
           });
         });
       } else {
@@ -171,6 +181,7 @@ const BookManager = () => {
           notes: singleEd ? (singleEd.notes || '') : (book.notes || ''),
           totalPages: singleEd?.totalPages || book.totalPages || null,
           categories: bookCats,
+          tags: bookTags,
         });
       }
     });
@@ -199,7 +210,7 @@ const BookManager = () => {
       if (titleCmp !== 0) return titleCmp;
       return (a.langCode || '').localeCompare(b.langCode || '');
     });
-  }, [books, languageFilter, categoryFilter, sortBy]);
+  }, [books, languageFilter, categoryFilter, tagFilter, sortBy]);
 
   const activeEntries = useMemo(() => trackingEntries.filter(e => !e.completed), [trackingEntries]);
   const completedEntries = useMemo(() => trackingEntries.filter(e => e.completed), [trackingEntries]);
@@ -225,6 +236,7 @@ const BookManager = () => {
     setFormLanguages([]);
     setFormEditions({});
     setFormCategories([]);
+    setFormTags([]);
     setFormReviewLang(null);
     setCoverCandidates([]);
     setCoverSearchDone(false);
@@ -257,6 +269,7 @@ const BookManager = () => {
     setFormLanguages(langs);
     setFormEditions(normalizedEds);
     setFormCategories(normalizeCategories(book));
+    setFormTags(normalizeTags(book));
     setFormReviewLang(focusLangCode && langs.includes(focusLangCode) ? focusLangCode : (langs[0] || null));
     setCoverCandidates([]);
     setCoverSearchDone(false);
@@ -304,6 +317,13 @@ const BookManager = () => {
       if (normalized.length > 0) {
         setFormCategories(normalized);
         filled.push('Kategorie');
+      }
+    }
+    if (Array.isArray(cand.tags) && cand.tags.length > 0 && formTags.length === 0) {
+      const normalized = normalizeTags(cand.tags);
+      if (normalized.length > 0) {
+        setFormTags(normalized);
+        filled.push('Tags');
       }
     }
     setAutoFillNotice(`Automatisch übernommen: ${filled.join(', ')}`);
@@ -445,7 +465,8 @@ const BookManager = () => {
         primaryNotes,
         formLanguages,
         normalizedEditions,
-        formCategories
+        formCategories,
+        formTags
       );
     } else {
       addBook(
@@ -461,7 +482,8 @@ const BookManager = () => {
         primaryNotes,
         formLanguages,
         normalizedEditions,
-        formCategories
+        formCategories,
+        formTags
       );
     }
     setBookModalOpen(false);
@@ -662,17 +684,17 @@ const BookManager = () => {
                 </Button>
               </Tooltip>
             )}
-            <Tooltip title="Sortieren & nach Kategorie filtern">
+            <Tooltip title="Sortieren & nach Kategorie / Tag filtern">
               <IconButton
                 size="small"
                 onClick={(e) => setSortMenuAnchor(e.currentTarget)}
                 sx={{
                   border: '1px solid',
-                  borderColor: (sortBy !== 'default' || categoryFilter !== 'all') ? 'primary.main' : 'divider',
-                  bgcolor: (sortBy !== 'default' || categoryFilter !== 'all')
+                  borderColor: (sortBy !== 'default' || categoryFilter !== 'all' || tagFilter !== 'all') ? 'primary.main' : 'divider',
+                  bgcolor: (sortBy !== 'default' || categoryFilter !== 'all' || tagFilter !== 'all')
                     ? alpha(theme.palette.primary.main, isDark ? 0.18 : 0.1)
                     : 'transparent',
-                  color: (sortBy !== 'default' || categoryFilter !== 'all') ? 'primary.main' : 'text.secondary',
+                  color: (sortBy !== 'default' || categoryFilter !== 'all' || tagFilter !== 'all') ? 'primary.main' : 'text.secondary',
                 }}
               >
                 <TuneIcon sx={{ fontSize: 18 }} />
@@ -682,7 +704,7 @@ const BookManager = () => {
               anchorEl={sortMenuAnchor}
               open={Boolean(sortMenuAnchor)}
               onClose={() => setSortMenuAnchor(null)}
-              PaperProps={{ sx: { borderRadius: '16px', minWidth: 205, maxHeight: 380 } }}
+              PaperProps={{ sx: { borderRadius: '16px', minWidth: 205, maxHeight: 420 } }}
             >
               <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 2, py: 0.65, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.66rem' }}>
                 Sortierung
@@ -741,6 +763,42 @@ const BookManager = () => {
                   </MenuItem>
                 )),
               ]}
+              {availableTags.length > 0 && [
+                <Divider key="tag-div" sx={{ my: 0.75 }} />,
+                <Typography
+                  key="tag-head"
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight={700}
+                  sx={{ px: 2, py: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.66rem' }}
+                >
+                  Tag filtern
+                </Typography>,
+                <MenuItem
+                  key="tag-all"
+                  selected={tagFilter === 'all'}
+                  onClick={() => {
+                    setTagFilter('all');
+                    setSortMenuAnchor(null);
+                  }}
+                  sx={{ fontSize: '0.84rem' }}
+                >
+                  Alle Tags
+                </MenuItem>,
+                ...availableTags.map((t) => (
+                  <MenuItem
+                    key={`tag-${t}`}
+                    selected={tagFilter === t}
+                    onClick={() => {
+                      setTagFilter(t);
+                      setSortMenuAnchor(null);
+                    }}
+                    sx={{ fontSize: '0.84rem' }}
+                  >
+                    #{t}
+                  </MenuItem>
+                )),
+              ]}
             </Menu>
             <Button
               startIcon={<SettingsIcon fontSize="small" />}
@@ -763,7 +821,7 @@ const BookManager = () => {
           </Box>
         </Box>
 
-        {(availableLanguages.length > 0 || categoryFilter !== 'all' || sortBy !== 'default') && (
+        {(availableLanguages.length > 0 || categoryFilter !== 'all' || tagFilter !== 'all' || sortBy !== 'default') && (
           <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', mb: 2, pb: 0.25, alignItems: 'center' }}>
             {availableLanguages.length > 0 && [
               { id: 'all', label: 'Alle Sprachen' },
@@ -822,6 +880,31 @@ const BookManager = () => {
                 }}
               >
                 <span>{categoryFilter}</span>
+                <CloseIcon sx={{ fontSize: 12 }} />
+              </Box>
+            )}
+            {tagFilter !== 'all' && (
+              <Box
+                onClick={() => setTagFilter('all')}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.4,
+                  px: 1.2,
+                  py: 0.45,
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  flexShrink: 0,
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  bgcolor: alpha(theme.palette.secondary.main, isDark ? 0.18 : 0.12),
+                  border: '1px solid',
+                  borderColor: alpha(theme.palette.secondary.main, 0.35),
+                  color: 'secondary.main',
+                }}
+              >
+                <span>#{tagFilter}</span>
                 <CloseIcon sx={{ fontSize: 12 }} />
               </Box>
             )}
@@ -891,7 +974,7 @@ const BookManager = () => {
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              {(languageFilter !== 'all' || categoryFilter !== 'all')
+              {(languageFilter !== 'all' || categoryFilter !== 'all' || tagFilter !== 'all')
                 ? 'Keine aktiven Bücher für diesen Filter.'
                 : 'Noch keine aktiven Bücher vorhanden. Füge dein aktuelles Buch hinzu!'}
             </Typography>
@@ -1609,6 +1692,59 @@ const BookManager = () => {
                 />
               )}
             />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              <Autocomplete
+                multiple
+                freeSolo
+                size="small"
+                options={Array.from(new Set([...PRESET_BOOK_TAGS, ...availableTags]))}
+                value={formTags}
+                onChange={(_, val) => setFormTags(normalizeTags(val))}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Tags / Elemente (optional)"
+                    placeholder={formTags.length === 0 ? 'z. B. Magie, Drachen, Schwertkampf, Moderne...' : ''}
+                    size="small"
+                    fullWidth
+                  />
+                )}
+              />
+              <Box sx={{ display: 'flex', gap: 0.55, overflowX: 'auto', pb: 0.25 }}>
+                {PRESET_BOOK_TAGS.slice(0, 12).map((tag) => {
+                  const active = formTags.includes(tag);
+                  return (
+                    <Box
+                      key={tag}
+                      onClick={() => {
+                        setFormTags((prev) =>
+                          prev.includes(tag) ? prev.filter((t) => t !== tag) : normalizeTags([...prev, tag])
+                        );
+                      }}
+                      sx={{
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: 9999,
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        flexShrink: 0,
+                        fontSize: '0.68rem',
+                        fontWeight: active ? 700 : 500,
+                        bgcolor: active
+                          ? alpha(theme.palette.secondary.main, isDark ? 0.24 : 0.14)
+                          : 'background.surfaceVariant',
+                        border: '1px solid',
+                        borderColor: active ? 'secondary.main' : 'transparent',
+                        color: active ? 'secondary.main' : 'text.secondary',
+                        transition: 'all 0.12s ease',
+                      }}
+                    >
+                      {active ? `✓ ${tag}` : `+ ${tag}`}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
             <TextField
               label="Cover Bild-URL (optional)"
               value={formCoverUrl}

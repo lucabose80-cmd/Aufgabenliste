@@ -1,4 +1,4 @@
-import { inferCategoriesFromApi } from './bookCategories';
+import { inferCategoriesFromApi, inferTagsFromApi } from './bookCategories';
 
 // Fetches book cover images via Apple Books (iTunes Search API, country=de),
 // Open Library Search API, and Google Books API in parallel.
@@ -41,6 +41,7 @@ async function searchAppleBooks(query, country = 'de') {
         rawGenres,
         description,
         categories: inferCategoriesFromApi(rawGenres, description),
+        tags: inferTagsFromApi(rawGenres, description),
         source: 'Apple Books',
       };
     });
@@ -65,6 +66,7 @@ async function searchOpenLibrary(query, requireCover = true) {
         rawGenres: rawSubjects,
         description: '',
         categories: inferCategoriesFromApi(rawSubjects),
+        tags: inferTagsFromApi(rawSubjects),
         source: 'Open Library',
       };
     });
@@ -94,6 +96,7 @@ async function searchGoogleBooks(query, langCode = null, requireCover = true) {
         rawGenres,
         description,
         categories: inferCategoriesFromApi(rawGenres, description),
+        tags: inferTagsFromApi(rawGenres, description),
         source: 'Google Books',
       };
     })
@@ -177,14 +180,14 @@ const isRelevantMatch = (item, titleWords, authorWords) => {
 };
 
 /**
- * Fetches and combines genre signals across Open Library (subjects), Apple Books (genres + blurb),
- * and Google Books (categories + description) for silent background genre classification.
+ * Fetches and combines genre + thematic tag signals across Open Library (subjects),
+ * Apple Books (genres + blurb), and Google Books (categories + description).
  */
-export async function fetchBookCategories(title, author = '', langCode = null) {
+export async function fetchBookGenresAndTags(title, author = '', langCode = null) {
   const cleanedTitle = cleanSearchTitle(title);
   const cleanedAuthor = (author || '').trim();
   const fullQuery = [cleanedTitle, cleanedAuthor].filter(Boolean).join(' ').trim();
-  if (!fullQuery) return [];
+  if (!fullQuery) return { categories: [], tags: [] };
 
   const normalizedLang = langCode ? String(langCode).trim().toLowerCase() : null;
   const appleCountry = (normalizedLang && LANG_TO_APPLE_COUNTRY[normalizedLang]) || 'de';
@@ -197,7 +200,7 @@ export async function fetchBookCategories(title, author = '', langCode = null) {
 
   let items = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
 
-  // If title + author returned nothing useful, retry with title only (e.g. German/English author spelling differences)
+  // If title + author returned nothing useful, retry with title only
   if (items.length === 0 && cleanedTitle && cleanedAuthor) {
     const retry = await Promise.allSettled([
       searchOpenLibrary(cleanedTitle, false),
@@ -207,7 +210,7 @@ export async function fetchBookCategories(title, author = '', langCode = null) {
     items = retry.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
   }
 
-  if (items.length === 0) return [];
+  if (items.length === 0) return { categories: [], tags: [] };
 
   const titleWords = tokenizeWords(cleanedTitle);
   const authorWords = tokenizeWords(cleanedAuthor);
@@ -221,5 +224,14 @@ export async function fetchBookCategories(title, author = '', langCode = null) {
     if (it.description) mergedDescriptions.push(it.description);
   });
 
-  return inferCategoriesFromApi(mergedTags, mergedDescriptions.join(' '));
+  const desc = mergedDescriptions.join(' ');
+  return {
+    categories: inferCategoriesFromApi(mergedTags, desc),
+    tags: inferTagsFromApi(mergedTags, desc),
+  };
+}
+
+export async function fetchBookCategories(title, author = '', langCode = null) {
+  const { categories } = await fetchBookGenresAndTags(title, author, langCode);
+  return categories;
 }

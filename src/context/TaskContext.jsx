@@ -15,8 +15,8 @@ import {
   normalizeLanguageEditions,
   computeBookCompletedFromEditions,
 } from '../utils/bookLanguages';
-import { normalizeCategories } from '../utils/bookCategories';
-import { fetchBookCategories } from '../utils/bookCoverApi';
+import { normalizeCategories, normalizeTags } from '../utils/bookCategories';
+import { fetchBookGenresAndTags } from '../utils/bookCoverApi';
 
 const TaskContext = createContext();
 
@@ -784,7 +784,7 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '', languages = [], languageEditions = undefined, categories = []) => {
+  const addBook = async (name, author, series, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = null, rating = null, notes = '', languages = [], languageEditions = undefined, categories = [], tags = []) => {
     const parsedRating = rating !== null && rating !== '' && rating !== undefined ? parseInt(rating, 10) : null;
     const cleanRating = parsedRating && parsedRating >= 1 && parsedRating <= 10 ? parsedRating : null;
     const cleanNotes = (notes || '').trim();
@@ -801,6 +801,7 @@ export const TaskProvider = ({ children }) => {
     );
     const primaryCover = coverUrl || (normalizedLangs.length > 0 ? normalizedEditions[normalizedLangs[0]]?.coverUrl || null : null);
     const normalizedCats = normalizeCategories(categories);
+    const normalizedTags = normalizeTags(tags);
     const newBook = {
       id: uuidv4(),
       name,
@@ -818,6 +819,8 @@ export const TaskProvider = ({ children }) => {
       languageEditions: normalizedEditions,
       categories: normalizedCats,
       categoriesAutoFetched: normalizedCats.length > 0,
+      tags: normalizedTags,
+      tagsAutoFetched: normalizedTags.length > 0,
       frontLanguage: null,
       createdAt: new Date().toISOString()
     };
@@ -825,7 +828,7 @@ export const TaskProvider = ({ children }) => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', newBook.id), newBook);
   };
 
-  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined, languages = undefined, languageEditions = undefined, categories = undefined) => {
+  const updateBook = async (id, name, author, series, completed, wordsPerPage, seriesNumber, universe, totalPages, coverUrl = undefined, rating = undefined, notes = undefined, languages = undefined, languageEditions = undefined, categories = undefined, tags = undefined) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
     const resolvedRating = rating !== undefined
@@ -837,6 +840,7 @@ export const TaskProvider = ({ children }) => {
     const resolvedLangs = languages !== undefined ? normalizeLanguages(languages) : normalizeLanguages(book);
     const resolvedCover = coverUrl !== undefined ? (coverUrl || null) : (book.coverUrl || null);
     const resolvedCategories = categories !== undefined ? normalizeCategories(categories) : normalizeCategories(book);
+    const resolvedTags = tags !== undefined ? normalizeTags(tags) : normalizeTags(book);
 
     let rawEditions = languageEditions !== undefined
       ? languageEditions
@@ -877,6 +881,7 @@ export const TaskProvider = ({ children }) => {
     const syncedCover = resolvedCover || (resolvedLangs.length > 0 ? normalizedEditions[resolvedLangs[0]]?.coverUrl || null : null);
     const syncedFrontLang = book.frontLanguage && resolvedLangs.includes(book.frontLanguage) ? book.frontLanguage : null;
     const manualCategoriesTouched = categories !== undefined && (resolvedCategories.length > 0 || normalizeCategories(book).length > 0);
+    const manualTagsTouched = tags !== undefined && (resolvedTags.length > 0 || normalizeTags(book).length > 0);
 
     const updatedBook = { 
       ...book, 
@@ -895,6 +900,8 @@ export const TaskProvider = ({ children }) => {
       languageEditions: normalizedEditions,
       categories: resolvedCategories,
       categoriesAutoFetched: manualCategoriesTouched ? true : !!book.categoriesAutoFetched,
+      tags: resolvedTags,
+      tagsAutoFetched: manualTagsTouched ? true : !!book.tagsAutoFetched,
       frontLanguage: syncedFrontLang,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
@@ -1088,6 +1095,18 @@ export const TaskProvider = ({ children }) => {
       ...book,
       categories: normalizeCategories(categories),
       categoriesAutoFetched: true,
+    };
+    if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
+    if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
+  };
+
+  const updateBookTags = async (id, tags) => {
+    const book = books.find(b => b.id === id);
+    if (!book) return;
+    const updatedBook = {
+      ...book,
+      tags: normalizeTags(tags),
+      tagsAutoFetched: true,
     };
     if (!user) setBooks(prev => prev.map(b => b.id === id ? updatedBook : b));
     if (user) await setDoc(doc(db, 'users', user.uid, 'books', id), updatedBook, { merge: true });
@@ -1334,7 +1353,7 @@ export const TaskProvider = ({ children }) => {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     if (genreEnrichRunningRef.current) return;
 
-    const storageKey = 'autoGenreEnrichV1';
+    const storageKey = 'autoGenreTagsEnrichV2';
     let attemptedSet;
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -1343,9 +1362,12 @@ export const TaskProvider = ({ children }) => {
       attemptedSet = new Set();
     }
 
-    const pending = books.filter(
-      (b) => b.name && normalizeCategories(b).length === 0 && !b.categoriesAutoFetched && !attemptedSet.has(b.id)
-    );
+    const pending = books.filter((b) => {
+      if (!b.name || attemptedSet.has(b.id)) return false;
+      const needsCats = normalizeCategories(b).length === 0 && !b.categoriesAutoFetched;
+      const needsTags = normalizeTags(b).length === 0 && !b.tagsAutoFetched;
+      return needsCats || needsTags;
+    });
     if (pending.length === 0) return;
 
     const uid = user?.uid || null;
@@ -1366,24 +1388,44 @@ export const TaskProvider = ({ children }) => {
 
           try {
             const primaryLang = normalizeLanguages(book)[0] || null;
-            const inferred = await fetchBookCategories(book.name, book.author || '', primaryLang);
+            const { categories: inferredCats, tags: inferredTags } = await fetchBookGenresAndTags(
+              book.name,
+              book.author || '',
+              primaryLang
+            );
             if (!isMountedRef.current) break;
 
-            if (inferred.length > 0) {
+            const needsCats = normalizeCategories(book).length === 0 && !book.categoriesAutoFetched;
+            const needsTags = normalizeTags(book).length === 0 && !book.tagsAutoFetched;
+            const patch = {};
+            if (needsCats && inferredCats.length > 0) {
+              patch.categories = inferredCats;
+              patch.categoriesAutoFetched = true;
+            }
+            if (needsTags && inferredTags.length > 0) {
+              patch.tags = inferredTags;
+              patch.tagsAutoFetched = true;
+            }
+
+            if (Object.keys(patch).length > 0) {
               if (!uid) {
                 setBooks((prev) =>
-                  prev.map((b) =>
-                    b.id === book.id && normalizeCategories(b).length === 0
-                      ? { ...b, categories: inferred, categoriesAutoFetched: true }
-                      : b
-                  )
+                  prev.map((b) => {
+                    if (b.id !== book.id) return b;
+                    const safePatch = {};
+                    if (patch.categories && normalizeCategories(b).length === 0) {
+                      safePatch.categories = patch.categories;
+                      safePatch.categoriesAutoFetched = true;
+                    }
+                    if (patch.tags && normalizeTags(b).length === 0) {
+                      safePatch.tags = patch.tags;
+                      safePatch.tagsAutoFetched = true;
+                    }
+                    return Object.keys(safePatch).length > 0 ? { ...b, ...safePatch } : b;
+                  })
                 );
               } else {
-                await setDoc(
-                  doc(db, 'users', uid, 'books', book.id),
-                  { categories: inferred, categoriesAutoFetched: true },
-                  { merge: true }
-                );
+                await setDoc(doc(db, 'users', uid, 'books', book.id), patch, { merge: true });
               }
             }
           } catch {
@@ -1448,6 +1490,7 @@ export const TaskProvider = ({ children }) => {
       updateBookLanguages,
       updateBookEdition,
       updateBookCategories,
+      updateBookTags,
       updateBookFrontLanguage,
       deleteBook,
       renameAuthor,

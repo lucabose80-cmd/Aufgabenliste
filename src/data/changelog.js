@@ -1,6 +1,15 @@
-export const APP_VERSION = '2.4.1';
+export const APP_VERSION = '2.4.2';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.4.2',
+    date: '20.11.2026',
+    title: 'Themen-Tags für Bücher (Magie, Drachen, Schwertkampf, Moderne & mehr)',
+    highlights: [
+      'Neue unauffällige Themen-Tags pro Buch: Magie, Drachen, Schwertkampf, Moderne, Fae, Akademie, Mittelalter, Enemies to Lovers, Found Family, Royals, Hexen, Vampire u. v. m. — per 1-Tap-Schnellauswahl oder frei eintippbar (beim Bearbeiten & im Map-Detail).',
+      'Kombinierte Erkennung + Filterung: Klare Themen-Tags werden im Hintergrund leise aus den APIs mitvorbefüllt (manuelle Auswahl bleibt immer erhalten) und lassen sich über das dezente Filter-Icon unter „Bücher“ und in der „Map“ filtern.',
+    ],
+  },
   {
     version: '2.4.1',
     date: '20.11.2026',

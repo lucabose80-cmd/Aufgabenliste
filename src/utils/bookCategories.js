@@ -126,3 +126,92 @@ export const inferCategoriesFromApi = (rawGenres = [], description = '') => {
 
   return normalizeCategories(found).slice(0, 2);
 };
+
+// Thematic / trope / setting tags (e.g. Magie, Drachen, Schwertkampf, Moderne)
+export const PRESET_BOOK_TAGS = [
+  'Magie',
+  'Drachen',
+  'Schwertkampf',
+  'Moderne',
+  'Fae',
+  'Akademie',
+  'Mittelalter',
+  'Enemies to Lovers',
+  'Slow Burn',
+  'Found Family',
+  'Royals',
+  'Krieg & Politik',
+  'Götter & Mythologie',
+  'Hexen',
+  'Vampire',
+  'Dark',
+  'Zeitreise',
+  'Weltraum',
+];
+
+export const normalizeTags = (input) => {
+  let raw = [];
+  if (Array.isArray(input)) {
+    raw = input;
+  } else if (input && typeof input === 'object') {
+    if (Array.isArray(input.tags)) {
+      raw = input.tags;
+    }
+  } else if (typeof input === 'string' && input.trim()) {
+    raw = [input];
+  }
+
+  const seen = new Set();
+  const result = [];
+  for (const item of raw) {
+    const clean = String(item || '').trim();
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const preset = PRESET_BOOK_TAGS.find((p) => p.toLowerCase() === key);
+    result.push(preset || clean);
+  }
+  return result;
+};
+
+/**
+ * Optionally infers clear thematic tags (Drachen, Magie, Schwertkampf, Fae, Moderne, etc.)
+ * from API subjects & descriptions. Users can always add/remove any tags manually.
+ */
+export const inferTagsFromApi = (rawGenres = [], description = '') => {
+  const tagText = (Array.isArray(rawGenres) ? rawGenres : [rawGenres])
+    .filter(Boolean)
+    .join(' | ')
+    .toLowerCase();
+
+  const descText = String(description || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+  const combined = `${tagText} ${descText}`.trim();
+  if (!combined) return [];
+
+  const found = [];
+  if (/\bdragon|\bdrache|\bwyvern/.test(combined)) found.push('Drachen');
+  if (/\bmagic\b|\bmagie\b|\bmagisch|\bsorcer|\bwizard|\bzauber|\bspell\b/.test(combined)) found.push('Magie');
+  if (/\bsword|\bschwert|\bblade\b|\bklinge|\bknight|\britter\b|\bwarrior|\bkrieger|\bassassin/.test(combined)) found.push('Schwertkampf');
+  if (/\bfae\b|\bfaerie|\bfairy\b|\bfairyland|\bhigh lord/.test(combined)) found.push('Fae');
+  if (/academy|akademie|magic school|boarding school|war college|university|internat/.test(combined)) found.push('Akademie');
+  if (/contemporary|urban fantasy|modern day|\bmodern\b|gegenwart|21st century|new york|london/.test(tagText)) found.push('Moderne');
+  if (/medieval|mittelalter|middle ages|knights|feudal/.test(combined)) found.push('Mittelalter');
+  if (/enemies to lovers/.test(combined)) found.push('Enemies to Lovers');
+  if (/slow burn/.test(combined)) found.push('Slow Burn');
+  if (/found family/.test(combined)) found.push('Found Family');
+  if (/\broyal|\bprincess|\bprince\b|\bprinz|\bkönig|\bqueen\b|\bthrone\b|\bthron\b|\bcourt\b/.test(tagText)) found.push('Royals');
+  if (/\bwar\b|\bkrieg\b|political intrigue|rebellion|uprising|empire/.test(tagText)) found.push('Krieg & Politik');
+  if (/mytholog|\bgods\b|\bgött|olymp|demigod|halbgott/.test(combined)) found.push('Götter & Mythologie');
+  if (/\bwitch|\bhexe|\bcoven\b/.test(combined)) found.push('Hexen');
+  if (/\bvampire|\bvampir/.test(combined)) found.push('Vampire');
+  if (/dark fantasy|dark romance|grimdark/.test(combined)) found.push('Dark');
+  if (/time travel|zeitreise/.test(combined)) found.push('Zeitreise');
+  if (/space opera|outer space|spaceship|raumschiff|galaxis|interstellar/.test(combined)) found.push('Weltraum');
+
+  return normalizeTags(found).slice(0, 4);
+};

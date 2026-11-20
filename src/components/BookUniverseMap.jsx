@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTaskContext } from '../context/TaskContext';
 import {
   Box, Card, Typography, Collapse, LinearProgress, Dialog, DialogContent,
-  IconButton, TextField, Button, Menu, MenuItem, Autocomplete
+  IconButton, TextField, Button, Menu, MenuItem, Autocomplete, Divider
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import PublicIcon from '@mui/icons-material/Public';
@@ -30,7 +30,7 @@ import {
   isBilingual,
   isBookFullyCompleted,
 } from '../utils/bookLanguages';
-import { PRESET_BOOK_CATEGORIES, normalizeCategories } from '../utils/bookCategories';
+import { PRESET_BOOK_CATEGORIES, normalizeCategories, PRESET_BOOK_TAGS, normalizeTags } from '../utils/bookCategories';
 
 /**
  * Builds visual edition descriptors for a single book or a grouped stack of separate books.
@@ -98,6 +98,7 @@ const buildShelfItems = (bookList, allowEditionStacking = false) => {
     const visualEditions = buildVisualEditionsForGroup(groupBooks);
     const combinedLangs = normalizeLanguages(groupBooks.flatMap((b) => normalizeLanguages(b)));
     const combinedCategories = normalizeCategories(groupBooks.flatMap((b) => normalizeCategories(b)));
+    const combinedTags = normalizeTags(groupBooks.flatMap((b) => normalizeTags(b)));
     const primaryBook = visualEditions[0]?.book || groupBooks[0];
     const doneEditions = visualEditions.filter((e) => e.completed).length;
     const totalEditions = visualEditions.length;
@@ -115,6 +116,7 @@ const buildShelfItems = (bookList, allowEditionStacking = false) => {
       visualEditions,
       languages: combinedLangs,
       categories: combinedCategories,
+      tags: combinedTags,
       bilingual: isBilingual(combinedLangs) || visualEditions.length >= 2,
       completed: fullyCompleted,
       doneEditions,
@@ -593,7 +595,7 @@ const CoverShelfTile = ({ item, onSelect, isDark }) => {
 const BookUniverseMap = () => {
   const {
     books, readingSessions, updateBookReview, updateBookLanguages,
-    updateBookEdition, updateBook, updateBookCategories, updateBookFrontLanguage
+    updateBookEdition, updateBook, updateBookCategories, updateBookTags, updateBookFrontLanguage
   } = useTaskContext();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -602,6 +604,7 @@ const BookUniverseMap = () => {
   const [selectedFilter, setSelectedFilter] = useState('all'); // 'all' | 'uni:<name>' | 'series' | 'standalone'
   const [languageFilter, setLanguageFilter] = useState('all'); // 'all' | 'bilingual' | 'de' | 'en' | ...
   const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | '<categoryName>'
+  const [tagFilter, setTagFilter] = useState('all'); // 'all' | '<tagName>'
   const [categoryMenuAnchor, setCategoryMenuAnchor] = useState(null);
   const [collapsedNodes, setCollapsedNodes] = useState({});
   const [selectedEditionIds, setSelectedEditionIds] = useState([]);
@@ -657,7 +660,7 @@ const BookUniverseMap = () => {
     setCollapsedNodes(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Detect which languages & categories are actually in use across all books
+  // Detect which languages, categories & tags are actually in use across all books
   const availableLanguages = useMemo(() => {
     const langSet = new Set();
     books.forEach((b) => normalizeLanguages(b).forEach((c) => langSet.add(c)));
@@ -668,6 +671,12 @@ const BookUniverseMap = () => {
     const catSet = new Set();
     books.forEach((b) => normalizeCategories(b).forEach((c) => catSet.add(c)));
     return Array.from(catSet).sort((a, b) => a.localeCompare(b));
+  }, [books]);
+
+  const availableTags = useMemo(() => {
+    const tagSet = new Set();
+    books.forEach((b) => normalizeTags(b).forEach((t) => tagSet.add(t)));
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
   }, [books]);
 
   const hierarchy = useMemo(() => {
@@ -706,11 +715,12 @@ const BookUniverseMap = () => {
       }
     });
 
-    // Apply both languageFilter and quiet categoryFilter cleanly
+    // Apply languageFilter, categoryFilter, and tagFilter cleanly
     const matchesFilters = (item) => {
       if (languageFilter === 'bilingual' && !item.bilingual) return false;
       if (languageFilter !== 'all' && languageFilter !== 'bilingual' && !item.languages.includes(languageFilter)) return false;
       if (categoryFilter !== 'all' && !item.categories.includes(categoryFilter)) return false;
+      if (tagFilter !== 'all' && !item.tags.includes(tagFilter)) return false;
       return true;
     };
 
@@ -738,7 +748,7 @@ const BookUniverseMap = () => {
     });
 
     return filtered;
-  }, [books, languageFilter, categoryFilter]);
+  }, [books, languageFilter, categoryFilter, tagFilter]);
 
   const universeNames = useMemo(() => Object.keys(hierarchy.universes).sort((a, b) => a.localeCompare(b)), [hierarchy]);
   const standaloneSeriesNames = useMemo(() => Object.keys(hierarchy.standaloneSeries).sort((a, b) => a.localeCompare(b)), [hierarchy]);
@@ -933,24 +943,28 @@ const BookUniverseMap = () => {
           })}
         </Box>
 
-        {/* Compact Right Controls: Subtle Genre Filter + Shelf/2D Switch */}
+        {/* Compact Right Controls: Subtle Genre & Tag Filter + Shelf/2D Switch */}
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
-          {availableCategories.length > 0 && (
+          {(availableCategories.length > 0 || availableTags.length > 0) && (
             <>
               <IconButton
                 size="small"
-                title={categoryFilter === 'all' ? 'Nach Kategorie filtern' : `Kategorie: ${categoryFilter}`}
+                title={
+                  categoryFilter !== 'all' || tagFilter !== 'all'
+                    ? `Filter: ${[categoryFilter !== 'all' ? categoryFilter : null, tagFilter !== 'all' ? `#${tagFilter}` : null].filter(Boolean).join(' · ')}`
+                    : 'Nach Kategorie oder Tag filtern'
+                }
                 onClick={(e) => setCategoryMenuAnchor(e.currentTarget)}
                 sx={{
                   position: 'relative',
                   width: 34,
                   height: 34,
-                  bgcolor: categoryFilter !== 'all'
+                  bgcolor: (categoryFilter !== 'all' || tagFilter !== 'all')
                     ? alpha(theme.palette.primary.main, isDark ? 0.22 : 0.14)
                     : 'background.paper',
                   border: '1px solid',
-                  borderColor: categoryFilter !== 'all' ? 'primary.main' : 'divider',
-                  color: categoryFilter !== 'all' ? 'primary.main' : 'text.secondary',
+                  borderColor: (categoryFilter !== 'all' || tagFilter !== 'all') ? 'primary.main' : 'divider',
+                  color: (categoryFilter !== 'all' || tagFilter !== 'all') ? 'primary.main' : 'text.secondary',
                 }}
               >
                 <TuneIcon sx={{ fontSize: 16 }} />
@@ -959,32 +973,85 @@ const BookUniverseMap = () => {
                 anchorEl={categoryMenuAnchor}
                 open={Boolean(categoryMenuAnchor)}
                 onClose={() => setCategoryMenuAnchor(null)}
+                PaperProps={{ sx: { borderRadius: '16px', minWidth: 195, maxHeight: 400 } }}
               >
-                <MenuItem
-                  selected={categoryFilter === 'all'}
-                  onClick={() => {
-                    setCategoryFilter('all');
-                    setSelectedFilter('all');
-                    setCategoryMenuAnchor(null);
-                  }}
-                  sx={{ fontSize: '0.84rem' }}
-                >
-                  Alle Kategorien
-                </MenuItem>
-                {availableCategories.map((cat) => (
+                {availableCategories.length > 0 && [
+                  <Typography
+                    key="map-cat-head"
+                    variant="caption"
+                    color="text.secondary"
+                    fontWeight={700}
+                    sx={{ px: 2, py: 0.55, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.66rem' }}
+                  >
+                    Kategorie
+                  </Typography>,
                   <MenuItem
-                    key={cat}
-                    selected={categoryFilter === cat}
+                    key="map-cat-all"
+                    selected={categoryFilter === 'all'}
                     onClick={() => {
-                      setCategoryFilter(cat);
+                      setCategoryFilter('all');
                       setSelectedFilter('all');
                       setCategoryMenuAnchor(null);
                     }}
                     sx={{ fontSize: '0.84rem' }}
                   >
-                    {cat}
-                  </MenuItem>
-                ))}
+                    Alle Kategorien
+                  </MenuItem>,
+                  ...availableCategories.map((cat) => (
+                    <MenuItem
+                      key={`map-cat-${cat}`}
+                      selected={categoryFilter === cat}
+                      onClick={() => {
+                        setCategoryFilter(cat);
+                        setSelectedFilter('all');
+                        setCategoryMenuAnchor(null);
+                      }}
+                      sx={{ fontSize: '0.84rem' }}
+                    >
+                      {cat}
+                    </MenuItem>
+                  )),
+                ]}
+                {availableCategories.length > 0 && availableTags.length > 0 && (
+                  <Divider sx={{ my: 0.75 }} />
+                )}
+                {availableTags.length > 0 && [
+                  <Typography
+                    key="map-tag-head"
+                    variant="caption"
+                    color="text.secondary"
+                    fontWeight={700}
+                    sx={{ px: 2, py: 0.55, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.66rem' }}
+                  >
+                    Tags
+                  </Typography>,
+                  <MenuItem
+                    key="map-tag-all"
+                    selected={tagFilter === 'all'}
+                    onClick={() => {
+                      setTagFilter('all');
+                      setSelectedFilter('all');
+                      setCategoryMenuAnchor(null);
+                    }}
+                    sx={{ fontSize: '0.84rem' }}
+                  >
+                    Alle Tags
+                  </MenuItem>,
+                  ...availableTags.map((t) => (
+                    <MenuItem
+                      key={`map-tag-${t}`}
+                      selected={tagFilter === t}
+                      onClick={() => {
+                        setTagFilter(t);
+                        setSelectedFilter('all');
+                        setCategoryMenuAnchor(null);
+                      }}
+                      sx={{ fontSize: '0.84rem' }}
+                    >
+                      #{t}
+                    </MenuItem>
+                  )),
+                ]}
               </Menu>
             </>
           )}
@@ -1027,7 +1094,7 @@ const BookUniverseMap = () => {
       </Box>
 
       {/* Compact Language Filter Row (shown once at least one book has a language) */}
-      {(availableLanguages.length > 0 || categoryFilter !== 'all') && (
+      {(availableLanguages.length > 0 || categoryFilter !== 'all' || tagFilter !== 'all') && (
         <Box sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', py: 0.15, alignItems: 'center' }}>
           {availableLanguages.length > 0 && [
             { id: 'all', label: 'Alle Sprachen' },
@@ -1089,6 +1156,28 @@ const BookUniverseMap = () => {
               <CloseIcon sx={{ fontSize: 12 }} />
             </Box>
           )}
+          {tagFilter !== 'all' && (
+            <Box
+              onClick={() => setTagFilter('all')}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.4,
+                px: 1.2,
+                py: 0.45,
+                borderRadius: 9999,
+                cursor: 'pointer',
+                flexShrink: 0,
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                bgcolor: alpha(theme.palette.secondary.main, isDark ? 0.2 : 0.12),
+                color: 'secondary.main',
+              }}
+            >
+              <span>#{tagFilter}</span>
+              <CloseIcon sx={{ fontSize: 12 }} />
+            </Box>
+          )}
         </Box>
       )}
 
@@ -1098,7 +1187,7 @@ const BookUniverseMap = () => {
             Keine Bücher für diesen Filter
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Setze den Sprach- oder Kategoriefilter zurück, um alle Bücher wieder zu sehen.
+            Setze den Sprach-, Kategorie- oder Tag-Filter zurück, um alle Bücher wieder zu sehen.
           </Typography>
           <Button
             size="small"
@@ -1106,6 +1195,7 @@ const BookUniverseMap = () => {
             onClick={() => {
               setLanguageFilter('all');
               setCategoryFilter('all');
+              setTagFilter('all');
             }}
             sx={{ borderRadius: 9999 }}
           >
@@ -1668,8 +1758,8 @@ const BookUniverseMap = () => {
               </Box>
             </Box>
 
-            {/* Unobtrusive background categories (Romantasy, Fantasy, etc.) */}
-            <Box sx={{ mt: 2, pt: 1.75, borderTop: '1px solid', borderColor: 'divider' }}>
+            {/* Unobtrusive background categories & thematic tags */}
+            <Box sx={{ mt: 2, pt: 1.75, borderTop: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Autocomplete
                 multiple
                 freeSolo
@@ -1688,6 +1778,62 @@ const BookUniverseMap = () => {
                   />
                 )}
               />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  size="small"
+                  options={Array.from(new Set([...PRESET_BOOK_TAGS, ...availableTags]))}
+                  value={normalizeTags(selectedBook)}
+                  onChange={(_, newValue) => {
+                    updateBookTags(selectedBook.id, newValue);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Tags / Elemente (optional)"
+                      placeholder="z. B. Magie, Drachen, Schwertkampf, Moderne..."
+                      size="small"
+                    />
+                  )}
+                />
+                <Box sx={{ display: 'flex', gap: 0.55, overflowX: 'auto', pb: 0.25 }}>
+                  {PRESET_BOOK_TAGS.slice(0, 12).map((tag) => {
+                    const currentTags = normalizeTags(selectedBook);
+                    const active = currentTags.includes(tag);
+                    return (
+                      <Box
+                        key={tag}
+                        onClick={() => {
+                          const next = active
+                            ? currentTags.filter((t) => t !== tag)
+                            : normalizeTags([...currentTags, tag]);
+                          updateBookTags(selectedBook.id, next);
+                        }}
+                        sx={{
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 9999,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          flexShrink: 0,
+                          fontSize: '0.68rem',
+                          fontWeight: active ? 700 : 500,
+                          bgcolor: active
+                            ? alpha(theme.palette.secondary.main, isDark ? 0.24 : 0.14)
+                            : 'background.surfaceVariant',
+                          border: '1px solid',
+                          borderColor: active ? 'secondary.main' : 'transparent',
+                          color: active ? 'secondary.main' : 'text.secondary',
+                          transition: 'all 0.12s ease',
+                        }}
+                      >
+                        {active ? `✓ ${tag}` : `+ ${tag}`}
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
             </Box>
           </DialogContent>
         )}
