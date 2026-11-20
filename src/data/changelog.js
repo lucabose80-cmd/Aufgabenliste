@@ -1,6 +1,14 @@
-export const APP_VERSION = '2.0.3';
+export const APP_VERSION = '2.0.4';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.0.4',
+    date: '19.11.2026',
+    title: 'Kompaktes 2×2 Lese-Timer-Widget',
+    highlights: [
+      'Das Lese-Timer-Widget ist jetzt standardmäßig halb so breit (2×2) mit kompaktem Layout für Buchauswahl, Timer und Start/Pause/Stopp.',
+    ],
+  },
   {
     version: '2.0.3',
     date: '19.11.2026',

@@ -93,7 +93,7 @@ public class ReadingTimerWidgetProvider extends AppWidgetProvider {
             views.setChronometer(R.id.chronometer_timer, baseRealtime, null, true);
             views.setTextViewText(R.id.tv_timer_status, "Läuft");
             views.setTextColor(R.id.tv_timer_status, 0xFFA8C7FA);
-            views.setTextViewText(R.id.btn_toggle_timer, "Pausieren");
+            views.setTextViewText(R.id.btn_toggle_timer, "Pause");
             views.setViewVisibility(R.id.btn_finish_timer, View.VISIBLE);
         } else {
             views.setViewVisibility(R.id.chronometer_timer, View.GONE);
@@ -104,12 +104,12 @@ public class ReadingTimerWidgetProvider extends AppWidgetProvider {
             if (elapsedMs > 0L) {
                 views.setTextViewText(R.id.tv_timer_status, "Pausiert");
                 views.setTextColor(R.id.tv_timer_status, 0xFFFDD663);
-                views.setTextViewText(R.id.btn_toggle_timer, "Fortsetzen");
+                views.setTextViewText(R.id.btn_toggle_timer, "Weiter");
                 views.setViewVisibility(R.id.btn_finish_timer, View.VISIBLE);
             } else {
                 views.setTextViewText(R.id.tv_timer_status, "Bereit");
                 views.setTextColor(R.id.tv_timer_status, 0xFF9AA0A6);
-                views.setTextViewText(R.id.btn_toggle_timer, "Starten");
+                views.setTextViewText(R.id.btn_toggle_timer, "Start");
                 views.setViewVisibility(R.id.btn_finish_timer, View.GONE);
             }
         }
