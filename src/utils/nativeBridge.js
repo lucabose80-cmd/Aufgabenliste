@@ -119,8 +119,16 @@ export const checkOtaUpdate = async () => {
     });
 
     if (bundle?.id) {
-      // Queue for next restart automatically so even dismissing the banner applies it
+      // Queue for next cold start ONLY ('kill' delay) so Android never reloads the WebView
+      // while paused/frozen in the background (which can leave touch input unresponsive on resume).
       await CapacitorUpdater.next({ id: bundle.id });
+      try {
+        await CapacitorUpdater.setMultiDelay({
+          delayConditions: [{ kind: 'kill' }],
+        });
+      } catch (delayErr) {
+        console.warn('setMultiDelay failed:', delayErr);
+      }
       localStorage.setItem(OTA_VERSION_STORAGE_KEY, manifest.version);
       return {
         status: 'ready',
@@ -139,9 +147,25 @@ export const checkOtaUpdate = async () => {
   }
 };
 
+export const notifyNativeAppResumed = async () => {
+  if (!isNativeAndroid()) return;
+  try {
+    await CapacitorUpdater.notifyAppReady();
+  } catch {
+    // ignore if already marked ready
+  }
+};
+
 export const initOfflineFirstOtaUpdater = async (onUpdateDownloaded) => {
   if (!isNativeAndroid()) return;
   try {
+    // Inside Capacitor native Android, assets are served locally from the APK/OTA bundle;
+    // unregister any stray Workbox SW so it never caches stale chunks on https://localhost.
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => reg.unregister());
+      }).catch(() => {});
+    }
     await CapacitorUpdater.notifyAppReady();
     const result = await checkOtaUpdate();
     if (result.status === 'ready' && typeof onUpdateDownloaded === 'function') {

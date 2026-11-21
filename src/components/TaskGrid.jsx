@@ -1109,11 +1109,18 @@ const TaskGrid = () => {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
+    const syncOnline = () => {
+      if (typeof navigator !== 'undefined') setIsOnline(navigator.onLine);
+    };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', syncOnline);
+    document.addEventListener('visibilitychange', syncOnline);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', syncOnline);
+      document.removeEventListener('visibilitychange', syncOnline);
     };
   }, []);
 
@@ -1566,7 +1573,7 @@ const TaskGrid = () => {
       </Box>
 
       {/* Main Task Categories & Grid */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5, pointerEvents: !isOnline ? 'none' : 'auto', opacity: !isOnline ? 0.7 : 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
         {vacationMode ? (
           <Card
             sx={{

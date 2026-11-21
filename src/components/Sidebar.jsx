@@ -133,28 +133,29 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, toggleSidebar }) => {
 
   return (
     <Box component="nav" sx={{ width: { md: 264 }, flexShrink: { md: 0 } }}>
-      {/* Mobile Drawer */}
-      <Drawer
-        anchor="bottom"
-        variant="temporary"
-        open={isOpen}
-        onClose={toggleSidebar}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { 
-            boxSizing: 'border-box', 
-            width: '100%',
-            maxHeight: '80vh',
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            bgcolor: 'background.default',
-          },
-        }}
-      >
-        <Box sx={{ width: 40, height: 4, bgcolor: 'divider', borderRadius: 2, mx: 'auto', mt: 2, mb: 1 }} />
-        {drawerContent}
-      </Drawer>
+      {/* Mobile Drawer (only mounted when actually open) */}
+      {isOpen && (
+        <Drawer
+          anchor="bottom"
+          variant="temporary"
+          open={isOpen}
+          onClose={toggleSidebar}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: '100%',
+              maxHeight: '80vh',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              bgcolor: 'background.default',
+            },
+          }}
+        >
+          <Box sx={{ width: 40, height: 4, bgcolor: 'divider', borderRadius: 2, mx: 'auto', mt: 2, mb: 1 }} />
+          {drawerContent}
+        </Drawer>
+      )}
       {/* Desktop Drawer */}
       <Drawer
         variant="permanent"

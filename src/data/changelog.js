@@ -1,6 +1,16 @@
-export const APP_VERSION = '2.4.2';
+export const APP_VERSION = '2.4.3';
 
 export const CHANGELOG_ENTRIES = [
+  {
+    version: '2.4.3',
+    date: '21.11.2026',
+    title: 'Fix: Eingefrorene Bedienung nach Rückkehr aus dem Hintergrund',
+    highlights: [
+      'OTA-Updates laden die WebView nicht mehr heimlich im pausierten Hintergrund neu (erst bei „Jetzt laden“ oder sauberem Neustart) — verhindert den bekannten Android-WebView-Touch-Freeze nach dem Zurückkehren.',
+      'Automatisches Resume-Recovery beim Zurückkehren in die App: gibt hängen gebliebene Touch-/Drag-Gesten, unsichtbare Modal-Overlays und Fokus-Sperren sofort wieder frei.',
+      'Aufgaben bleiben jetzt auch bei kurzem Offline-/Doze-Status immer bedienbar und der Online-Status synchronisiert sich beim Aufwachen automatisch neu.',
+    ],
+  },
   {
     version: '2.4.2',
     date: '20.11.2026',

@@ -30,7 +30,7 @@ import ProfileModal from './components/ProfileModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { initOfflineFirstOtaUpdater } from './utils/nativeBridge';
+import { initOfflineFirstOtaUpdater, notifyNativeAppResumed } from './utils/nativeBridge';
 import { APP_VERSION } from './data/changelog';
 
 const CURRENT_APP_VERSION = APP_VERSION;
@@ -63,6 +63,98 @@ function MainApp() {
     initOfflineFirstOtaUpdater((applyNow) => {
       setOtaApplyFn(() => applyNow);
     });
+  }, []);
+
+  // Android WebView / PWA resume self-heal:
+  // Releases interrupted touch/drag gestures on background and clears any stuck invisible
+  // MUI modal overlays, aria-hidden/inert locks, or body pointer-events on resume.
+  useEffect(() => {
+    let healTimer = null;
+
+    const releaseStuckPointers = () => {
+      try {
+        window.dispatchEvent(new Event('pointercancel'));
+        window.dispatchEvent(new Event('touchcancel'));
+        window.dispatchEvent(new Event('mouseup'));
+      } catch {
+        // ignore
+      }
+    };
+
+    const healStuckOverlaysAndLocks = () => {
+      try {
+        const modals = Array.from(document.querySelectorAll('.MuiModal-root'));
+        let hasVisibleModal = false;
+
+        modals.forEach((modal) => {
+          const style = window.getComputedStyle(modal);
+          const isHiddenClass = modal.classList.contains('MuiModal-hidden');
+          const isHiddenStyle = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+          const contentEl = modal.querySelector('.MuiDialog-paper, .MuiPaper-root, .MuiDrawer-paper, .MuiPopover-paper');
+          const contentHidden = contentEl ? window.getComputedStyle(contentEl).opacity === '0' : false;
+
+          if (isHiddenClass || isHiddenStyle || contentHidden) {
+            modal.style.pointerEvents = 'none';
+          } else {
+            hasVisibleModal = true;
+          }
+        });
+
+        if (!hasVisibleModal) {
+          const root = document.getElementById('root');
+          if (root) {
+            if (root.getAttribute('aria-hidden') === 'true') {
+              root.removeAttribute('aria-hidden');
+            }
+            if (root.hasAttribute('inert')) {
+              root.removeAttribute('inert');
+            }
+          }
+          if (document.body.style.pointerEvents === 'none') {
+            document.body.style.pointerEvents = '';
+          }
+          if (document.documentElement.style.pointerEvents === 'none') {
+            document.documentElement.style.pointerEvents = '';
+          }
+          if (document.body.style.overflow === 'hidden') {
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+          }
+        }
+
+        if (document.activeElement && !document.body.contains(document.activeElement)) {
+          document.activeElement.blur?.();
+        }
+      } catch {
+        // ignore DOM access errors
+      }
+    };
+
+    const handleResume = () => {
+      notifyNativeAppResumed();
+      releaseStuckPointers();
+      healStuckOverlaysAndLocks();
+      if (healTimer) clearTimeout(healTimer);
+      healTimer = setTimeout(healStuckOverlaysAndLocks, 260);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        releaseStuckPointers();
+      } else {
+        handleResume();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handleResume);
+    window.addEventListener('focus', handleResume);
+    return () => {
+      if (healTimer) clearTimeout(healTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleResume);
+      window.removeEventListener('focus', handleResume);
+    };
   }, []);
 
   useEffect(() => {

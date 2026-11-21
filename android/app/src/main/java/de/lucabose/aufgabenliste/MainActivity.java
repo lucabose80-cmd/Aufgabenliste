@@ -43,4 +43,14 @@ public class MainActivity extends BridgeActivity {
             ViewCompat.requestApplyInsets(rootView);
         }
     }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            this.bridge.getWebView().onResume();
+            this.bridge.getWebView().resumeTimers();
+            this.bridge.getWebView().requestFocus();
+        }
+    }
 }

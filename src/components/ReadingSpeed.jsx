@@ -63,11 +63,18 @@ const ReadingSpeed = () => {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
+    const syncOnline = () => {
+      if (typeof navigator !== 'undefined') setIsOnline(navigator.onLine);
+    };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', syncOnline);
+    document.addEventListener('visibilitychange', syncOnline);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', syncOnline);
+      document.removeEventListener('visibilitychange', syncOnline);
     };
   }, []);
 
